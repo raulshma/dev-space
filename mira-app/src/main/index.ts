@@ -1,7 +1,23 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { DatabaseService } from './services/database'
+import { PTYManager } from './services/pty-manager'
+import { GitService } from './services/git-service'
+import { KeychainService } from './services/keychain-service'
+import { AgentService } from './services/agent-service'
+import { IPCHandlers } from './ipc/handlers'
+
+// Initialize services
+const db = new DatabaseService()
+const ptyManager = new PTYManager()
+const gitService = new GitService()
+const keychainService = new KeychainService()
+const agentService = new AgentService(keychainService)
+
+// Initialize IPC handlers
+const ipcHandlers = new IPCHandlers(db, ptyManager, gitService, keychainService, agentService)
 
 function createWindow(): void {
   // Create the browser window.
@@ -49,8 +65,12 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  // Initialize database
+  db.initialize()
+  db.migrate()
+
+  // Register IPC handlers
+  ipcHandlers.registerHandlers()
 
   createWindow()
 
@@ -65,6 +85,11 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
+  // Clean up services
+  db.close()
+  ptyManager.killAll()
+  gitService.stopAllRefreshes()
+
   if (process.platform !== 'darwin') {
     app.quit()
   }
