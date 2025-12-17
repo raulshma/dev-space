@@ -4,6 +4,7 @@ import { resolve, normalize, dirname } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 
 import injectProcessEnvPlugin from 'rollup-plugin-inject-process-env'
+import tsconfigPathsPlugin from 'vite-tsconfig-paths'
 import reactPlugin from '@vitejs/plugin-react'
 
 import { settings } from './src/lib/electron-router-dom'
@@ -12,22 +13,14 @@ import { main, resources } from './package.json'
 const [nodeModules, devFolder] = normalize(dirname(main)).split(/\/|\\/g)
 const devPath = [nodeModules, devFolder].join('/')
 
-// Common path aliases
-const pathAliases = {
-  'main': resolve(__dirname, 'src/main'),
-  'preload': resolve(__dirname, 'src/preload'),
-  'renderer': resolve(__dirname, 'src/renderer/src'),
-  'shared': resolve(__dirname, 'src/shared'),
-  'lib': resolve(__dirname, 'src/lib'),
-  '~': resolve(__dirname),
-}
+const tsconfigPaths = tsconfigPathsPlugin({
+  projects: [resolve('tsconfig.json')],
+})
 
 export default defineConfig({
   main: {
-    resolve: {
-      alias: pathAliases,
-    },
-    plugins: [externalizeDepsPlugin()],
+    mode: 'es2022',
+    plugins: [tsconfigPaths, externalizeDepsPlugin()],
 
     build: {
       rollupOptions: {
@@ -44,10 +37,8 @@ export default defineConfig({
   },
 
   preload: {
-    resolve: {
-      alias: pathAliases,
-    },
-    plugins: [externalizeDepsPlugin()],
+    mode: 'es2022',
+    plugins: [tsconfigPaths, externalizeDepsPlugin()],
 
     build: {
       rollupOptions: {
@@ -59,10 +50,6 @@ export default defineConfig({
   },
 
   renderer: {
-    resolve: {
-      alias: pathAliases,
-    },
-
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
       'process.platform': JSON.stringify(process.platform),
@@ -73,6 +60,7 @@ export default defineConfig({
     },
 
     plugins: [
+      tsconfigPaths,
       tailwindcss(),
       codeInspectorPlugin({
         bundler: 'vite',
