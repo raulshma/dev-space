@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import type { BlueprintStructure, BlueprintFile } from '../../shared/models'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import type { BlueprintStructure, BlueprintFile } from 'shared/models'
 
 /**
  * Service for capturing and applying project blueprints
@@ -21,7 +21,7 @@ export class BlueprintService {
     '.idea',
     '*.log',
     '.DS_Store',
-    'Thumbs.db'
+    'Thumbs.db',
   ]
 
   // Config file extensions to capture content for
@@ -34,7 +34,7 @@ export class BlueprintService {
     '.env',
     '.config.js',
     '.config.ts',
-    '.rc'
+    '.rc',
   ]
 
   // Config file names to capture (exact matches)
@@ -57,14 +57,17 @@ export class BlueprintService {
     '.gitignore',
     '.npmrc',
     '.nvmrc',
-    'README.md'
+    'README.md',
   ]
 
   /**
    * Capture a project directory structure as a blueprint
    * Requirements: 15.1, 15.4
    */
-  captureBlueprint(projectPath: string, customExcludePatterns?: string[]): BlueprintStructure {
+  captureBlueprint(
+    projectPath: string,
+    customExcludePatterns?: string[]
+  ): BlueprintStructure {
     if (!fs.existsSync(projectPath)) {
       throw new Error(`Project path does not exist: ${projectPath}`)
     }
@@ -76,7 +79,7 @@ export class BlueprintService {
 
     const excludePatterns = [
       ...BlueprintService.DEFAULT_EXCLUDE_PATTERNS,
-      ...(customExcludePatterns || [])
+      ...(customExcludePatterns || []),
     ]
 
     const files: BlueprintFile[] = []
@@ -84,7 +87,7 @@ export class BlueprintService {
 
     return {
       files,
-      excludePatterns
+      excludePatterns,
     }
   }
 
@@ -112,7 +115,7 @@ export class BlueprintService {
         // Add directory entry
         files.push({
           relativePath,
-          isDirectory: true
+          isDirectory: true,
         })
 
         // Recursively scan subdirectory
@@ -124,7 +127,9 @@ export class BlueprintService {
         files.push({
           relativePath,
           isDirectory: false,
-          content: shouldCaptureContent ? this.readFileContent(fullPath) : undefined
+          content: shouldCaptureContent
+            ? this.readFileContent(fullPath)
+            : undefined,
         })
       }
     }
@@ -133,17 +138,25 @@ export class BlueprintService {
   /**
    * Check if a path should be excluded based on patterns
    */
-  private shouldExclude(relativePath: string, fileName: string, excludePatterns: string[]): boolean {
+  private shouldExclude(
+    relativePath: string,
+    fileName: string,
+    excludePatterns: string[]
+  ): boolean {
     for (const pattern of excludePatterns) {
       // Handle wildcard patterns
       if (pattern.includes('*')) {
-        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$')
+        const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`)
         if (regex.test(fileName) || regex.test(relativePath)) {
           return true
         }
       }
       // Handle exact matches
-      else if (relativePath === pattern || fileName === pattern || relativePath.startsWith(pattern + path.sep)) {
+      else if (
+        relativePath === pattern ||
+        fileName === pattern ||
+        relativePath.startsWith(pattern + path.sep)
+      ) {
         return true
       }
     }
@@ -198,8 +211,8 @@ export class BlueprintService {
     }
 
     // Create directories first, then files
-    const directories = blueprint.files.filter((f) => f.isDirectory)
-    const files = blueprint.files.filter((f) => !f.isDirectory)
+    const directories = blueprint.files.filter(f => f.isDirectory)
+    const files = blueprint.files.filter(f => !f.isDirectory)
 
     // Create all directories
     for (const dir of directories) {
@@ -223,4 +236,3 @@ export class BlueprintService {
     }
   }
 }
-

@@ -13,10 +13,12 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@main': resolve(__dirname, 'src/main'),
-      '@preload': resolve(__dirname, 'src/preload'),
-      '@renderer': resolve(__dirname, 'src/renderer/src'),
-      '@shared': resolve(__dirname, 'src/shared')
+      'main': resolve(__dirname, 'src/main'),
+      'preload': resolve(__dirname, 'src/preload'),
+      'renderer': resolve(__dirname, 'src/renderer/src'),
+      'shared': resolve(__dirname, 'src/shared'),
+      'lib': resolve(__dirname, 'src/lib'),
+      '~': resolve(__dirname)
     }
   }
 })

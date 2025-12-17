@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'node:events'
 // import * as pty from 'node-pty'
 
 /**
@@ -48,8 +48,7 @@ export class PTYManager {
    * Create a new PTY instance
    * Requirements: 9.1
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  create(options: PTYCreateOptions): string {
+  create(_options: PTYCreateOptions): string {
     const ptyId = `pty-${this.nextId++}`
 
     // Determine shell based on platform
@@ -75,7 +74,9 @@ export class PTYManager {
         // Placeholder
       },
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      onExit: (_callback: (exitCode: { exitCode: number; signal?: number }) => void) => {
+      onExit: (
+        _callback: (exitCode: { exitCode: number; signal?: number }) => void
+      ) => {
         // Placeholder
       },
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -88,7 +89,7 @@ export class PTYManager {
       },
       kill: () => {
         // Placeholder
-      }
+      },
     }
 
     const emitter = new EventEmitter()
@@ -113,7 +114,7 @@ export class PTYManager {
       pty: ptyProcess,
       emitter,
       isPinned: false,
-      startTime: new Date()
+      startTime: new Date(),
     })
 
     return ptyId
@@ -232,7 +233,7 @@ export class PTYManager {
           ptyId,
           projectId: instance.projectId,
           command: instance.command || 'unknown',
-          startTime: instance.startTime
+          startTime: instance.startTime,
         })
       }
     }
@@ -258,15 +259,15 @@ export class PTYManager {
   /**
    * Get the default shell for the current platform
    */
-  private getDefaultShell(): string {
+  getDefaultShell(): string {
     const platform = process.platform
 
     if (platform === 'win32') {
       return process.env.COMSPEC || 'cmd.exe'
-    } else if (platform === 'darwin') {
-      return process.env.SHELL || '/bin/zsh'
-    } else {
-      return process.env.SHELL || '/bin/bash'
     }
+    if (platform === 'darwin') {
+      return process.env.SHELL || '/bin/zsh'
+    }
+    return process.env.SHELL || '/bin/bash'
   }
 }

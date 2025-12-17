@@ -6,18 +6,18 @@
  */
 
 import { useEffect, useState } from 'react'
-import { useErrorStore } from '../stores/error-store'
+import { useErrorStore } from 'renderer/stores/error-store'
 
 export function ErrorToast(): React.JSX.Element {
-  const errors = useErrorStore((state) => state.appErrors)
-  const dismissError = useErrorStore((state) => state.dismissAppError)
+  const errors = useErrorStore(state => state.appErrors)
+  const dismissError = useErrorStore(state => state.dismissAppError)
   const [visible, setVisible] = useState<Record<string, boolean>>({})
 
   // Auto-dismiss errors after 10 seconds
   useEffect(() => {
     const timers: Record<string, NodeJS.Timeout> = {}
 
-    errors.forEach((error) => {
+    errors.forEach(error => {
       if (!error.persistent && !timers[error.id]) {
         timers[error.id] = setTimeout(() => {
           dismissError(error.id)
@@ -32,24 +32,23 @@ export function ErrorToast(): React.JSX.Element {
 
   // Animate in new errors
   useEffect(() => {
-    errors.forEach((error) => {
+    errors.forEach(error => {
       if (!visible[error.id]) {
         setTimeout(() => {
-          setVisible((prev) => ({ ...prev, [error.id]: true }))
+          setVisible(prev => ({ ...prev, [error.id]: true }))
         }, 10)
       }
     })
   }, [errors, visible])
 
   if (errors.length === 0) {
-    return <></>
+    return null
   }
 
   return (
     <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-md">
-      {errors.map((error) => (
+      {errors.map(error => (
         <div
-          key={error.id}
           className={`bg-white border-l-4 ${
             error.severity === 'error'
               ? 'border-red-500'
@@ -57,8 +56,11 @@ export function ErrorToast(): React.JSX.Element {
                 ? 'border-amber-500'
                 : 'border-blue-500'
           } rounded-sm shadow-lg p-4 transition-all duration-300 ${
-            visible[error.id] ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+            visible[error.id]
+              ? 'opacity-100 translate-x-0'
+              : 'opacity-0 translate-x-4'
           }`}
+          key={error.id}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
@@ -70,7 +72,9 @@ export function ErrorToast(): React.JSX.Element {
                       ? '⚠️'
                       : 'ℹ️'}
                 </span>
-                <h4 className="font-semibold text-neutral-900">{error.title}</h4>
+                <h4 className="font-semibold text-neutral-900">
+                  {error.title}
+                </h4>
               </div>
               <p className="text-sm text-neutral-600">{error.message}</p>
               {error.details && (
@@ -87,20 +91,20 @@ export function ErrorToast(): React.JSX.Element {
               )}
               {error.recoveryAction && (
                 <button
+                  className="mt-2 text-sm text-amber-600 hover:text-amber-700 font-medium"
                   onClick={() => {
                     error.recoveryAction?.action()
                     dismissError(error.id)
                   }}
-                  className="mt-2 text-sm text-amber-600 hover:text-amber-700 font-medium"
                 >
                   {error.recoveryAction.label}
                 </button>
               )}
             </div>
             <button
-              onClick={() => dismissError(error.id)}
-              className="text-neutral-400 hover:text-neutral-600 transition-colors"
               aria-label="Dismiss"
+              className="text-neutral-400 hover:text-neutral-600 transition-colors"
+              onClick={() => dismissError(error.id)}
             >
               ✕
             </button>

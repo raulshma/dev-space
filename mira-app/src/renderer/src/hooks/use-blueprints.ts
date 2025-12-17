@@ -2,13 +2,13 @@
 // Requirements: 1.1, 3.2
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { CreateBlueprintInput } from '../../../shared/models'
+import type { CreateBlueprintInput } from 'shared/models'
 
 // Query keys
 export const blueprintKeys = {
   all: ['blueprints'] as const,
   lists: () => [...blueprintKeys.all, 'list'] as const,
-  list: () => [...blueprintKeys.lists()] as const
+  list: () => [...blueprintKeys.lists()] as const,
 }
 
 // Hook to fetch all blueprints
@@ -18,7 +18,7 @@ export function useBlueprints() {
     queryFn: async () => {
       const response = await window.api.blueprints.list({})
       return response.blueprints
-    }
+    },
   })
 }
 
@@ -34,6 +34,6 @@ export function useCreateBlueprint() {
     onSuccess: () => {
       // Invalidate blueprint list to refetch
       queryClient.invalidateQueries({ queryKey: blueprintKeys.lists() })
-    }
+    },
   })
 }

@@ -1,23 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { existsSync } from 'fs'
-import { promisify } from 'util'
-import { exec } from 'child_process'
+import { existsSync } from 'node:fs'
 
 // Create a mock execAsync that will be controlled by tests - must be hoisted
 const mockExecAsync = vi.hoisted(() => vi.fn())
 
 // Mock child_process and fs
 vi.mock('child_process', () => ({
-  exec: vi.fn()
+  exec: vi.fn(),
 }))
 vi.mock('fs', () => ({
-  existsSync: vi.fn()
+  existsSync: vi.fn(),
 }))
 vi.mock('util', async () => {
   const actual = await vi.importActual<typeof import('util')>('util')
   return {
     ...actual,
-    promisify: vi.fn(() => mockExecAsync)
+    promisify: vi.fn(() => mockExecAsync),
   }
 })
 
@@ -25,7 +23,7 @@ vi.mock('util', async () => {
 const { GitService } = await import('./git-service')
 
 describe('GitService', () => {
-  let gitService: GitService
+  let gitService: InstanceType<typeof GitService>
 
   beforeEach(() => {
     gitService = new GitService()
@@ -77,7 +75,7 @@ describe('GitService', () => {
         behind: 0,
         modified: 0,
         staged: 0,
-        untracked: 0
+        untracked: 0,
       })
     })
 
@@ -99,7 +97,7 @@ describe('GitService', () => {
         behind: 0,
         modified: 0,
         staged: 0,
-        untracked: 0
+        untracked: 0,
       })
     })
 
@@ -128,7 +126,7 @@ describe('GitService', () => {
         .mockResolvedValueOnce({
           // Modified, staged, and untracked files
           stdout: ' M file1.txt\nM  file2.txt\n?? file3.txt\n',
-          stderr: ''
+          stderr: '',
         }) // status
 
       const telemetry = await gitService.getTelemetry('/fake/repo')
@@ -144,13 +142,18 @@ describe('GitService', () => {
       vi.useFakeTimers()
 
       const onUpdate = vi.fn()
-      gitService.startBackgroundRefresh('project1', '/fake/repo', 5000, onUpdate)
+      gitService.startBackgroundRefresh(
+        'project1',
+        '/fake/repo',
+        5000,
+        onUpdate
+      )
 
-      expect(gitService['refreshIntervals'].has('project1')).toBe(true)
+      expect(gitService.refreshIntervals.has('project1')).toBe(true)
 
       gitService.stopBackgroundRefresh('project1')
 
-      expect(gitService['refreshIntervals'].has('project1')).toBe(false)
+      expect(gitService.refreshIntervals.has('project1')).toBe(false)
 
       vi.useRealTimers()
     })
@@ -161,11 +164,11 @@ describe('GitService', () => {
       gitService.startBackgroundRefresh('project1', '/fake/repo1', 5000)
       gitService.startBackgroundRefresh('project2', '/fake/repo2', 5000)
 
-      expect(gitService['refreshIntervals'].size).toBe(2)
+      expect(gitService.refreshIntervals.size).toBe(2)
 
       gitService.stopAllRefreshes()
 
-      expect(gitService['refreshIntervals'].size).toBe(0)
+      expect(gitService.refreshIntervals.size).toBe(0)
 
       vi.useRealTimers()
     })

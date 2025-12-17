@@ -70,7 +70,7 @@ describe('AgentService', () => {
 
     it('should throw error when setting unconfigured model', async () => {
       const models = await agentService.getAvailableModels()
-      const unconfiguredModel = models.find((m) => !m.isConfigured)
+      const unconfiguredModel = models.find(m => !m.isConfigured)
 
       if (unconfiguredModel) {
         expect(() => agentService.setActiveModel(unconfiguredModel)).toThrow(

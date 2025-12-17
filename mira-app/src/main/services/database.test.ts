@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { DatabaseService } from './database'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import * as os from 'node:os'
 
 describe('DatabaseService', () => {
   let dbService: DatabaseService
@@ -46,7 +46,7 @@ describe('DatabaseService', () => {
       expect(tags).toEqual([])
       // Commands should have default seeded commands
       expect(commands.length).toBeGreaterThan(0)
-      expect(commands.every((cmd) => !cmd.isCustom)).toBe(true)
+      expect(commands.every(cmd => !cmd.isCustom)).toBe(true)
       expect(blueprints).toEqual([])
       expect(shortcuts).toEqual({})
     })
@@ -56,7 +56,7 @@ describe('DatabaseService', () => {
     it('should create and retrieve a project', () => {
       const project = dbService.createProject({
         name: 'Test Project',
-        path: '/test/path'
+        path: '/test/path',
       })
 
       expect(project.id).toBeDefined()
@@ -71,11 +71,11 @@ describe('DatabaseService', () => {
     it('should update a project', () => {
       const project = dbService.createProject({
         name: 'Test Project',
-        path: '/test/path'
+        path: '/test/path',
       })
 
       const updated = dbService.updateProject(project.id, {
-        name: 'Updated Project'
+        name: 'Updated Project',
       })
 
       expect(updated.name).toBe('Updated Project')
@@ -85,7 +85,7 @@ describe('DatabaseService', () => {
     it('should delete a project', () => {
       const project = dbService.createProject({
         name: 'Test Project',
-        path: '/test/path'
+        path: '/test/path',
       })
 
       dbService.deleteProject(project.id)
@@ -108,7 +108,7 @@ describe('DatabaseService', () => {
       const tag = dbService.createTag({
         name: 'React',
         category: 'tech_stack',
-        color: '#61dafb'
+        color: '#61dafb',
       })
 
       expect(tag.id).toBeDefined()
@@ -123,12 +123,12 @@ describe('DatabaseService', () => {
     it('should add and remove tags from projects', () => {
       const project = dbService.createProject({
         name: 'Test Project',
-        path: '/test/path'
+        path: '/test/path',
       })
 
       const tag = dbService.createTag({
         name: 'React',
-        category: 'tech_stack'
+        category: 'tech_stack',
       })
 
       dbService.addTagToProject(project.id, tag.id)
@@ -148,14 +148,14 @@ describe('DatabaseService', () => {
     it('should save and retrieve session state', () => {
       const project = dbService.createProject({
         name: 'Test Project',
-        path: '/test/path'
+        path: '/test/path',
       })
 
       const sessionState = {
         terminals: [],
         agentConversation: [],
         contextFiles: ['file1.ts', 'file2.ts'],
-        activeTerminalId: null
+        activeTerminalId: null,
       }
 
       dbService.saveSession(project.id, sessionState)
@@ -177,7 +177,7 @@ describe('DatabaseService', () => {
       const command = dbService.createCommand({
         name: 'Custom Test Command',
         command: 'echo "test"',
-        category: 'Testing'
+        category: 'Testing',
       })
 
       expect(command.id).toBeDefined()
@@ -188,7 +188,7 @@ describe('DatabaseService', () => {
       expect(commands).toHaveLength(initialCommandCount + 1)
 
       // Find the custom command we just created
-      const customCommand = commands.find((c) => c.id === command.id)
+      const customCommand = commands.find(c => c.id === command.id)
       expect(customCommand).toEqual(command)
     })
   })
@@ -201,10 +201,14 @@ describe('DatabaseService', () => {
         structure: {
           files: [
             { relativePath: 'src', isDirectory: true },
-            { relativePath: 'src/index.tsx', isDirectory: false, content: 'console.log("hello")' }
+            {
+              relativePath: 'src/index.tsx',
+              isDirectory: false,
+              content: 'console.log("hello")',
+            },
           ],
-          excludePatterns: ['node_modules', '.git']
-        }
+          excludePatterns: ['node_modules', '.git'],
+        },
       })
 
       expect(blueprint.id).toBeDefined()
@@ -268,7 +272,7 @@ describe('DatabaseService', () => {
       const shortcuts = dbService.getShortcuts()
       expect(shortcuts).toEqual({
         action1: 'Cmd+K',
-        action2: 'Cmd+P'
+        action2: 'Cmd+P',
       })
     })
   })

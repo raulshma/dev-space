@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { X, Keyboard, Package, Key } from 'lucide-react'
 import { ShortcutEditor } from './ShortcutEditor'
 import { BlueprintManager } from './BlueprintManager'
-import { ApiKeyManager } from '../Agent/ApiKeyManager'
+import { ApiKeyManager } from 'renderer/components/Agent/ApiKeyManager'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -29,21 +29,23 @@ const TABS: TabConfig[] = [
   {
     id: 'shortcuts',
     label: 'Keyboard Shortcuts',
-    icon: Keyboard
+    icon: Keyboard,
   },
   {
     id: 'blueprints',
     label: 'Blueprints',
-    icon: Package
+    icon: Package,
   },
   {
     id: 'api-keys',
     label: 'API Keys',
-    icon: Key
-  }
+    icon: Key,
+  },
 ]
 
-export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Element {
+export function SettingsPanel({
+  onClose,
+}: SettingsPanelProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SettingsTab>('shortcuts')
 
   return (
@@ -53,9 +55,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         <div className="flex items-center justify-between border-b border-neutral-700 px-6 py-4">
           <h2 className="text-xl font-semibold text-neutral-100">Settings</h2>
           <button
-            onClick={onClose}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
             aria-label="Close settings"
+            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            onClick={onClose}
           >
             <X className="h-5 w-5" />
           </button>
@@ -66,19 +68,19 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
           {/* Sidebar with tabs */}
           <aside className="w-64 border-r border-neutral-700 bg-neutral-800/50">
             <nav className="p-2">
-              {TABS.map((tab) => {
+              {TABS.map(tab => {
                 const Icon = tab.icon
                 const isActive = activeTab === tab.id
 
                 return (
                   <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
                     className={`flex w-full items-center gap-3 rounded px-3 py-2 text-left text-sm transition-colors ${
                       isActive
                         ? 'bg-amber-600/20 text-amber-400'
                         : 'text-neutral-300 hover:bg-neutral-700/50'
                     }`}
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span>{tab.label}</span>

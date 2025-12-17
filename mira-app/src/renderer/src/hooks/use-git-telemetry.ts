@@ -3,13 +3,14 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
-import type { GitTelemetry } from '../../../shared/models'
+import type { GitTelemetry } from 'shared/models'
 
 // Query keys
 export const gitKeys = {
   all: ['git'] as const,
   telemetry: () => [...gitKeys.all, 'telemetry'] as const,
-  telemetryForProject: (projectPath: string) => [...gitKeys.telemetry(), projectPath] as const
+  telemetryForProject: (projectPath: string) =>
+    [...gitKeys.telemetry(), projectPath] as const,
 }
 
 // Hook to fetch git telemetry for a project
@@ -23,7 +24,7 @@ export function useGitTelemetry(projectPath: string | null) {
     },
     enabled: !!projectPath,
     staleTime: 30000, // Consider data stale after 30 seconds
-    refetchInterval: false // Don't auto-refetch, we'll use background refresh
+    refetchInterval: false, // Don't auto-refetch, we'll use background refresh
   })
 }
 
@@ -45,7 +46,7 @@ export function useGitTelemetryRefresh(
       try {
         await window.api.git.startRefresh({
           projectId,
-          interval: 30000 // 30 seconds
+          interval: 30000, // 30 seconds
         })
       } catch (error) {
         console.error('Failed to start git telemetry refresh:', error)

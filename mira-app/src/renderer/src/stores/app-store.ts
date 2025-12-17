@@ -31,7 +31,7 @@ export interface AppState {
   closeSettingsPanel: () => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>(set => ({
   // Initial state
   sidebarCollapsed: false,
   agentPanelCollapsed: false,
@@ -45,27 +45,27 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Actions
   toggleSidebar: () =>
-    set((state) => ({
-      sidebarCollapsed: !state.sidebarCollapsed
+    set(state => ({
+      sidebarCollapsed: !state.sidebarCollapsed,
     })),
 
   setSidebarCollapsed: (collapsed: boolean) =>
     set({
-      sidebarCollapsed: collapsed
+      sidebarCollapsed: collapsed,
     }),
 
   toggleAgentPanel: () =>
-    set((state) => ({
-      agentPanelCollapsed: !state.agentPanelCollapsed
+    set(state => ({
+      agentPanelCollapsed: !state.agentPanelCollapsed,
     })),
 
   setAgentPanelCollapsed: (collapsed: boolean) =>
     set({
-      agentPanelCollapsed: collapsed
+      agentPanelCollapsed: collapsed,
     }),
 
   toggleZenMode: () =>
-    set((state) => {
+    set(state => {
       if (!state.zenMode) {
         // Entering Zen Mode - save current state and collapse panels
         return {
@@ -73,45 +73,44 @@ export const useAppStore = create<AppState>((set) => ({
           previousSidebarState: state.sidebarCollapsed,
           previousAgentPanelState: state.agentPanelCollapsed,
           sidebarCollapsed: true,
-          agentPanelCollapsed: true
+          agentPanelCollapsed: true,
         }
-      } else {
-        // Exiting Zen Mode - restore previous state
-        return {
-          zenMode: false,
-          sidebarCollapsed: state.previousSidebarState,
-          agentPanelCollapsed: state.previousAgentPanelState
-        }
+      }
+      // Exiting Zen Mode - restore previous state
+      return {
+        zenMode: false,
+        sidebarCollapsed: state.previousSidebarState,
+        agentPanelCollapsed: state.previousAgentPanelState,
       }
     }),
 
   setActiveProject: (id: string | null) =>
     set({
-      activeProjectId: id
+      activeProjectId: id,
     }),
 
   setActiveTerminal: (id: string | null) =>
     set({
-      activeTerminalId: id
+      activeTerminalId: id,
     }),
 
   openCommandPalette: () =>
     set({
-      commandPaletteOpen: true
+      commandPaletteOpen: true,
     }),
 
   closeCommandPalette: () =>
     set({
-      commandPaletteOpen: false
+      commandPaletteOpen: false,
     }),
 
   openSettingsPanel: () =>
     set({
-      settingsPanelOpen: true
+      settingsPanelOpen: true,
     }),
 
   closeSettingsPanel: () =>
     set({
-      settingsPanelOpen: false
-    })
+      settingsPanelOpen: false,
+    }),
 }))

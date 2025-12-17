@@ -13,13 +13,13 @@ vi.mock('../../hooks/use-shortcuts', () => ({
   useShortcuts: vi.fn(() => ({
     data: {
       'command-palette:open': 'Mod+K',
-      'zen-mode:toggle': 'Mod+Shift+Z'
+      'zen-mode:toggle': 'Mod+Shift+Z',
     },
-    isLoading: false
+    isLoading: false,
   })),
   useSetShortcut: vi.fn(() => ({
-    mutateAsync: vi.fn()
-  }))
+    mutateAsync: vi.fn(),
+  })),
 }))
 
 describe('ShortcutEditor', () => {
@@ -29,8 +29,8 @@ describe('ShortcutEditor', () => {
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
-        mutations: { retry: false }
-      }
+        mutations: { retry: false },
+      },
     })
   })
 

@@ -1,4 +1,3 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   ProjectListRequest,
   ProjectListResponse,
@@ -97,8 +96,8 @@ import type {
   AgentGetTokenUsageRequest,
   AgentGetTokenUsageResponse,
   AgentGenerateFixRequest,
-  AgentGenerateFixResponse
-} from '../shared/ipc-types'
+  AgentGenerateFixResponse,
+} from 'shared/ipc-types'
 
 export interface MiraAPI {
   projects: {
@@ -111,13 +110,23 @@ export interface MiraAPI {
   tags: {
     list: (request: TagListRequest) => Promise<TagListResponse>
     create: (request: TagCreateRequest) => Promise<TagCreateResponse>
-    addToProject: (request: TagAddToProjectRequest) => Promise<TagAddToProjectResponse>
-    removeFromProject: (request: TagRemoveFromProjectRequest) => Promise<TagRemoveFromProjectResponse>
+    addToProject: (
+      request: TagAddToProjectRequest
+    ) => Promise<TagAddToProjectResponse>
+    removeFromProject: (
+      request: TagRemoveFromProjectRequest
+    ) => Promise<TagRemoveFromProjectResponse>
   }
   git: {
-    getTelemetry: (request: GitTelemetryRequest) => Promise<GitTelemetryResponse>
-    startRefresh: (request: GitStartRefreshRequest) => Promise<GitStartRefreshResponse>
-    stopRefresh: (request: GitStopRefreshRequest) => Promise<GitStopRefreshResponse>
+    getTelemetry: (
+      request: GitTelemetryRequest
+    ) => Promise<GitTelemetryResponse>
+    startRefresh: (
+      request: GitStartRefreshRequest
+    ) => Promise<GitStartRefreshResponse>
+    stopRefresh: (
+      request: GitStopRefreshRequest
+    ) => Promise<GitStopRefreshResponse>
   }
   pty: {
     create: (request: PTYCreateRequest) => Promise<PTYCreateResponse>
@@ -147,8 +156,12 @@ export interface MiraAPI {
   }
   blueprints: {
     list: (request: BlueprintListRequest) => Promise<BlueprintListResponse>
-    create: (request: BlueprintCreateRequest) => Promise<BlueprintCreateResponse>
-    capture: (request: BlueprintCaptureRequest) => Promise<BlueprintCaptureResponse>
+    create: (
+      request: BlueprintCreateRequest
+    ) => Promise<BlueprintCreateResponse>
+    capture: (
+      request: BlueprintCaptureRequest
+    ) => Promise<BlueprintCaptureResponse>
     apply: (request: BlueprintApplyRequest) => Promise<BlueprintApplyResponse>
   }
   settings: {
@@ -160,27 +173,46 @@ export interface MiraAPI {
     set: (request: ShortcutSetRequest) => Promise<ShortcutSetResponse>
   }
   shell: {
-    openExternal: (request: ShellOpenExternalRequest) => Promise<ShellOpenExternalResponse>
+    openExternal: (
+      request: ShellOpenExternalRequest
+    ) => Promise<ShellOpenExternalResponse>
     openPath: (request: ShellOpenPathRequest) => Promise<ShellOpenPathResponse>
   }
   agent: {
     setModel: (request: AgentSetModelRequest) => Promise<AgentSetModelResponse>
     getModel: (request: AgentGetModelRequest) => Promise<AgentGetModelResponse>
-    getModels: (request: AgentGetModelsRequest) => Promise<AgentGetModelsResponse>
-    sendMessage: (request: AgentSendMessageRequest) => Promise<AgentSendMessageResponse>
-    getConversation: (request: AgentGetConversationRequest) => Promise<AgentGetConversationResponse>
-    clearConversation: (request: AgentClearConversationRequest) => Promise<AgentClearConversationResponse>
-    addContextFile: (request: AgentAddContextFileRequest) => Promise<AgentAddContextFileResponse>
-    removeContextFile: (request: AgentRemoveContextFileRequest) => Promise<AgentRemoveContextFileResponse>
-    getContextFiles: (request: AgentGetContextFilesRequest) => Promise<AgentGetContextFilesResponse>
-    getTokenUsage: (request: AgentGetTokenUsageRequest) => Promise<AgentGetTokenUsageResponse>
-    generateFix: (request: AgentGenerateFixRequest) => Promise<AgentGenerateFixResponse>
+    getModels: (
+      request: AgentGetModelsRequest
+    ) => Promise<AgentGetModelsResponse>
+    sendMessage: (
+      request: AgentSendMessageRequest
+    ) => Promise<AgentSendMessageResponse>
+    getConversation: (
+      request: AgentGetConversationRequest
+    ) => Promise<AgentGetConversationResponse>
+    clearConversation: (
+      request: AgentClearConversationRequest
+    ) => Promise<AgentClearConversationResponse>
+    addContextFile: (
+      request: AgentAddContextFileRequest
+    ) => Promise<AgentAddContextFileResponse>
+    removeContextFile: (
+      request: AgentRemoveContextFileRequest
+    ) => Promise<AgentRemoveContextFileResponse>
+    getContextFiles: (
+      request: AgentGetContextFilesRequest
+    ) => Promise<AgentGetContextFilesResponse>
+    getTokenUsage: (
+      request: AgentGetTokenUsageRequest
+    ) => Promise<AgentGetTokenUsageResponse>
+    generateFix: (
+      request: AgentGenerateFixRequest
+    ) => Promise<AgentGenerateFixResponse>
   }
 }
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     api: MiraAPI
   }
 }

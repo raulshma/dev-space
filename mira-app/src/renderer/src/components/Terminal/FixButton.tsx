@@ -6,10 +6,10 @@
  */
 
 import { Wrench } from 'lucide-react'
-import { useErrorStore } from '../../stores/error-store'
-import { createErrorContext } from '../../lib/error-detector'
-import type { DetectedError } from '../../lib/error-detector'
-import type { ErrorContext } from '../../../../shared/models'
+import { useErrorStore } from 'renderer/stores/error-store'
+import { createErrorContext } from 'renderer/lib/error-detector'
+import type { DetectedError } from 'renderer/lib/error-detector'
+import type { ErrorContext } from 'shared/models'
 
 interface FixButtonProps {
   error: DetectedError
@@ -17,8 +17,12 @@ interface FixButtonProps {
   onErrorContext?: (context: ErrorContext) => void
 }
 
-export function FixButton({ error, onFixClick, onErrorContext }: FixButtonProps): React.JSX.Element {
-  const removeError = useErrorStore((state) => state.removeError)
+export function FixButton({
+  error,
+  onFixClick,
+  onErrorContext,
+}: FixButtonProps): React.JSX.Element {
+  const removeError = useErrorStore(state => state.removeError)
 
   const handleClick = (): void => {
     // Create error context
@@ -49,14 +53,16 @@ export function FixButton({ error, onFixClick, onErrorContext }: FixButtonProps)
         <div className="flex items-center gap-2 text-sm text-red-400">
           <span className="font-mono">Exit code: {error.exitCode}</span>
           <span className="text-red-600">•</span>
-          <span className="text-red-500 truncate max-w-[200px]">{error.command}</span>
+          <span className="text-red-500 truncate max-w-[200px]">
+            {error.command}
+          </span>
         </div>
       </div>
 
       <button
-        onClick={handleClick}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700
                    text-white text-sm rounded-sm transition-colors"
+        onClick={handleClick}
         title="Send error to AI agent for fix suggestions"
       >
         <Wrench size={14} />
@@ -64,8 +70,8 @@ export function FixButton({ error, onFixClick, onErrorContext }: FixButtonProps)
       </button>
 
       <button
-        onClick={handleDismiss}
         className="px-2 py-1 text-red-400 hover:text-red-300 text-xs"
+        onClick={handleDismiss}
         title="Dismiss error"
       >
         ✕
@@ -80,17 +86,26 @@ interface TerminalErrorsProps {
   onErrorContext?: (context: ErrorContext) => void
 }
 
-export function TerminalErrors({ terminalId, onFixClick, onErrorContext }: TerminalErrorsProps): React.JSX.Element {
-  const errors = useErrorStore((state) => state.getErrorsByTerminal(terminalId))
+export function TerminalErrors({
+  terminalId,
+  onFixClick,
+  onErrorContext,
+}: TerminalErrorsProps): React.JSX.Element {
+  const errors = useErrorStore(state => state.getErrorsByTerminal(terminalId))
 
   if (errors.length === 0) {
-    return <></>
+    return null
   }
 
   return (
     <div className="absolute bottom-4 left-4 right-4 z-10 space-y-2 max-h-[200px] overflow-y-auto">
-      {errors.map((error) => (
-        <FixButton key={error.id} error={error} onFixClick={onFixClick} onErrorContext={onErrorContext} />
+      {errors.map(error => (
+        <FixButton
+          error={error}
+          key={error.id}
+          onErrorContext={onErrorContext}
+          onFixClick={onFixClick}
+        />
       ))}
     </div>
   )

@@ -2,14 +2,14 @@
 // Requirements: 3.2
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { CreateTagInput } from '../../../shared/models'
+import type { CreateTagInput } from 'shared/models'
 import { projectKeys } from './use-projects'
 
 // Query keys
 export const tagKeys = {
   all: ['tags'] as const,
   lists: () => [...tagKeys.all, 'list'] as const,
-  list: () => [...tagKeys.lists()] as const
+  list: () => [...tagKeys.lists()] as const,
 }
 
 // Hook to fetch all tags
@@ -19,7 +19,7 @@ export function useTags() {
     queryFn: async () => {
       const response = await window.api.tags.list({})
       return response.tags
-    }
+    },
   })
 }
 
@@ -35,7 +35,7 @@ export function useCreateTag() {
     onSuccess: () => {
       // Invalidate tag list to refetch
       queryClient.invalidateQueries({ queryKey: tagKeys.lists() })
-    }
+    },
   })
 }
 
@@ -44,7 +44,13 @@ export function useAddTagToProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ projectId, tagId }: { projectId: string; tagId: string }) => {
+    mutationFn: async ({
+      projectId,
+      tagId,
+    }: {
+      projectId: string
+      tagId: string
+    }) => {
       const response = await window.api.tags.addToProject({ projectId, tagId })
       return response.success
     },
@@ -52,7 +58,7 @@ export function useAddTagToProject() {
       // Invalidate the specific project and all project lists
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) })
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() })
-    }
+    },
   })
 }
 
@@ -61,14 +67,23 @@ export function useRemoveTagFromProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ projectId, tagId }: { projectId: string; tagId: string }) => {
-      const response = await window.api.tags.removeFromProject({ projectId, tagId })
+    mutationFn: async ({
+      projectId,
+      tagId,
+    }: {
+      projectId: string
+      tagId: string
+    }) => {
+      const response = await window.api.tags.removeFromProject({
+        projectId,
+        tagId,
+      })
       return response.success
     },
     onSuccess: (_, { projectId }) => {
       // Invalidate the specific project and all project lists
       queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) })
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() })
-    }
+    },
   })
 }

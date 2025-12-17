@@ -9,21 +9,26 @@
 
 import { useEffect } from 'react'
 import { X, Plus, Pin, PinOff } from 'lucide-react'
-import { useTerminalStore } from '../../stores/terminal-store'
-import type { TerminalInstance } from '../../stores/terminal-store'
+import { useTerminalStore } from 'renderer/stores/terminal-store'
+import type { TerminalInstance } from 'renderer/stores/terminal-store'
 
 interface TerminalTabsProps {
   projectId: string
   onCreateTerminal: () => void
 }
 
-export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps): React.JSX.Element {
-  const terminals = useTerminalStore((state) => state.getTerminalsByProject(projectId))
-  const focusedTerminalId = useTerminalStore((state) => state.focusedTerminalId)
-  const focusTerminal = useTerminalStore((state) => state.focusTerminal)
-  const removeTerminal = useTerminalStore((state) => state.removeTerminal)
-  const pinTerminal = useTerminalStore((state) => state.pinTerminal)
-  const unpinTerminal = useTerminalStore((state) => state.unpinTerminal)
+export function TerminalTabs({
+  projectId,
+  onCreateTerminal,
+}: TerminalTabsProps): React.JSX.Element {
+  const terminals = useTerminalStore(state =>
+    state.getTerminalsByProject(projectId)
+  )
+  const focusedTerminalId = useTerminalStore(state => state.focusedTerminalId)
+  const focusTerminal = useTerminalStore(state => state.focusTerminal)
+  const removeTerminal = useTerminalStore(state => state.removeTerminal)
+  const pinTerminal = useTerminalStore(state => state.pinTerminal)
+  const unpinTerminal = useTerminalStore(state => state.unpinTerminal)
 
   // Keyboard navigation
   useEffect(() => {
@@ -45,7 +50,7 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
       // Cmd/Ctrl + [1-9]: Switch to terminal by index
       if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
-        const index = parseInt(e.key) - 1
+        const index = parseInt(e.key, 10) - 1
         if (index < terminals.length) {
           focusTerminal(terminals[index].id)
         }
@@ -55,7 +60,9 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
       // Cmd/Ctrl + [ or ]: Navigate between terminals
       if ((e.metaKey || e.ctrlKey) && (e.key === '[' || e.key === ']')) {
         e.preventDefault()
-        const currentIndex = terminals.findIndex((t) => t.id === focusedTerminalId)
+        const currentIndex = terminals.findIndex(
+          t => t.id === focusedTerminalId
+        )
         if (currentIndex === -1) return
 
         const nextIndex = e.key === '[' ? currentIndex - 1 : currentIndex + 1
@@ -70,11 +77,11 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
   }, [terminals, focusedTerminalId, onCreateTerminal, focusTerminal])
 
   const handleCloseTerminal = (terminalId: string): void => {
-    const terminal = terminals.find((t) => t.id === terminalId)
+    const terminal = terminals.find(t => t.id === terminalId)
     if (!terminal) return
 
     // Kill PTY
-    window.api.pty.kill({ ptyId: terminal.ptyId }).catch((error) => {
+    window.api.pty.kill({ ptyId: terminal.ptyId }).catch(error => {
       console.error('Failed to kill PTY:', error)
     })
 
@@ -83,7 +90,7 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
 
     // Focus another terminal if this was focused
     if (focusedTerminalId === terminalId && terminals.length > 1) {
-      const remainingTerminals = terminals.filter((t) => t.id !== terminalId)
+      const remainingTerminals = terminals.filter(t => t.id !== terminalId)
       if (remainingTerminals.length > 0) {
         focusTerminal(remainingTerminals[0].id)
       }
@@ -113,7 +120,7 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
       {/* Terminal tabs */}
       {terminals.map((terminal: TerminalInstance, index: number) => (
         <div
-          key={terminal.id}
+          aria-selected={focusedTerminalId === terminal.id}
           className={`
             flex items-center gap-2 px-3 py-1.5 rounded-sm cursor-pointer
             transition-colors text-sm relative
@@ -124,38 +131,51 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
             }
             ${terminal.isPinned ? 'border border-amber-500/30' : ''}
           `}
+          key={terminal.id}
           onClick={() => handleTabClick(terminal.id)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleTabClick(terminal.id)
+            }
+          }}
+          role="tab"
+          tabIndex={0}
         >
           <span className="text-xs text-neutral-400">{index + 1}</span>
           <span className="max-w-[120px] truncate">{terminal.title}</span>
 
           {/* Pin/Unpin button */}
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              handleTogglePin(terminal)
-            }}
+            aria-label={terminal.isPinned ? 'Unpin terminal' : 'Pin terminal'}
             className={`p-0.5 rounded hover:bg-neutral-300 transition-colors ${
               terminal.isPinned ? 'text-amber-600' : 'text-neutral-400'
             }`}
-            aria-label={terminal.isPinned ? 'Unpin terminal' : 'Pin terminal'}
+            onClick={e => {
+              e.stopPropagation()
+              handleTogglePin(terminal)
+            }}
             title={
               terminal.isPinned
                 ? 'Unpin (will close when leaving project)'
                 : 'Pin (keeps running when leaving project)'
             }
           >
-            {terminal.isPinned ? <Pin size={14} fill="currentColor" /> : <PinOff size={14} />}
+            {terminal.isPinned ? (
+              <Pin fill="currentColor" size={14} />
+            ) : (
+              <PinOff size={14} />
+            )}
           </button>
 
           {/* Close button */}
           <button
-            onClick={(e) => {
+            aria-label="Close terminal"
+            className="p-0.5 rounded hover:bg-neutral-300 transition-colors"
+            onClick={e => {
               e.stopPropagation()
               handleCloseTerminal(terminal.id)
             }}
-            className="p-0.5 rounded hover:bg-neutral-300 transition-colors"
-            aria-label="Close terminal"
           >
             <X size={14} />
           </button>
@@ -164,10 +184,10 @@ export function TerminalTabs({ projectId, onCreateTerminal }: TerminalTabsProps)
 
       {/* Add terminal button */}
       <button
-        onClick={onCreateTerminal}
+        aria-label="New terminal"
         className="flex items-center gap-1 px-2 py-1.5 rounded-sm text-sm
                    text-neutral-600 hover:bg-neutral-200 transition-colors"
-        aria-label="New terminal"
+        onClick={onCreateTerminal}
       >
         <Plus size={16} />
       </button>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import type { ConversationMessage, ErrorContext } from '../../../../shared/models'
+import type { ConversationMessage, ErrorContext } from 'shared/models'
 
 /**
  * ConversationView Component
@@ -19,7 +19,7 @@ interface ConversationViewProps {
 export function ConversationView({
   projectId,
   errorContext,
-  onErrorContextUsed
+  onErrorContextUsed,
 }: ConversationViewProps) {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -118,8 +118,8 @@ export function ConversationView({
         <h3 className="text-sm font-semibold text-neutral-900">Conversation</h3>
         {messages.length > 0 && (
           <button
-            onClick={handleClearConversation}
             className="text-xs text-neutral-500 hover:text-red-600"
+            onClick={handleClearConversation}
           >
             Clear
           </button>
@@ -138,10 +138,10 @@ export function ConversationView({
                 viewBox="0 0 24 24"
               >
                 <path
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                 />
               </svg>
               <p className="mt-2 text-sm text-neutral-600">No messages yet</p>
@@ -152,10 +152,10 @@ export function ConversationView({
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((message) => (
+            {messages.map(message => (
               <div
-                key={message.id}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                key={message.id}
               >
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
@@ -172,10 +172,14 @@ export function ConversationView({
                       {formatTimestamp(message.timestamp)}
                     </span>
                     {message.model && (
-                      <span className="text-xs text-neutral-400">• {message.model}</span>
+                      <span className="text-xs text-neutral-400">
+                        • {message.model}
+                      </span>
                     )}
                   </div>
-                  <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                  <div className="whitespace-pre-wrap text-sm">
+                    {message.content}
+                  </div>
                 </div>
               </div>
             ))}
@@ -188,18 +192,18 @@ export function ConversationView({
       <div className="border-t border-neutral-200 p-4">
         <div className="flex gap-2">
           <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            className="flex-1 resize-none rounded-sm border border-neutral-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:bg-neutral-100"
+            disabled={isSending}
+            onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message... (Shift+Enter for new line)"
-            disabled={isSending}
-            className="flex-1 resize-none rounded-sm border border-neutral-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:bg-neutral-100"
             rows={3}
+            value={inputValue}
           />
           <button
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isSending}
             className="rounded-sm bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-neutral-300"
+            disabled={!inputValue.trim() || isSending}
+            onClick={handleSendMessage}
           >
             {isSending ? (
               <div className="flex items-center gap-2">

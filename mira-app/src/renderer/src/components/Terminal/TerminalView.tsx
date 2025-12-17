@@ -13,16 +13,20 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
-import { detectLinks, isValidUrl, isLikelyFilePath } from '../../lib/link-detector'
+import {
+  detectLinks,
+  isValidUrl,
+  isLikelyFilePath,
+} from 'renderer/lib/link-detector'
 import {
   parseCommand,
   extractErrorOutput,
   isErrorExitCode,
-  type DetectedError
-} from '../../lib/error-detector'
-import { useErrorStore } from '../../stores/error-store'
+  type DetectedError,
+} from 'renderer/lib/error-detector'
+import { useErrorStore } from 'renderer/stores/error-store'
 import { TerminalErrors } from './FixButton'
-import type { ErrorContext } from '../../../../shared/models'
+import type { ErrorContext } from 'shared/models'
 
 interface TerminalViewProps {
   ptyId: string
@@ -37,14 +41,14 @@ export function TerminalView({
   terminalId,
   onTitleChange,
   onExit,
-  onErrorContext
+  onErrorContext,
 }: TerminalViewProps): React.JSX.Element {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [terminalBuffer, setTerminalBuffer] = useState<string>('')
 
-  const addError = useErrorStore((state) => state.addError)
+  const addError = useErrorStore(state => state.addError)
 
   useEffect(() => {
     if (!terminalRef.current) return
@@ -73,9 +77,9 @@ export function TerminalView({
         brightBlue: '#3b8eea',
         brightMagenta: '#d670d6',
         brightCyan: '#29b8db',
-        brightWhite: '#ffffff'
+        brightWhite: '#ffffff',
       },
-      allowProposedApi: true
+      allowProposedApi: true,
     })
 
     // Create and load fit addon
@@ -90,7 +94,10 @@ export function TerminalView({
       const webglAddon = new WebglAddon()
       terminal.loadAddon(webglAddon)
     } catch (error) {
-      console.warn('WebGL addon failed to load, falling back to canvas renderer:', error)
+      console.warn(
+        'WebGL addon failed to load, falling back to canvas renderer:',
+        error
+      )
     }
 
     // Register link provider for clickable links
@@ -106,33 +113,35 @@ export function TerminalView({
         const detectedLinks = detectLinks(lineText)
 
         const xtermLinks = detectedLinks
-          .filter((link) => {
+          .filter(link => {
             if (link.type === 'url') {
               return isValidUrl(link.text)
             }
             return isLikelyFilePath(link.text)
           })
-          .map((link) => ({
+          .map(link => ({
             range: {
               start: { x: link.startIndex + 1, y: bufferLineNumber },
-              end: { x: link.endIndex, y: bufferLineNumber }
+              end: { x: link.endIndex, y: bufferLineNumber },
             },
             text: link.text,
             activate: () => {
               if (link.type === 'url') {
-                window.api.shell.openExternal({ url: link.text }).catch((error) => {
-                  console.error('Failed to open URL:', error)
-                })
+                window.api.shell
+                  .openExternal({ url: link.text })
+                  .catch(error => {
+                    console.error('Failed to open URL:', error)
+                  })
               } else {
-                window.api.shell.openPath({ path: link.text }).catch((error) => {
+                window.api.shell.openPath({ path: link.text }).catch(error => {
                   console.error('Failed to open file:', error)
                 })
               }
-            }
+            },
           }))
 
         callback(xtermLinks.length > 0 ? xtermLinks : undefined)
-      }
+      },
     })
 
     // Fit terminal to container
@@ -146,7 +155,7 @@ export function TerminalView({
     const unsubscribeData = window.api.pty.onData(ptyId, (data: string) => {
       terminal.write(data)
       // Accumulate terminal buffer for error detection
-      setTerminalBuffer((prev) => prev + data)
+      setTerminalBuffer(prev => prev + data)
     })
 
     // Set up PTY exit listener
@@ -165,7 +174,7 @@ export function TerminalView({
           exitCode: code,
           errorOutput,
           timestamp: new Date(),
-          lineNumber: terminal.buffer.active.cursorY
+          lineNumber: terminal.buffer.active.cursorY,
         }
 
         addError(error)
@@ -181,7 +190,7 @@ export function TerminalView({
 
     // Handle terminal input
     const disposable = terminal.onData((data: string) => {
-      window.api.pty.write({ ptyId, data }).catch((error) => {
+      window.api.pty.write({ ptyId, data }).catch(error => {
         console.error('Failed to write to PTY:', error)
       })
     })
@@ -203,9 +212,9 @@ export function TerminalView({
             .resize({
               ptyId,
               cols: dimensions.cols,
-              rows: dimensions.rows
+              rows: dimensions.rows,
             })
-            .catch((error) => {
+            .catch(error => {
               console.error('Failed to resize PTY:', error)
             })
         }
@@ -229,8 +238,12 @@ export function TerminalView({
 
   return (
     <div className="relative w-full h-full">
-      <div ref={terminalRef} className="w-full h-full" style={{ backgroundColor: '#1e1e1e' }} />
-      <TerminalErrors terminalId={terminalId} onErrorContext={onErrorContext} />
+      <div
+        className="w-full h-full"
+        ref={terminalRef}
+        style={{ backgroundColor: '#1e1e1e' }}
+      />
+      <TerminalErrors onErrorContext={onErrorContext} terminalId={terminalId} />
     </div>
   )
 }

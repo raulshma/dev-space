@@ -1,5 +1,5 @@
 import { safeStorage } from 'electron'
-import type { AIProvider } from '../../shared/models'
+import type { AIProvider } from 'shared/models'
 
 /**
  * KeychainService provides secure storage for API keys and secrets
@@ -81,7 +81,11 @@ export class KeychainService {
   /**
    * Set a generic secret
    */
-  async setSecret(service: string, account: string, secret: string): Promise<void> {
+  async setSecret(
+    service: string,
+    account: string,
+    secret: string
+  ): Promise<void> {
     if (!this.isAvailable()) {
       throw new Error('Secure storage is not available on this platform')
     }
@@ -109,7 +113,10 @@ export class KeychainService {
     try {
       return safeStorage.decryptString(encrypted)
     } catch (error) {
-      console.error(`Failed to decrypt secret for ${service}/${account}:`, error)
+      console.error(
+        `Failed to decrypt secret for ${service}/${account}:`,
+        error
+      )
       return null
     }
   }

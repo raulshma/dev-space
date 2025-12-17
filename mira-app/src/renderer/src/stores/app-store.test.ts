@@ -13,7 +13,7 @@ describe('AppStore', () => {
       activeTerminalId: null,
       commandPaletteOpen: false,
       previousSidebarState: false,
-      previousAgentPanelState: false
+      previousAgentPanelState: false,
     })
   })
 
@@ -62,7 +62,8 @@ describe('AppStore', () => {
   })
 
   it('should toggle zen mode and save previous state', () => {
-    const { toggleZenMode, setSidebarCollapsed, setAgentPanelCollapsed } = useAppStore.getState()
+    const { toggleZenMode, setSidebarCollapsed, setAgentPanelCollapsed } =
+      useAppStore.getState()
 
     // Set sidebar and agent panel to visible
     setSidebarCollapsed(false)
@@ -84,7 +85,8 @@ describe('AppStore', () => {
   })
 
   it('should restore previous panel states when exiting zen mode', () => {
-    const { toggleZenMode, setSidebarCollapsed, setAgentPanelCollapsed } = useAppStore.getState()
+    const { toggleZenMode, setSidebarCollapsed, setAgentPanelCollapsed } =
+      useAppStore.getState()
 
     // Set sidebar collapsed and agent panel visible
     setSidebarCollapsed(true)

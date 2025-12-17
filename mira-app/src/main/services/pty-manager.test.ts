@@ -28,7 +28,7 @@ describe('PTYManager', () => {
     it('should accept custom shell option', () => {
       const ptyId = ptyManager.create({
         cwd: '/test/path',
-        shell: '/bin/bash'
+        shell: '/bin/bash',
       })
 
       expect(ptyManager.exists(ptyId)).toBe(true)
@@ -37,7 +37,7 @@ describe('PTYManager', () => {
     it('should accept custom environment variables', () => {
       const ptyId = ptyManager.create({
         cwd: '/test/path',
-        env: { TEST_VAR: 'test_value' }
+        env: { TEST_VAR: 'test_value' },
       })
 
       expect(ptyManager.exists(ptyId)).toBe(true)
@@ -47,7 +47,7 @@ describe('PTYManager', () => {
       const ptyId = ptyManager.create({
         cwd: '/test/path',
         cols: 120,
-        rows: 40
+        rows: 40,
       })
 
       expect(ptyManager.exists(ptyId)).toBe(true)
@@ -66,7 +66,9 @@ describe('PTYManager', () => {
     })
 
     it('should throw error when killing non-existent PTY', () => {
-      expect(() => ptyManager.kill('non-existent')).toThrow('PTY instance non-existent not found')
+      expect(() => ptyManager.kill('non-existent')).toThrow(
+        'PTY instance non-existent not found'
+      )
     })
   })
 
@@ -184,7 +186,9 @@ describe('PTYManager', () => {
     })
 
     it('should throw error when unpinning non-existent PTY', () => {
-      expect(() => ptyManager.unpin('non-existent')).toThrow('PTY instance non-existent not found')
+      expect(() => ptyManager.unpin('non-existent')).toThrow(
+        'PTY instance non-existent not found'
+      )
     })
 
     it('should handle unpinning already unpinned PTY', () => {
@@ -221,12 +225,12 @@ describe('PTYManager', () => {
       expect(pinned[0]).toMatchObject({
         ptyId: ptyId1,
         projectId: 'project-1',
-        command: 'npm run dev'
+        command: 'npm run dev',
       })
       expect(pinned[1]).toMatchObject({
         ptyId: ptyId3,
         projectId: 'project-3',
-        command: 'npm run build'
+        command: 'npm run build',
       })
       expect(pinned[0].startTime).toBeInstanceOf(Date)
       expect(pinned[1].startTime).toBeInstanceOf(Date)

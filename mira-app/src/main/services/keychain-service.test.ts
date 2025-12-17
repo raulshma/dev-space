@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { KeychainService } from './keychain-service'
-import type { AIProvider } from '../../shared/models'
+import { KeychainService } from 'main/services/keychain-service'
+import type { AIProvider } from 'shared/models'
 
 // Mock electron's safeStorage
 vi.mock('electron', () => ({
   safeStorage: {
     isEncryptionAvailable: () => true,
     encryptString: (text: string) => Buffer.from(text, 'utf-8'),
-    decryptString: (buffer: Buffer) => buffer.toString('utf-8')
-  }
+    decryptString: (buffer: Buffer) => buffer.toString('utf-8'),
+  },
 }))
 
 describe('KeychainService', () => {

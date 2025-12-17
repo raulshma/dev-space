@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { AIModel } from '../../../../shared/models'
+import type { AIModel } from 'shared/models'
 
 /**
  * ModelSelector Component
@@ -83,17 +83,24 @@ export function ModelSelector({ onModelChange }: ModelSelectorProps) {
     <div className="relative">
       {/* Dropdown trigger */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 rounded-sm border border-neutral-300 bg-white px-3 py-2 text-sm hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        onClick={() => setIsOpen(!isOpen)}
       >
-        <span className="font-medium">{activeModel ? activeModel.name : 'Select Model'}</span>
+        <span className="font-medium">
+          {activeModel ? activeModel.name : 'Select Model'}
+        </span>
         <svg
           className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            d="M19 9l-7 7-7-7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+          />
         </svg>
       </button>
 
@@ -101,37 +108,55 @@ export function ModelSelector({ onModelChange }: ModelSelectorProps) {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <button
+            aria-label="Close dropdown"
+            className="fixed inset-0 z-10 cursor-default bg-transparent border-none"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setIsOpen(false)
+            }}
+            tabIndex={-1}
+            type="button"
+          />
 
           {/* Menu */}
           <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-sm border border-neutral-300 bg-white shadow-lg">
             <div className="max-h-80 overflow-y-auto">
-              {models.map((model) => (
+              {models.map(model => (
                 <button
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
+                    model.isConfigured
+                      ? 'hover:bg-neutral-50'
+                      : 'cursor-not-allowed opacity-50'
+                  } ${activeModel?.id === model.id ? 'bg-amber-50 text-amber-900' : ''}`}
+                  disabled={!model.isConfigured}
                   key={model.id}
                   onClick={() => handleModelSelect(model)}
-                  disabled={!model.isConfigured}
-                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${
-                    model.isConfigured ? 'hover:bg-neutral-50' : 'cursor-not-allowed opacity-50'
-                  } ${activeModel?.id === model.id ? 'bg-amber-50 text-amber-900' : ''}`}
                 >
                   <div className="flex flex-col">
                     <span className="font-medium">{model.name}</span>
                     <span className="text-xs text-neutral-500">
-                      {model.provider} • {(model.maxTokens / 1000).toFixed(0)}k tokens
+                      {model.provider} • {(model.maxTokens / 1000).toFixed(0)}k
+                      tokens
                     </span>
                   </div>
 
                   {!model.isConfigured && (
-                    <span className="text-xs text-amber-600">Configure Key</span>
+                    <span className="text-xs text-amber-600">
+                      Configure Key
+                    </span>
                   )}
 
                   {activeModel?.id === model.id && (
-                    <svg className="h-4 w-4 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="h-4 w-4 text-amber-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                         clipRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        fillRule="evenodd"
                       />
                     </svg>
                   )}
@@ -139,7 +164,7 @@ export function ModelSelector({ onModelChange }: ModelSelectorProps) {
               ))}
             </div>
 
-            {models.filter((m) => !m.isConfigured).length > 0 && (
+            {models.filter(m => !m.isConfigured).length > 0 && (
               <div className="border-t border-neutral-200 px-3 py-2 text-xs text-neutral-500">
                 Configure API keys in settings to enable more models
               </div>

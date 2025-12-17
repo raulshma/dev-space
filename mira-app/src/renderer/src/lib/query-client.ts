@@ -15,11 +15,11 @@ export const queryClient = new QueryClient({
       // Refetch on window focus for fresh data
       refetchOnWindowFocus: true,
       // Don't refetch on mount if data is fresh
-      refetchOnMount: false
+      refetchOnMount: false,
     },
     mutations: {
       // Retry failed mutations once
-      retry: 1
-    }
-  }
+      retry: 1,
+    },
+  },
 })

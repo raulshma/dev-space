@@ -9,8 +9,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { TerminalView } from './TerminalView'
-import { useTerminalStore } from '../../stores/terminal-store'
-import type { TerminalPane, ErrorContext } from '../../../../shared/models'
+import { useTerminalStore } from 'renderer/stores/terminal-store'
+import type { TerminalPane, ErrorContext } from 'shared/models'
 
 interface TerminalPanesProps {
   projectId: string
@@ -23,13 +23,19 @@ interface PaneLayoutProps {
   onErrorContext?: (context: ErrorContext) => void
 }
 
-function PaneLayout({ pane, onSplit, onErrorContext }: PaneLayoutProps): React.JSX.Element {
+function PaneLayout({
+  pane,
+  onSplit,
+  onErrorContext,
+}: PaneLayoutProps): React.JSX.Element {
   const [size, setSize] = useState(pane.size)
   const [isDragging, setIsDragging] = useState(false)
-  const dragStartRef = useRef<{ x: number; y: number; size: number } | null>(null)
+  const dragStartRef = useRef<{ x: number; y: number; size: number } | null>(
+    null
+  )
 
-  const terminal = useTerminalStore((state) => state.getTerminal(pane.terminalId))
-  const updateTerminal = useTerminalStore((state) => state.updateTerminal)
+  const terminal = useTerminalStore(state => state.getTerminal(pane.terminalId))
+  const updateTerminal = useTerminalStore(state => state.updateTerminal)
 
   const handleMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault()
@@ -37,7 +43,7 @@ function PaneLayout({ pane, onSplit, onErrorContext }: PaneLayoutProps): React.J
     dragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
-      size
+      size,
     }
   }
 
@@ -52,10 +58,15 @@ function PaneLayout({ pane, onSplit, onErrorContext }: PaneLayoutProps): React.J
         ? e.clientX - dragStartRef.current.x
         : e.clientY - dragStartRef.current.y
 
-      const containerSize = isHorizontal ? window.innerWidth : window.innerHeight
+      const containerSize = isHorizontal
+        ? window.innerWidth
+        : window.innerHeight
       const deltaPercent = (delta / containerSize) * 100
 
-      const newSize = Math.max(10, Math.min(90, dragStartRef.current.size + deltaPercent))
+      const newSize = Math.max(
+        10,
+        Math.min(90, dragStartRef.current.size + deltaPercent)
+      )
       setSize(newSize)
     }
 
@@ -87,19 +98,41 @@ function PaneLayout({ pane, onSplit, onErrorContext }: PaneLayoutProps): React.J
             key={childPane.terminalId}
             style={{
               [isHorizontal ? 'width' : 'height']: `${childPane.size}%`,
-              position: 'relative'
+              position: 'relative',
             }}
           >
-            <PaneLayout pane={childPane} onSplit={onSplit} onErrorContext={onErrorContext} />
-            {index < pane.children!.length - 1 && (
+            <PaneLayout
+              onErrorContext={onErrorContext}
+              onSplit={onSplit}
+              pane={childPane}
+            />
+            {index < pane.children?.length - 1 && (
               <div
+                aria-label="Resize pane"
+                aria-orientation={isHorizontal ? 'vertical' : 'horizontal'}
+                aria-valuemax={90}
+                aria-valuemin={10}
+                aria-valuenow={size}
                 className={`
                   absolute bg-neutral-300 hover:bg-amber-500 transition-colors cursor-${
                     isHorizontal ? 'col' : 'row'
                   }-resize
                   ${isHorizontal ? 'right-0 top-0 w-1 h-full' : 'bottom-0 left-0 h-1 w-full'}
                 `}
+                onKeyDown={e => {
+                  // Allow keyboard resizing with arrow keys
+                  if (
+                    e.key === 'ArrowLeft' ||
+                    e.key === 'ArrowRight' ||
+                    e.key === 'ArrowUp' ||
+                    e.key === 'ArrowDown'
+                  ) {
+                    e.preventDefault()
+                  }
+                }}
                 onMouseDown={handleMouseDown}
+                role="separator"
+                tabIndex={0}
               />
             )}
           </div>
@@ -120,24 +153,24 @@ function PaneLayout({ pane, onSplit, onErrorContext }: PaneLayoutProps): React.J
   return (
     <div className="relative w-full h-full group">
       <TerminalView
+        onErrorContext={onErrorContext}
+        onTitleChange={title => updateTerminal(terminal.id, { title })}
         ptyId={terminal.ptyId}
         terminalId={terminal.id}
-        onTitleChange={(title) => updateTerminal(terminal.id, { title })}
-        onErrorContext={onErrorContext}
       />
 
       {/* Split controls - shown on hover */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
         <button
-          onClick={() => onSplit?.(terminal.id, 'horizontal')}
           className="px-2 py-1 bg-neutral-800 text-neutral-200 text-xs rounded hover:bg-neutral-700"
+          onClick={() => onSplit?.(terminal.id, 'horizontal')}
           title="Split horizontally"
         >
           ⬌
         </button>
         <button
-          onClick={() => onSplit?.(terminal.id, 'vertical')}
           className="px-2 py-1 bg-neutral-800 text-neutral-200 text-xs rounded hover:bg-neutral-700"
+          onClick={() => onSplit?.(terminal.id, 'vertical')}
           title="Split vertically"
         >
           ⬍
@@ -147,12 +180,17 @@ function PaneLayout({ pane, onSplit, onErrorContext }: PaneLayoutProps): React.J
   )
 }
 
-export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps): React.JSX.Element {
-  const terminals = useTerminalStore((state) => state.getTerminalsByProject(projectId))
-  const focusedTerminalId = useTerminalStore((state) => state.focusedTerminalId)
-  const layout = useTerminalStore((state) => state.getLayout(projectId))
-  const setLayout = useTerminalStore((state) => state.setLayout)
-  const addTerminal = useTerminalStore((state) => state.addTerminal)
+export function TerminalPanes({
+  projectId,
+  onErrorContext,
+}: TerminalPanesProps): React.JSX.Element {
+  const terminals = useTerminalStore(state =>
+    state.getTerminalsByProject(projectId)
+  )
+  const focusedTerminalId = useTerminalStore(state => state.focusedTerminalId)
+  const layout = useTerminalStore(state => state.getLayout(projectId))
+  const setLayout = useTerminalStore(state => state.setLayout)
+  const addTerminal = useTerminalStore(state => state.addTerminal)
 
   // Initialize layout if not exists
   useEffect(() => {
@@ -160,7 +198,7 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
       const initialLayout: TerminalPane = {
         terminalId: terminals[0].id,
         direction: null,
-        size: 100
+        size: 100,
       }
       setLayout(projectId, { projectId, panes: [initialLayout] })
     }
@@ -172,14 +210,14 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
   ): Promise<void> => {
     try {
       // Get the terminal being split
-      const terminal = terminals.find((t) => t.id === terminalId)
+      const terminal = terminals.find(t => t.id === terminalId)
       if (!terminal) return
 
       // Create new PTY
       const response = await window.api.pty.create({
         projectId,
         cwd: terminal.cwd,
-        shell: undefined
+        shell: undefined,
       })
 
       // Create new terminal instance
@@ -190,7 +228,7 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
         ptyId: response.ptyId,
         isPinned: false,
         title: 'Terminal',
-        cwd: terminal.cwd
+        cwd: terminal.cwd,
       })
 
       // Update layout to include split
@@ -206,21 +244,21 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
                 {
                   terminalId: pane.terminalId,
                   direction: null,
-                  size: 50
+                  size: 50,
                 },
                 {
                   terminalId: newTerminalId,
                   direction: null,
-                  size: 50
-                }
-              ]
+                  size: 50,
+                },
+              ],
             }
           }
 
           if (pane.children) {
             return {
               ...pane,
-              children: pane.children.map(updatePaneWithSplit)
+              children: pane.children.map(updatePaneWithSplit),
             }
           }
 
@@ -229,7 +267,7 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
 
         const updatedLayout = {
           ...layout,
-          panes: layout.panes.map(updatePaneWithSplit)
+          panes: layout.panes.map(updatePaneWithSplit),
         }
 
         setLayout(projectId, updatedLayout)
@@ -240,7 +278,8 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
   }
 
   // Get the focused terminal or first terminal
-  const activeTerminal = terminals.find((t) => t.id === focusedTerminalId) || terminals[0]
+  const activeTerminal =
+    terminals.find(t => t.id === focusedTerminalId) || terminals[0]
 
   if (!activeTerminal) {
     return (
@@ -255,9 +294,9 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
     return (
       <div className="w-full h-full">
         <TerminalView
+          onErrorContext={onErrorContext}
           ptyId={activeTerminal.ptyId}
           terminalId={activeTerminal.id}
-          onErrorContext={onErrorContext}
         />
       </div>
     )
@@ -265,8 +304,13 @@ export function TerminalPanes({ projectId, onErrorContext }: TerminalPanesProps)
 
   return (
     <div className="w-full h-full bg-neutral-900">
-      {layout.panes.map((pane) => (
-        <PaneLayout key={pane.terminalId} pane={pane} onSplit={handleSplit} onErrorContext={onErrorContext} />
+      {layout.panes.map(pane => (
+        <PaneLayout
+          key={pane.terminalId}
+          onErrorContext={onErrorContext}
+          onSplit={handleSplit}
+          pane={pane}
+        />
       ))}
     </div>
   )

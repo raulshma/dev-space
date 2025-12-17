@@ -82,8 +82,8 @@ import type {
   ShellOpenExternalResponse,
   ShellOpenPathRequest,
   ShellOpenPathResponse,
-  IPCErrorResponse
-} from '../../../shared/ipc-types'
+  IPCErrorResponse,
+} from 'shared/ipc-types'
 
 /**
  * Custom error class for IPC errors
@@ -137,7 +137,9 @@ export class IPCClient {
   // PROJECT OPERATIONS
   // ============================================================================
 
-  async listProjects(request: ProjectListRequest): Promise<ProjectListResponse> {
+  async listProjects(
+    request: ProjectListRequest
+  ): Promise<ProjectListResponse> {
     const response = await this.api.projects.list(request)
     return handleResponse(response)
   }
@@ -147,17 +149,23 @@ export class IPCClient {
     return handleResponse(response)
   }
 
-  async createProject(request: ProjectCreateRequest): Promise<ProjectCreateResponse> {
+  async createProject(
+    request: ProjectCreateRequest
+  ): Promise<ProjectCreateResponse> {
     const response = await this.api.projects.create(request)
     return handleResponse(response)
   }
 
-  async updateProject(request: ProjectUpdateRequest): Promise<ProjectUpdateResponse> {
+  async updateProject(
+    request: ProjectUpdateRequest
+  ): Promise<ProjectUpdateResponse> {
     const response = await this.api.projects.update(request)
     return handleResponse(response)
   }
 
-  async deleteProject(request: ProjectDeleteRequest): Promise<ProjectDeleteResponse> {
+  async deleteProject(
+    request: ProjectDeleteRequest
+  ): Promise<ProjectDeleteResponse> {
     const response = await this.api.projects.delete(request)
     return handleResponse(response)
   }
@@ -176,7 +184,9 @@ export class IPCClient {
     return handleResponse(response)
   }
 
-  async addTagToProject(request: TagAddToProjectRequest): Promise<TagAddToProjectResponse> {
+  async addTagToProject(
+    request: TagAddToProjectRequest
+  ): Promise<TagAddToProjectResponse> {
     const response = await this.api.tags.addToProject(request)
     return handleResponse(response)
   }
@@ -192,17 +202,23 @@ export class IPCClient {
   // GIT OPERATIONS
   // ============================================================================
 
-  async getGitTelemetry(request: GitTelemetryRequest): Promise<GitTelemetryResponse> {
+  async getGitTelemetry(
+    request: GitTelemetryRequest
+  ): Promise<GitTelemetryResponse> {
     const response = await this.api.git.getTelemetry(request)
     return handleResponse(response)
   }
 
-  async startGitRefresh(request: GitStartRefreshRequest): Promise<GitStartRefreshResponse> {
+  async startGitRefresh(
+    request: GitStartRefreshRequest
+  ): Promise<GitStartRefreshResponse> {
     const response = await this.api.git.startRefresh(request)
     return handleResponse(response)
   }
 
-  async stopGitRefresh(request: GitStopRefreshRequest): Promise<GitStopRefreshResponse> {
+  async stopGitRefresh(
+    request: GitStopRefreshRequest
+  ): Promise<GitStopRefreshResponse> {
     const response = await this.api.git.stopRefresh(request)
     return handleResponse(response)
   }
@@ -246,7 +262,9 @@ export class IPCClient {
     return handleResponse(response)
   }
 
-  async getPinnedPTY(request: PTYGetPinnedRequest): Promise<PTYGetPinnedResponse> {
+  async getPinnedPTY(
+    request: PTYGetPinnedRequest
+  ): Promise<PTYGetPinnedResponse> {
     const response = await this.api.pty.getPinned(request)
     return handleResponse(response)
   }
@@ -265,7 +283,9 @@ export class IPCClient {
     return handleResponse(response)
   }
 
-  async deleteApiKey(request: KeychainDeleteRequest): Promise<KeychainDeleteResponse> {
+  async deleteApiKey(
+    request: KeychainDeleteRequest
+  ): Promise<KeychainDeleteResponse> {
     const response = await this.api.keychain.delete(request)
     return handleResponse(response)
   }
@@ -284,7 +304,9 @@ export class IPCClient {
     return handleResponse(response)
   }
 
-  async restoreSession(request: SessionRestoreRequest): Promise<SessionRestoreResponse> {
+  async restoreSession(
+    request: SessionRestoreRequest
+  ): Promise<SessionRestoreResponse> {
     const response = await this.api.sessions.restore(request)
     return handleResponse(response)
   }
@@ -293,12 +315,16 @@ export class IPCClient {
   // COMMAND LIBRARY OPERATIONS
   // ============================================================================
 
-  async listCommands(request: CommandListRequest): Promise<CommandListResponse> {
+  async listCommands(
+    request: CommandListRequest
+  ): Promise<CommandListResponse> {
     const response = await this.api.commands.list(request)
     return handleResponse(response)
   }
 
-  async createCommand(request: CommandCreateRequest): Promise<CommandCreateResponse> {
+  async createCommand(
+    request: CommandCreateRequest
+  ): Promise<CommandCreateResponse> {
     const response = await this.api.commands.create(request)
     return handleResponse(response)
   }
@@ -307,22 +333,30 @@ export class IPCClient {
   // BLUEPRINT OPERATIONS
   // ============================================================================
 
-  async listBlueprints(request: BlueprintListRequest): Promise<BlueprintListResponse> {
+  async listBlueprints(
+    request: BlueprintListRequest
+  ): Promise<BlueprintListResponse> {
     const response = await this.api.blueprints.list(request)
     return handleResponse(response)
   }
 
-  async createBlueprint(request: BlueprintCreateRequest): Promise<BlueprintCreateResponse> {
+  async createBlueprint(
+    request: BlueprintCreateRequest
+  ): Promise<BlueprintCreateResponse> {
     const response = await this.api.blueprints.create(request)
     return handleResponse(response)
   }
 
-  async captureBlueprint(request: BlueprintCaptureRequest): Promise<BlueprintCaptureResponse> {
+  async captureBlueprint(
+    request: BlueprintCaptureRequest
+  ): Promise<BlueprintCaptureResponse> {
     const response = await this.api.blueprints.capture(request)
     return handleResponse(response)
   }
 
-  async applyBlueprint(request: BlueprintApplyRequest): Promise<BlueprintApplyResponse> {
+  async applyBlueprint(
+    request: BlueprintApplyRequest
+  ): Promise<BlueprintApplyResponse> {
     const response = await this.api.blueprints.apply(request)
     return handleResponse(response)
   }
@@ -345,7 +379,9 @@ export class IPCClient {
   // SHORTCUT OPERATIONS
   // ============================================================================
 
-  async listShortcuts(request: ShortcutListRequest): Promise<ShortcutListResponse> {
+  async listShortcuts(
+    request: ShortcutListRequest
+  ): Promise<ShortcutListResponse> {
     const response = await this.api.shortcuts.list(request)
     return handleResponse(response)
   }
@@ -359,12 +395,16 @@ export class IPCClient {
   // SHELL OPERATIONS
   // ============================================================================
 
-  async openExternal(request: ShellOpenExternalRequest): Promise<ShellOpenExternalResponse> {
+  async openExternal(
+    request: ShellOpenExternalRequest
+  ): Promise<ShellOpenExternalResponse> {
     const response = await this.api.shell.openExternal(request)
     return handleResponse(response)
   }
 
-  async openPath(request: ShellOpenPathRequest): Promise<ShellOpenPathResponse> {
+  async openPath(
+    request: ShellOpenPathRequest
+  ): Promise<ShellOpenPathResponse> {
     const response = await this.api.shell.openPath(request)
     return handleResponse(response)
   }

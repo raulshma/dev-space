@@ -2,12 +2,12 @@
 // Requirements: 1.1, 3.2, 18.4
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { handleDatabaseError } from '../lib/error-handler'
+import { handleDatabaseError } from 'renderer/lib/error-handler'
 import type {
   ProjectFilter,
   CreateProjectInput,
-  UpdateProjectInput
-} from '../../../shared/models'
+  UpdateProjectInput,
+} from 'shared/models'
 
 // Query keys
 export const projectKeys = {
@@ -15,7 +15,7 @@ export const projectKeys = {
   lists: () => [...projectKeys.all, 'list'] as const,
   list: (filter?: ProjectFilter) => [...projectKeys.lists(), filter] as const,
   details: () => [...projectKeys.all, 'detail'] as const,
-  detail: (id: string) => [...projectKeys.details(), id] as const
+  detail: (id: string) => [...projectKeys.details(), id] as const,
 }
 
 // Hook to fetch all projects with optional filtering
@@ -25,7 +25,7 @@ export function useProjects(filter?: ProjectFilter) {
     queryFn: async () => {
       const response = await window.api.projects.list({ filter })
       return response.projects
-    }
+    },
   })
 }
 
@@ -38,7 +38,7 @@ export function useProject(id: string | null) {
       const response = await window.api.projects.get({ id })
       return response.project
     },
-    enabled: !!id
+    enabled: !!id,
   })
 }
 
@@ -55,9 +55,9 @@ export function useCreateProject() {
       // Invalidate all project lists to refetch
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() })
     },
-    onError: (error) => {
+    onError: error => {
       handleDatabaseError(error, 'create project')
-    }
+    },
   })
 }
 
@@ -66,18 +66,26 @@ export function useUpdateProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateProjectInput }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string
+      data: UpdateProjectInput
+    }) => {
       const response = await window.api.projects.update({ id, data })
       return response.project
     },
-    onSuccess: (project) => {
+    onSuccess: project => {
       // Invalidate the specific project and all lists
-      queryClient.invalidateQueries({ queryKey: projectKeys.detail(project.id) })
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.detail(project.id),
+      })
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() })
     },
-    onError: (error) => {
+    onError: error => {
       handleDatabaseError(error, 'update project')
-    }
+    },
   })
 }
 
@@ -95,8 +103,8 @@ export function useDeleteProject() {
       queryClient.removeQueries({ queryKey: projectKeys.detail(id) })
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() })
     },
-    onError: (error) => {
+    onError: error => {
       handleDatabaseError(error, 'delete project')
-    }
+    },
   })
 }

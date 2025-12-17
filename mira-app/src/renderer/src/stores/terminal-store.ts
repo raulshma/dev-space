@@ -2,7 +2,7 @@
 // Requirements: 16.1, 16.3, 13.1
 
 import { create } from 'zustand'
-import type { TerminalLayout } from '../../../shared/models'
+import type { TerminalLayout } from 'shared/models'
 
 export interface TerminalInstance {
   id: string
@@ -21,7 +21,10 @@ export interface TerminalState {
   // Actions
   addTerminal: (terminal: TerminalInstance) => void
   removeTerminal: (terminalId: string) => void
-  updateTerminal: (terminalId: string, updates: Partial<TerminalInstance>) => void
+  updateTerminal: (
+    terminalId: string,
+    updates: Partial<TerminalInstance>
+  ) => void
   getTerminal: (terminalId: string) => TerminalInstance | undefined
   getTerminalsByProject: (projectId: string) => TerminalInstance[]
   setLayout: (projectId: string, layout: TerminalLayout) => void
@@ -38,24 +41,27 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   focusedTerminalId: null,
 
   addTerminal: (terminal: TerminalInstance) =>
-    set((state) => {
+    set(state => {
       const newTerminals = new Map(state.terminals)
       newTerminals.set(terminal.id, terminal)
       return { terminals: newTerminals }
     }),
 
   removeTerminal: (terminalId: string) =>
-    set((state) => {
+    set(state => {
       const newTerminals = new Map(state.terminals)
       newTerminals.delete(terminalId)
       return {
         terminals: newTerminals,
-        focusedTerminalId: state.focusedTerminalId === terminalId ? null : state.focusedTerminalId
+        focusedTerminalId:
+          state.focusedTerminalId === terminalId
+            ? null
+            : state.focusedTerminalId,
       }
     }),
 
   updateTerminal: (terminalId: string, updates: Partial<TerminalInstance>) =>
-    set((state) => {
+    set(state => {
       const terminal = state.terminals.get(terminalId)
       if (!terminal) return state
 
@@ -70,11 +76,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   getTerminalsByProject: (projectId: string) => {
     const terminals = get().terminals
-    return Array.from(terminals.values()).filter((t) => t.projectId === projectId)
+    return Array.from(terminals.values()).filter(t => t.projectId === projectId)
   },
 
   setLayout: (projectId: string, layout: TerminalLayout) =>
-    set((state) => {
+    set(state => {
       const newLayouts = new Map(state.layouts)
       newLayouts.set(projectId, layout)
       return { layouts: newLayouts }
@@ -86,11 +92,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 
   focusTerminal: (terminalId: string) =>
     set({
-      focusedTerminalId: terminalId
+      focusedTerminalId: terminalId,
     }),
 
   pinTerminal: (terminalId: string) =>
-    set((state) => {
+    set(state => {
       const terminal = state.terminals.get(terminalId)
       if (!terminal) return state
 
@@ -100,7 +106,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }),
 
   unpinTerminal: (terminalId: string) =>
-    set((state) => {
+    set(state => {
       const terminal = state.terminals.get(terminalId)
       if (!terminal) return state
 
@@ -110,14 +116,16 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }),
 
   clearProject: (projectId: string) =>
-    set((state) => {
+    set(state => {
       const newTerminals = new Map(state.terminals)
       const newLayouts = new Map(state.layouts)
 
       // Remove all terminals for this project
-      Array.from(newTerminals.values())
-        .filter((t) => t.projectId === projectId)
-        .forEach((t) => newTerminals.delete(t.id))
+      for (const t of Array.from(newTerminals.values()).filter(
+        t => t.projectId === projectId
+      )) {
+        newTerminals.delete(t.id)
+      }
 
       // Remove layout for this project
       newLayouts.delete(projectId)
@@ -129,7 +137,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           state.focusedTerminalId &&
           state.terminals.get(state.focusedTerminalId)?.projectId === projectId
             ? null
-            : state.focusedTerminalId
+            : state.focusedTerminalId,
       }
-    })
+    }),
 }))

@@ -1,8 +1,8 @@
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import { existsSync } from 'fs'
-import { join } from 'path'
-import type { GitTelemetry } from '../../shared/models'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import type { GitTelemetry } from 'shared/models'
 
 const execAsync = promisify(exec)
 
@@ -20,10 +20,13 @@ export class GitService {
         return false
       }
 
-      const { stdout } = await execAsync('git rev-parse --is-inside-work-tree', {
-        cwd: path,
-        timeout: 5000
-      })
+      const { stdout } = await execAsync(
+        'git rev-parse --is-inside-work-tree',
+        {
+          cwd: path,
+          timeout: 5000,
+        }
+      )
       return stdout.trim() === 'true'
     } catch {
       return false
@@ -44,7 +47,7 @@ export class GitService {
         behind: 0,
         modified: 0,
         staged: 0,
-        untracked: 0
+        untracked: 0,
       }
     }
 
@@ -52,7 +55,7 @@ export class GitService {
       // Get current branch
       const branchResult = await execAsync('git rev-parse --abbrev-ref HEAD', {
         cwd: projectPath,
-        timeout: 5000
+        timeout: 5000,
       })
       const branch = branchResult.stdout.trim()
 
@@ -64,7 +67,7 @@ export class GitService {
           `git rev-list --left-right --count HEAD...@{upstream}`,
           {
             cwd: projectPath,
-            timeout: 5000
+            timeout: 5000,
           }
         )
         const [aheadStr, behindStr] = revListResult.stdout.trim().split(/\s+/)
@@ -77,10 +80,12 @@ export class GitService {
       // Get status counts
       const statusResult = await execAsync('git status --porcelain', {
         cwd: projectPath,
-        timeout: 5000
+        timeout: 5000,
       })
 
-      const statusLines = statusResult.stdout.split('\n').filter((line) => line.trim())
+      const statusLines = statusResult.stdout
+        .split('\n')
+        .filter(line => line.trim())
       let modified = 0
       let staged = 0
       let untracked = 0
@@ -113,7 +118,7 @@ export class GitService {
         behind,
         modified,
         staged,
-        untracked
+        untracked,
       }
 
       // Cache the result
@@ -129,7 +134,7 @@ export class GitService {
         behind: 0,
         modified: 0,
         staged: 0,
-        untracked: 0
+        untracked: 0,
       }
     }
   }
@@ -154,7 +159,10 @@ export class GitService {
           onUpdate(telemetry)
         }
       } catch (error) {
-        console.error(`Error refreshing git telemetry for project ${projectId}:`, error)
+        console.error(
+          `Error refreshing git telemetry for project ${projectId}:`,
+          error
+        )
       }
     }, interval)
 
@@ -162,13 +170,16 @@ export class GitService {
 
     // Do an immediate fetch
     this.getTelemetry(projectPath)
-      .then((telemetry) => {
+      .then(telemetry => {
         if (onUpdate) {
           onUpdate(telemetry)
         }
       })
-      .catch((error) => {
-        console.error(`Error in initial git telemetry fetch for project ${projectId}:`, error)
+      .catch(error => {
+        console.error(
+          `Error in initial git telemetry fetch for project ${projectId}:`,
+          error
+        )
       })
   }
 

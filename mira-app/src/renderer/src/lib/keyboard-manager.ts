@@ -31,7 +31,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
   'terminal:split-horizontal': 'Mod+Shift+H',
   'terminal:split-vertical': 'Mod+Shift+V',
   'project:close': 'Mod+Shift+W',
-  'settings:open': 'Mod+,'
+  'settings:open': 'Mod+,',
 }
 
 /**
@@ -106,7 +106,10 @@ export class KeyboardManager {
         const binding = this.normalizeBinding(event)
         const commandPaletteBinding = this.shortcuts.get('command-palette:open')
 
-        if (commandPaletteBinding && binding === this.normalizeShortcut(commandPaletteBinding)) {
+        if (
+          commandPaletteBinding &&
+          binding === this.normalizeShortcut(commandPaletteBinding)
+        ) {
           event.preventDefault()
           const handler = this.handlers.get('command-palette:open')
           if (handler) {
@@ -165,7 +168,13 @@ export class KeyboardManager {
 
     // Add key
     const key = event.key
-    if (key && key !== 'Control' && key !== 'Meta' && key !== 'Alt' && key !== 'Shift') {
+    if (
+      key &&
+      key !== 'Control' &&
+      key !== 'Meta' &&
+      key !== 'Alt' &&
+      key !== 'Shift'
+    ) {
       parts.push(key.toUpperCase())
     }
 
@@ -178,7 +187,7 @@ export class KeyboardManager {
   private normalizeShortcut(shortcut: string): string {
     return shortcut
       .split('+')
-      .map((part) => part.trim().toUpperCase())
+      .map(part => part.trim().toUpperCase())
       .join('+')
   }
 

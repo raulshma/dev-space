@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
-import { IPC_CHANNELS } from '../shared/ipc-types'
+import { IPC_CHANNELS } from 'shared/ipc-types'
 import type {
   ProjectListRequest,
   ProjectListResponse,
@@ -99,8 +98,8 @@ import type {
   AgentGetTokenUsageRequest,
   AgentGetTokenUsageResponse,
   AgentGenerateFixRequest,
-  AgentGenerateFixResponse
-} from '../shared/ipc-types'
+  AgentGenerateFixResponse,
+} from 'shared/ipc-types'
 
 /**
  * Mira API exposed to renderer process
@@ -120,7 +119,7 @@ const api = {
     update: (request: ProjectUpdateRequest): Promise<ProjectUpdateResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.PROJECT_UPDATE, request),
     delete: (request: ProjectDeleteRequest): Promise<ProjectDeleteResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE, request)
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE, request),
   },
 
   // Tag operations
@@ -129,22 +128,30 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.TAG_LIST, request),
     create: (request: TagCreateRequest): Promise<TagCreateResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TAG_CREATE, request),
-    addToProject: (request: TagAddToProjectRequest): Promise<TagAddToProjectResponse> =>
+    addToProject: (
+      request: TagAddToProjectRequest
+    ): Promise<TagAddToProjectResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TAG_ADD_TO_PROJECT, request),
     removeFromProject: (
       request: TagRemoveFromProjectRequest
     ): Promise<TagRemoveFromProjectResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.TAG_REMOVE_FROM_PROJECT, request)
+      ipcRenderer.invoke(IPC_CHANNELS.TAG_REMOVE_FROM_PROJECT, request),
   },
 
   // Git operations
   git: {
-    getTelemetry: (request: GitTelemetryRequest): Promise<GitTelemetryResponse> =>
+    getTelemetry: (
+      request: GitTelemetryRequest
+    ): Promise<GitTelemetryResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_TELEMETRY, request),
-    startRefresh: (request: GitStartRefreshRequest): Promise<GitStartRefreshResponse> =>
+    startRefresh: (
+      request: GitStartRefreshRequest
+    ): Promise<GitStartRefreshResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_START_REFRESH, request),
-    stopRefresh: (request: GitStopRefreshRequest): Promise<GitStopRefreshResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.GIT_STOP_REFRESH, request)
+    stopRefresh: (
+      request: GitStopRefreshRequest
+    ): Promise<GitStopRefreshResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_STOP_REFRESH, request),
   },
 
   // PTY/Terminal operations
@@ -167,16 +174,22 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.PTY_GET_PINNED, request),
     onData: (ptyId: string, callback: (data: string) => void): (() => void) => {
       const channel = `${IPC_CHANNELS.PTY_DATA}:${ptyId}`
-      const listener = (_event: Electron.IpcRendererEvent, data: string): void => callback(data)
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: string
+      ): void => callback(data)
       ipcRenderer.on(channel, listener)
       return () => ipcRenderer.removeListener(channel, listener)
     },
     onExit: (ptyId: string, callback: (code: number) => void): (() => void) => {
       const channel = `${IPC_CHANNELS.PTY_EXIT}:${ptyId}`
-      const listener = (_event: Electron.IpcRendererEvent, code: number): void => callback(code)
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        code: number
+      ): void => callback(code)
       ipcRenderer.on(channel, listener)
       return () => ipcRenderer.removeListener(channel, listener)
-    }
+    },
   },
 
   // Keychain operations
@@ -188,15 +201,17 @@ const api = {
     delete: (request: KeychainDeleteRequest): Promise<KeychainDeleteResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.KEYCHAIN_DELETE, request),
     has: (request: KeychainHasRequest): Promise<KeychainHasResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.KEYCHAIN_HAS, request)
+      ipcRenderer.invoke(IPC_CHANNELS.KEYCHAIN_HAS, request),
   },
 
   // Session operations
   sessions: {
     save: (request: SessionSaveRequest): Promise<SessionSaveResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SESSION_SAVE, request),
-    restore: (request: SessionRestoreRequest): Promise<SessionRestoreResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SESSION_RESTORE, request)
+    restore: (
+      request: SessionRestoreRequest
+    ): Promise<SessionRestoreResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SESSION_RESTORE, request),
   },
 
   // Command library operations
@@ -204,19 +219,23 @@ const api = {
     list: (request: CommandListRequest): Promise<CommandListResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.COMMAND_LIST, request),
     create: (request: CommandCreateRequest): Promise<CommandCreateResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.COMMAND_CREATE, request)
+      ipcRenderer.invoke(IPC_CHANNELS.COMMAND_CREATE, request),
   },
 
   // Blueprint operations
   blueprints: {
     list: (request: BlueprintListRequest): Promise<BlueprintListResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.BLUEPRINT_LIST, request),
-    create: (request: BlueprintCreateRequest): Promise<BlueprintCreateResponse> =>
+    create: (
+      request: BlueprintCreateRequest
+    ): Promise<BlueprintCreateResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.BLUEPRINT_CREATE, request),
-    capture: (request: BlueprintCaptureRequest): Promise<BlueprintCaptureResponse> =>
+    capture: (
+      request: BlueprintCaptureRequest
+    ): Promise<BlueprintCaptureResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.BLUEPRINT_CAPTURE, request),
     apply: (request: BlueprintApplyRequest): Promise<BlueprintApplyResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.BLUEPRINT_APPLY, request)
+      ipcRenderer.invoke(IPC_CHANNELS.BLUEPRINT_APPLY, request),
   },
 
   // Settings operations
@@ -224,7 +243,7 @@ const api = {
     get: (request: SettingGetRequest): Promise<SettingGetResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SETTING_GET, request),
     set: (request: SettingSetRequest): Promise<SettingSetResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SETTING_SET, request)
+      ipcRenderer.invoke(IPC_CHANNELS.SETTING_SET, request),
   },
 
   // Shortcut operations
@@ -232,15 +251,17 @@ const api = {
     list: (request: ShortcutListRequest): Promise<ShortcutListResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SHORTCUT_LIST, request),
     set: (request: ShortcutSetRequest): Promise<ShortcutSetResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SHORTCUT_SET, request)
+      ipcRenderer.invoke(IPC_CHANNELS.SHORTCUT_SET, request),
   },
 
   // Shell operations
   shell: {
-    openExternal: (request: ShellOpenExternalRequest): Promise<ShellOpenExternalResponse> =>
+    openExternal: (
+      request: ShellOpenExternalRequest
+    ): Promise<ShellOpenExternalResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_EXTERNAL, request),
     openPath: (request: ShellOpenPathRequest): Promise<ShellOpenPathResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_PATH, request)
+      ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_PATH, request),
   },
 
   // AI Agent operations
@@ -249,9 +270,13 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_SET_MODEL, request),
     getModel: (request: AgentGetModelRequest): Promise<AgentGetModelResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_GET_MODEL, request),
-    getModels: (request: AgentGetModelsRequest): Promise<AgentGetModelsResponse> =>
+    getModels: (
+      request: AgentGetModelsRequest
+    ): Promise<AgentGetModelsResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_GET_MODELS, request),
-    sendMessage: (request: AgentSendMessageRequest): Promise<AgentSendMessageResponse> =>
+    sendMessage: (
+      request: AgentSendMessageRequest
+    ): Promise<AgentSendMessageResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_SEND_MESSAGE, request),
     getConversation: (
       request: AgentGetConversationRequest
@@ -273,26 +298,22 @@ const api = {
       request: AgentGetContextFilesRequest
     ): Promise<AgentGetContextFilesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_GET_CONTEXT_FILES, request),
-    getTokenUsage: (request: AgentGetTokenUsageRequest): Promise<AgentGetTokenUsageResponse> =>
+    getTokenUsage: (
+      request: AgentGetTokenUsageRequest
+    ): Promise<AgentGetTokenUsageResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_GET_TOKEN_USAGE, request),
-    generateFix: (request: AgentGenerateFixRequest): Promise<AgentGenerateFixResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.AGENT_GENERATE_FIX, request)
+    generateFix: (
+      request: AgentGenerateFixRequest
+    ): Promise<AgentGenerateFixResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_GENERATE_FIX, request),
+  },
+}
+
+declare global {
+  interface Window {
+    api: typeof api
   }
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
-}
+// Use `contextBridge` APIs to expose Electron APIs to renderer
+contextBridge.exposeInMainWorld('api', api)

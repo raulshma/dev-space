@@ -5,7 +5,7 @@
  * Requirements: 7.1, 7.4
  */
 
-import type { ErrorContext } from '../../../shared/models'
+import type { ErrorContext } from 'shared/models'
 
 export interface DetectedError {
   id: string
@@ -52,14 +52,20 @@ export function parseCommand(output: string): string {
  * Extract error output from terminal buffer
  * Gets the last N lines before the exit code message
  */
-export function extractErrorOutput(terminalBuffer: string, maxLines: number = 20): string {
+export function extractErrorOutput(
+  terminalBuffer: string,
+  maxLines: number = 20
+): string {
   const lines = terminalBuffer.split('\n')
   const errorLines: string[] = []
 
   // Find the exit code line
   let exitLineIndex = -1
   for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].includes('exited with code') || lines[i].includes('Process exited')) {
+    if (
+      lines[i].includes('exited with code') ||
+      lines[i].includes('Process exited')
+    ) {
       exitLineIndex = i
       break
     }
@@ -98,7 +104,7 @@ export function detectRelevantFiles(errorOutput: string): string[] {
     // Relative paths: ./path/to/file.ts
     /\.\/(?:[\w.-]+\/)*[\w.-]+\.\w+/g,
     // Windows paths: C:\path\to\file.ts
-    /[a-zA-Z]:\\(?:[\w.-]+\\)*[\w.-]+\.\w+/g
+    /[a-zA-Z]:\\(?:[\w.-]+\\)*[\w.-]+\.\w+/g,
   ]
 
   for (const pattern of patterns) {
@@ -124,7 +130,7 @@ export function createErrorContext(error: DetectedError): ErrorContext {
     errorOutput: error.errorOutput,
     command: error.command,
     exitCode: error.exitCode,
-    relevantFiles
+    relevantFiles,
   }
 }
 

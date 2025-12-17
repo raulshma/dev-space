@@ -7,9 +7,9 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { X, Folder, Terminal, Zap } from 'lucide-react'
-import { useAppStore } from '../../stores/app-store'
-import { useProjects } from '../../hooks/use-projects'
-import { useCommands } from '../../hooks/use-commands'
+import { useAppStore } from 'renderer/stores/app-store'
+import { useProjects } from 'renderer/hooks/use-projects'
+import { useCommands } from 'renderer/hooks/use-commands'
 
 // Search result types
 type SearchResultType = 'project' | 'command' | 'action'
@@ -24,12 +24,12 @@ interface SearchResult {
 }
 
 export function CommandPalette(): React.JSX.Element | null {
-  const isOpen = useAppStore((state) => state.commandPaletteOpen)
-  const closeCommandPalette = useAppStore((state) => state.closeCommandPalette)
-  const setActiveProject = useAppStore((state) => state.setActiveProject)
-  const toggleZenMode = useAppStore((state) => state.toggleZenMode)
-  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
-  const openSettingsPanel = useAppStore((state) => state.openSettingsPanel)
+  const isOpen = useAppStore(state => state.commandPaletteOpen)
+  const closeCommandPalette = useAppStore(state => state.closeCommandPalette)
+  const setActiveProject = useAppStore(state => state.setActiveProject)
+  const toggleZenMode = useAppStore(state => state.toggleZenMode)
+  const toggleSidebar = useAppStore(state => state.toggleSidebar)
+  const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -51,7 +51,7 @@ export function CommandPalette(): React.JSX.Element | null {
         action: () => {
           toggleZenMode()
           closeCommandPalette()
-        }
+        },
       },
       {
         id: 'action-toggle-sidebar',
@@ -62,7 +62,7 @@ export function CommandPalette(): React.JSX.Element | null {
         action: () => {
           toggleSidebar()
           closeCommandPalette()
-        }
+        },
       },
       {
         id: 'action-open-settings',
@@ -73,8 +73,8 @@ export function CommandPalette(): React.JSX.Element | null {
         action: () => {
           openSettingsPanel()
           closeCommandPalette()
-        }
-      }
+        },
+      },
     ],
     [toggleZenMode, toggleSidebar, openSettingsPanel, closeCommandPalette]
   )
@@ -96,7 +96,7 @@ export function CommandPalette(): React.JSX.Element | null {
             action: () => {
               setActiveProject(project.id)
               closeCommandPalette()
-            }
+            },
           })
         ),
         ...commands.slice(0, 5).map(
@@ -109,20 +109,21 @@ export function CommandPalette(): React.JSX.Element | null {
             action: () => {
               // Command execution will be handled by terminal integration
               closeCommandPalette()
-            }
+            },
           })
         ),
-        ...actions
+        ...actions,
       ]
     }
 
     // Filter projects
     const projectResults: SearchResult[] = projects
       .filter(
-        (project) =>
-          project.name.toLowerCase().includes(query) || project.path.toLowerCase().includes(query)
+        project =>
+          project.name.toLowerCase().includes(query) ||
+          project.path.toLowerCase().includes(query)
       )
-      .map((project) => ({
+      .map(project => ({
         id: `project-${project.id}`,
         type: 'project',
         title: project.name,
@@ -131,18 +132,18 @@ export function CommandPalette(): React.JSX.Element | null {
         action: () => {
           setActiveProject(project.id)
           closeCommandPalette()
-        }
+        },
       }))
 
     // Filter commands
     const commandResults: SearchResult[] = commands
       .filter(
-        (command) =>
+        command =>
           command.name.toLowerCase().includes(query) ||
           command.command.toLowerCase().includes(query) ||
-          (command.category && command.category.toLowerCase().includes(query))
+          command.category?.toLowerCase().includes(query)
       )
-      .map((command) => ({
+      .map(command => ({
         id: `command-${command.id}`,
         type: 'command',
         title: command.name,
@@ -151,28 +152,35 @@ export function CommandPalette(): React.JSX.Element | null {
         action: () => {
           // Command execution will be handled by terminal integration
           closeCommandPalette()
-        }
+        },
       }))
 
     // Filter actions
     const actionResults: SearchResult[] = actions.filter(
-      (action) =>
+      action =>
         action.title.toLowerCase().includes(query) ||
-        (action.subtitle && action.subtitle.toLowerCase().includes(query))
+        action.subtitle?.toLowerCase().includes(query)
     )
 
     return [...projectResults, ...commandResults, ...actionResults]
-  }, [searchQuery, projects, commands, actions, setActiveProject, closeCommandPalette])
+  }, [
+    searchQuery,
+    projects,
+    commands,
+    actions,
+    setActiveProject,
+    closeCommandPalette,
+  ])
 
   // Group results by type
   const groupedResults = useMemo(() => {
     const groups: Record<SearchResultType, SearchResult[]> = {
       project: [],
       command: [],
-      action: []
+      action: [],
     }
 
-    searchResults.forEach((result) => {
+    searchResults.forEach(result => {
       groups[result.type].push(result)
     })
 
@@ -199,10 +207,12 @@ export function CommandPalette(): React.JSX.Element | null {
       if (isOpen && searchResults.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          setSelectedIndex((prev) => (prev + 1) % searchResults.length)
+          setSelectedIndex(prev => (prev + 1) % searchResults.length)
         } else if (e.key === 'ArrowUp') {
           e.preventDefault()
-          setSelectedIndex((prev) => (prev - 1 + searchResults.length) % searchResults.length)
+          setSelectedIndex(
+            prev => (prev - 1 + searchResults.length) % searchResults.length
+          )
         } else if (e.key === 'Enter') {
           e.preventDefault()
           const selected = searchResults[selectedIndex]
@@ -250,24 +260,30 @@ export function CommandPalette(): React.JSX.Element | null {
 
   return (
     <div
+      aria-label="Command palette"
+      aria-modal="true"
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[20vh]"
       onClick={handleOverlayClick}
+      onKeyDown={e => {
+        if (e.key === 'Escape') closeCommandPalette()
+      }}
+      role="dialog"
     >
       <div className="w-full max-w-2xl rounded-md border border-neutral-700 bg-neutral-900 shadow-2xl">
         {/* Search Input */}
         <div className="flex items-center border-b border-neutral-700 px-4">
           <input
+            className="flex-1 bg-transparent py-4 text-sm text-neutral-100 placeholder-neutral-500 outline-none"
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search projects, commands, and actions..."
             ref={inputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search projects, commands, and actions..."
-            className="flex-1 bg-transparent py-4 text-sm text-neutral-100 placeholder-neutral-500 outline-none"
           />
           <button
-            onClick={closeCommandPalette}
-            className="ml-2 rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
             aria-label="Close command palette"
+            className="ml-2 rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+            onClick={closeCommandPalette}
           >
             <X className="h-4 w-4" />
           </button>
@@ -284,15 +300,17 @@ export function CommandPalette(): React.JSX.Element | null {
               {/* Projects Section */}
               {groupedResults.project.length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-xs font-medium text-neutral-400">Projects</div>
-                  {groupedResults.project.map((result) => {
+                  <div className="px-3 py-1 text-xs font-medium text-neutral-400">
+                    Projects
+                  </div>
+                  {groupedResults.project.map(result => {
                     const globalIndex = searchResults.indexOf(result)
                     return (
                       <ResultItem
-                        key={result.id}
-                        result={result}
                         isSelected={globalIndex === selectedIndex}
+                        key={result.id}
                         onClick={() => result.action()}
+                        result={result}
                       />
                     )
                   })}
@@ -302,15 +320,17 @@ export function CommandPalette(): React.JSX.Element | null {
               {/* Commands Section */}
               {groupedResults.command.length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-xs font-medium text-neutral-400">Commands</div>
-                  {groupedResults.command.map((result) => {
+                  <div className="px-3 py-1 text-xs font-medium text-neutral-400">
+                    Commands
+                  </div>
+                  {groupedResults.command.map(result => {
                     const globalIndex = searchResults.indexOf(result)
                     return (
                       <ResultItem
-                        key={result.id}
-                        result={result}
                         isSelected={globalIndex === selectedIndex}
+                        key={result.id}
                         onClick={() => result.action()}
+                        result={result}
                       />
                     )
                   })}
@@ -320,15 +340,17 @@ export function CommandPalette(): React.JSX.Element | null {
               {/* Actions Section */}
               {groupedResults.action.length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-xs font-medium text-neutral-400">Actions</div>
-                  {groupedResults.action.map((result) => {
+                  <div className="px-3 py-1 text-xs font-medium text-neutral-400">
+                    Actions
+                  </div>
+                  {groupedResults.action.map(result => {
                     const globalIndex = searchResults.indexOf(result)
                     return (
                       <ResultItem
-                        key={result.id}
-                        result={result}
                         isSelected={globalIndex === selectedIndex}
+                        key={result.id}
                         onClick={() => result.action()}
+                        result={result}
                       />
                     )
                   })}
@@ -341,13 +363,16 @@ export function CommandPalette(): React.JSX.Element | null {
         {/* Footer with keyboard hints */}
         <div className="border-t border-neutral-700 px-4 py-2 text-xs text-neutral-500">
           <span className="mr-4">
-            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5">↑↓</kbd> Navigate
+            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5">↑↓</kbd>{' '}
+            Navigate
           </span>
           <span className="mr-4">
-            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5">Enter</kbd> Select
+            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5">Enter</kbd>{' '}
+            Select
           </span>
           <span>
-            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5">Esc</kbd> Close
+            <kbd className="rounded bg-neutral-800 px-1.5 py-0.5">Esc</kbd>{' '}
+            Close
           </span>
         </div>
       </div>
@@ -362,21 +387,29 @@ interface ResultItemProps {
   onClick: () => void
 }
 
-function ResultItem({ result, isSelected, onClick }: ResultItemProps): React.JSX.Element {
+function ResultItem({
+  result,
+  isSelected,
+  onClick,
+}: ResultItemProps): React.JSX.Element {
   const Icon = result.icon
 
   return (
     <button
-      onClick={onClick}
       className={`flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors ${
-        isSelected ? 'bg-amber-600/20 text-amber-400' : 'text-neutral-300 hover:bg-neutral-800'
+        isSelected
+          ? 'bg-amber-600/20 text-amber-400'
+          : 'text-neutral-300 hover:bg-neutral-800'
       }`}
+      onClick={onClick}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{result.title}</div>
         {result.subtitle && (
-          <div className="truncate text-xs text-neutral-500">{result.subtitle}</div>
+          <div className="truncate text-xs text-neutral-500">
+            {result.subtitle}
+          </div>
         )}
       </div>
     </button>

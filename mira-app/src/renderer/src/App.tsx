@@ -12,13 +12,13 @@ import { keyboardManager } from './lib/keyboard-manager'
 import { useShortcuts } from './hooks/use-shortcuts'
 
 function App(): React.JSX.Element {
-  const activeProjectId = useAppStore((state) => state.activeProjectId)
-  const settingsPanelOpen = useAppStore((state) => state.settingsPanelOpen)
-  const openCommandPalette = useAppStore((state) => state.openCommandPalette)
-  const openSettingsPanel = useAppStore((state) => state.openSettingsPanel)
-  const closeSettingsPanel = useAppStore((state) => state.closeSettingsPanel)
-  const toggleZenMode = useAppStore((state) => state.toggleZenMode)
-  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
+  const activeProjectId = useAppStore(state => state.activeProjectId)
+  const settingsPanelOpen = useAppStore(state => state.settingsPanelOpen)
+  const openCommandPalette = useAppStore(state => state.openCommandPalette)
+  const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
+  const closeSettingsPanel = useAppStore(state => state.closeSettingsPanel)
+  const toggleZenMode = useAppStore(state => state.toggleZenMode)
+  const toggleSidebar = useAppStore(state => state.toggleSidebar)
 
   // Load shortcuts from database
   const { data: shortcuts } = useShortcuts()
@@ -42,7 +42,13 @@ function App(): React.JSX.Element {
     return () => {
       keyboardManager.stopListening()
     }
-  }, [shortcuts, openCommandPalette, toggleZenMode, toggleSidebar, openSettingsPanel])
+  }, [
+    shortcuts,
+    openCommandPalette,
+    toggleZenMode,
+    toggleSidebar,
+    openSettingsPanel,
+  ])
 
   return (
     <ErrorBoundary>

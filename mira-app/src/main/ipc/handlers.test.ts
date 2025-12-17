@@ -5,9 +5,9 @@ import { GitService } from '../services/git-service'
 import { KeychainService } from '../services/keychain-service'
 import { AgentService } from '../services/agent-service'
 import { IPCHandlers } from './handlers'
-import * as path from 'path'
-import * as fs from 'fs'
-import * as os from 'os'
+import * as path from 'node:path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 
 describe('IPCHandlers', () => {
   let db: DatabaseService
@@ -33,7 +33,13 @@ describe('IPCHandlers', () => {
     agentService = new AgentService(keychainService)
 
     // Create IPC handlers
-    ipcHandlers = new IPCHandlers(db, ptyManager, gitService, keychainService, agentService)
+    ipcHandlers = new IPCHandlers(
+      db,
+      ptyManager,
+      gitService,
+      keychainService,
+      agentService
+    )
   })
 
   afterEach(() => {
@@ -65,7 +71,7 @@ describe('IPCHandlers', () => {
       // Create a project through the database
       const project = db.createProject({
         name: 'Test Project',
-        path: '/test/path'
+        path: '/test/path',
       })
 
       expect(project).toBeDefined()
@@ -80,7 +86,7 @@ describe('IPCHandlers', () => {
     it('should integrate with PTY manager', () => {
       // Create a PTY instance
       const ptyId = ptyManager.create({
-        cwd: process.cwd()
+        cwd: process.cwd(),
       })
 
       expect(ptyId).toBeDefined()

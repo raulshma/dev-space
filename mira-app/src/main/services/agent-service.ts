@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { encoding_for_model } from 'tiktoken'
-import { readFileSync } from 'fs'
+import { readFileSync } from 'node:fs'
 import type {
   AIModel,
   AIProvider,
@@ -10,9 +10,9 @@ import type {
   ContextFile,
   TokenUsage,
   ErrorContext,
-  FixSuggestion
-} from '../../shared/models'
-import { KeychainService } from './keychain-service'
+  FixSuggestion,
+} from 'shared/models'
+import type { KeychainService } from 'main/services/keychain-service'
 
 /**
  * AI Agent Service for Mira Developer Hub
@@ -40,36 +40,36 @@ export class AgentService {
       provider: 'openai',
       name: 'GPT-4o',
       maxTokens: 128000,
-      isConfigured: false
+      isConfigured: false,
     },
     {
       id: 'gpt-4-turbo',
       provider: 'openai',
       name: 'GPT-4 Turbo',
       maxTokens: 128000,
-      isConfigured: false
+      isConfigured: false,
     },
     {
       id: 'claude-3-5-sonnet-20241022',
       provider: 'anthropic',
       name: 'Claude 3.5 Sonnet',
       maxTokens: 200000,
-      isConfigured: false
+      isConfigured: false,
     },
     {
       id: 'claude-3-opus-20240229',
       provider: 'anthropic',
       name: 'Claude 3 Opus',
       maxTokens: 200000,
-      isConfigured: false
+      isConfigured: false,
     },
     {
       id: 'gemini-pro',
       provider: 'google',
       name: 'Gemini Pro',
       maxTokens: 32000,
-      isConfigured: false
-    }
+      isConfigured: false,
+    },
   ]
 
   constructor(keychainService: KeychainService) {
@@ -85,13 +85,13 @@ export class AgentService {
 
     for (const provider of providers) {
       const hasKey = await this.keychainService.hasApiKey(provider)
-      this.availableModels = this.availableModels.map((model) =>
+      this.availableModels = this.availableModels.map(model =>
         model.provider === provider ? { ...model, isConfigured: hasKey } : model
       )
     }
 
     // Set first configured model as active
-    const firstConfigured = this.availableModels.find((m) => m.isConfigured)
+    const firstConfigured = this.availableModels.find(m => m.isConfigured)
     if (firstConfigured) {
       this.activeModel = firstConfigured
     }
@@ -103,7 +103,9 @@ export class AgentService {
    */
   setActiveModel(model: AIModel): void {
     if (!model.isConfigured) {
-      throw new Error(`Model ${model.name} is not configured. Please add an API key.`)
+      throw new Error(
+        `Model ${model.name} is not configured. Please add an API key.`
+      )
     }
     this.activeModel = model
   }
@@ -133,7 +135,10 @@ export class AgentService {
    * Send a message to the AI agent
    * Requirements: 5.2, 5.3
    */
-  async sendMessage(projectId: string, content: string): Promise<ConversationMessage> {
+  async sendMessage(
+    projectId: string,
+    content: string
+  ): Promise<ConversationMessage> {
     if (!this.activeModel) {
       throw new Error('No active model set')
     }
@@ -147,7 +152,7 @@ export class AgentService {
       role: 'user',
       content,
       timestamp: new Date(),
-      model: this.activeModel.id
+      model: this.activeModel.id,
     }
 
     // Add to conversation
@@ -162,7 +167,7 @@ export class AgentService {
       role: 'assistant',
       content: assistantContent,
       timestamp: new Date(),
-      model: this.activeModel.id
+      model: this.activeModel.id,
     }
 
     // Add to conversation
@@ -174,13 +179,18 @@ export class AgentService {
   /**
    * Get AI response from the appropriate provider
    */
-  private async getAIResponse(projectId: string, userMessage: string): Promise<string> {
+  private async getAIResponse(
+    projectId: string,
+    userMessage: string
+  ): Promise<string> {
     if (!this.activeModel) {
       throw new Error('No active model set')
     }
 
     const context = this.getProjectContext(projectId)
-    const apiKey = await this.keychainService.getApiKey(this.activeModel.provider)
+    const apiKey = await this.keychainService.getApiKey(
+      this.activeModel.provider
+    )
 
     if (!apiKey) {
       throw new Error(`No API key found for ${this.activeModel.provider}`)
@@ -213,12 +223,12 @@ export class AgentService {
     // Add context files as system message if present
     if (context.contextFiles.length > 0) {
       const contextContent = context.contextFiles
-        .map((file) => `File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\``)
+        .map(file => `File: ${file.path}\n\`\`\`\n${file.content}\n\`\`\``)
         .join('\n\n')
 
       messages.push({
         role: 'system',
-        content: `Context files:\n\n${contextContent}`
+        content: `Context files:\n\n${contextContent}`,
       })
     }
 
@@ -227,14 +237,14 @@ export class AgentService {
     for (const msg of recentMessages) {
       messages.push({
         role: msg.role,
-        content: msg.content
+        content: msg.content,
       })
     }
 
     // Add current user message
     messages.push({
       role: 'user',
-      content: userMessage
+      content: userMessage,
     })
 
     return messages
@@ -250,10 +260,10 @@ export class AgentService {
     const openai = new OpenAI({ apiKey })
 
     const response = await openai.chat.completions.create({
-      model: this.activeModel!.id,
+      model: this.activeModel?.id,
       messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
       temperature: 0.7,
-      max_tokens: 2000
+      max_tokens: 2000,
     })
 
     return response.choices[0]?.message?.content || 'No response generated'
@@ -269,14 +279,14 @@ export class AgentService {
     const anthropic = new Anthropic({ apiKey })
 
     // Anthropic requires system messages to be separate
-    const systemMessages = messages.filter((m) => m.role === 'system')
-    const conversationMessages = messages.filter((m) => m.role !== 'system')
+    const systemMessages = messages.filter(m => m.role === 'system')
+    const conversationMessages = messages.filter(m => m.role !== 'system')
 
     const response = await anthropic.messages.create({
-      model: this.activeModel!.id,
+      model: this.activeModel?.id,
       max_tokens: 2000,
-      system: systemMessages.map((m) => m.content).join('\n\n'),
-      messages: conversationMessages as Anthropic.MessageParam[]
+      system: systemMessages.map(m => m.content).join('\n\n'),
+      messages: conversationMessages as Anthropic.MessageParam[],
     })
 
     const content = response.content[0]
@@ -291,10 +301,10 @@ export class AgentService {
     messages: Array<{ role: string; content: string }>
   ): Promise<string> {
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: this.activeModel!.id })
+    const model = genAI.getGenerativeModel({ model: this.activeModel?.id })
 
     // Convert messages to Google format
-    const prompt = messages.map((m) => `${m.role}: ${m.content}`).join('\n\n')
+    const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n')
 
     const result = await model.generateContent(prompt)
     const response = await result.response
@@ -339,11 +349,13 @@ export class AgentService {
     const contextFile: ContextFile = {
       path: filePath,
       tokenCount,
-      content
+      content,
     }
 
     // Check if file already exists in context
-    const existingIndex = context.contextFiles.findIndex((f) => f.path === filePath)
+    const existingIndex = context.contextFiles.findIndex(
+      f => f.path === filePath
+    )
     if (existingIndex >= 0) {
       context.contextFiles[existingIndex] = contextFile
     } else {
@@ -359,7 +371,7 @@ export class AgentService {
    */
   removeFileFromContext(projectId: string, filePath: string): void {
     const context = this.getProjectContext(projectId)
-    context.contextFiles = context.contextFiles.filter((f) => f.path !== filePath)
+    context.contextFiles = context.contextFiles.filter(f => f.path !== filePath)
   }
 
   /**
@@ -383,17 +395,20 @@ export class AgentService {
       return {
         used: 0,
         limit,
-        percentage: 0
+        percentage: 0,
       }
     }
 
-    const used = context.contextFiles.reduce((sum, file) => sum + file.tokenCount, 0)
+    const used = context.contextFiles.reduce(
+      (sum, file) => sum + file.tokenCount,
+      0
+    )
     const percentage = (used / limit) * 100
 
     return {
       used,
       limit,
-      percentage
+      percentage,
     }
   }
 
@@ -406,7 +421,9 @@ export class AgentService {
       throw new Error('No active model set')
     }
 
-    const apiKey = await this.keychainService.getApiKey(this.activeModel.provider)
+    const apiKey = await this.keychainService.getApiKey(
+      this.activeModel.provider
+    )
     if (!apiKey) {
       throw new Error(`No API key found for ${this.activeModel.provider}`)
     }
@@ -466,7 +483,7 @@ CONFIDENCE: <0-100>
     return {
       explanation: explanationMatch?.[1]?.trim() || response,
       suggestedFix: fixMatch?.[1]?.trim() || 'No specific fix suggested',
-      confidence: confidenceMatch ? parseInt(confidenceMatch[1], 10) : 50
+      confidence: confidenceMatch ? parseInt(confidenceMatch[1], 10) : 50,
     }
   }
 
@@ -495,7 +512,7 @@ CONFIDENCE: <0-100>
     if (!context) {
       context = {
         conversation: [],
-        contextFiles: []
+        contextFiles: [],
       }
       this.projectContexts.set(projectId, context)
     }

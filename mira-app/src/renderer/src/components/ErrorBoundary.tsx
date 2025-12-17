@@ -17,19 +17,22 @@ interface ErrorBoundaryState {
   error: Error | null
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = {
       hasError: false,
-      error: null
+      error: null,
     }
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return {
       hasError: true,
-      error
+      error,
     }
   }
 
@@ -40,7 +43,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   reset = (): void => {
     this.setState({
       hasError: false,
-      error: null
+      error: null,
     })
   }
 
@@ -55,10 +58,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="max-w-md p-6 bg-white border border-red-200 rounded-sm shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-2xl">⚠️</span>
-              <h2 className="text-lg font-semibold text-neutral-900">Something went wrong</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                Something went wrong
+              </h2>
             </div>
             <p className="text-sm text-neutral-600 mb-4">
-              An unexpected error occurred. You can try to recover or reload the application.
+              An unexpected error occurred. You can try to recover or reload the
+              application.
             </p>
             <details className="mb-4">
               <summary className="text-sm text-neutral-500 cursor-pointer hover:text-neutral-700">
@@ -72,14 +78,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </details>
             <div className="flex gap-2">
               <button
-                onClick={this.reset}
                 className="px-4 py-2 bg-amber-500 text-white rounded-sm hover:bg-amber-600 transition-colors"
+                onClick={this.reset}
               >
                 Try to recover
               </button>
               <button
-                onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-neutral-200 text-neutral-700 rounded-sm hover:bg-neutral-300 transition-colors"
+                onClick={() => window.location.reload()}
               >
                 Reload application
               </button>

@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { Pin } from 'lucide-react'
-import type { PinnedProcess } from '../../../../shared/models'
+import type { PinnedProcess } from 'shared/models'
 
 export function PinnedProcessIndicator(): React.JSX.Element {
   const [pinnedProcesses, setPinnedProcesses] = useState<PinnedProcess[]>([])
@@ -33,7 +33,7 @@ export function PinnedProcessIndicator(): React.JSX.Element {
   }, [])
 
   if (pinnedProcesses.length === 0) {
-    return <></>
+    return null
   }
 
   const formatDuration = (startTime: Date): string => {
@@ -63,12 +63,13 @@ export function PinnedProcessIndicator(): React.JSX.Element {
       >
         {/* Header */}
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-2 px-3 py-2 w-full hover:bg-amber-800/50 transition-colors"
+          onClick={() => setIsExpanded(!isExpanded)}
         >
-          <Pin size={16} className="text-amber-400" fill="currentColor" />
+          <Pin className="text-amber-400" fill="currentColor" size={16} />
           <span className="text-sm text-amber-100 font-medium">
-            {pinnedProcesses.length} Pinned Process{pinnedProcesses.length !== 1 ? 'es' : ''}
+            {pinnedProcesses.length} Pinned Process
+            {pinnedProcesses.length !== 1 ? 'es' : ''}
           </span>
           <span className="ml-auto text-amber-400 text-xs">
             {isExpanded ? '▼' : '▲'}
@@ -78,10 +79,10 @@ export function PinnedProcessIndicator(): React.JSX.Element {
         {/* Expanded list */}
         {isExpanded && (
           <div className="border-t border-amber-700/50 max-h-60 overflow-y-auto">
-            {pinnedProcesses.map((process) => (
+            {pinnedProcesses.map(process => (
               <div
-                key={process.ptyId}
                 className="px-3 py-2 border-b border-amber-700/30 last:border-b-0"
+                key={process.ptyId}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">

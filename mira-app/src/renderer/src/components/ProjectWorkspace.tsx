@@ -6,24 +6,26 @@
  */
 
 import { useEffect, useCallback, useState } from 'react'
-import { useProject } from '../hooks/use-projects'
-import { useSession, useSaveSession } from '../hooks/use-sessions'
-import { useGitTelemetryRefresh } from '../hooks/use-git-telemetry'
-import { useAppStore } from '../stores/app-store'
-import { useTerminalStore } from '../stores/terminal-store'
-import { Terminal } from './Terminal/Terminal'
-import { PinnedProcessIndicator } from './Terminal/PinnedProcessIndicator'
-import { CommandLibrary } from './CommandLibrary'
-import { ModelSelector } from './Agent/ModelSelector'
-import { ContextShredder } from './Agent/ContextShredder'
-import { ConversationView } from './Agent/ConversationView'
-import type { SessionState, ErrorContext } from '../../../shared/models'
+import { useProject } from 'renderer/hooks/use-projects'
+import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
+import { useGitTelemetryRefresh } from 'renderer/hooks/use-git-telemetry'
+import { useAppStore } from 'renderer/stores/app-store'
+import { useTerminalStore } from 'renderer/stores/terminal-store'
+import { Terminal } from 'renderer/components/Terminal/Terminal'
+import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
+import { CommandLibrary } from 'renderer/components/CommandLibrary'
+import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
+import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
+import { ConversationView } from 'renderer/components/Agent/ConversationView'
+import type { SessionState, ErrorContext } from 'shared/models'
 
 interface ProjectWorkspaceProps {
   projectId: string
 }
 
-export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JSX.Element {
+export function ProjectWorkspace({
+  projectId,
+}: ProjectWorkspaceProps): React.JSX.Element {
   const { data: project, isLoading: projectLoading } = useProject(projectId)
   const { data: session, isLoading: sessionLoading } = useSession(projectId)
   const { mutate: saveSession } = useSaveSession()
@@ -32,19 +34,25 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
   const [errorContext, setErrorContext] = useState<ErrorContext | null>(null)
 
   // Start background git telemetry refresh when project is opened
-  useGitTelemetryRefresh(projectId, project?.path || null, !!project && !project.isMissing)
+  useGitTelemetryRefresh(
+    projectId,
+    project?.path || null,
+    !!project && !project.isMissing
+  )
 
-  const setActiveProject = useAppStore((state) => state.setActiveProject)
-  const sidebarCollapsed = useAppStore((state) => state.sidebarCollapsed)
-  const agentPanelCollapsed = useAppStore((state) => state.agentPanelCollapsed)
-  const zenMode = useAppStore((state) => state.zenMode)
-  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
-  const toggleAgentPanel = useAppStore((state) => state.toggleAgentPanel)
-  const toggleZenMode = useAppStore((state) => state.toggleZenMode)
+  const setActiveProject = useAppStore(state => state.setActiveProject)
+  const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
+  const agentPanelCollapsed = useAppStore(state => state.agentPanelCollapsed)
+  const zenMode = useAppStore(state => state.zenMode)
+  const toggleSidebar = useAppStore(state => state.toggleSidebar)
+  const toggleAgentPanel = useAppStore(state => state.toggleAgentPanel)
+  const toggleZenMode = useAppStore(state => state.toggleZenMode)
 
-  const addTerminal = useTerminalStore((state) => state.addTerminal)
-  const clearProject = useTerminalStore((state) => state.clearProject)
-  const getTerminalsByProject = useTerminalStore((state) => state.getTerminalsByProject)
+  const addTerminal = useTerminalStore(state => state.addTerminal)
+  const clearProject = useTerminalStore(state => state.clearProject)
+  const getTerminalsByProject = useTerminalStore(
+    state => state.getTerminalsByProject
+  )
 
   // Create a default terminal if no session exists
   const createDefaultTerminal = useCallback((): void => {
@@ -54,9 +62,9 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
       .create({
         projectId,
         cwd: project.path,
-        shell: undefined
+        shell: undefined,
       })
-      .then((response) => {
+      .then(response => {
         const terminalId = `term-${Date.now()}`
         addTerminal({
           id: terminalId,
@@ -64,10 +72,10 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
           ptyId: response.ptyId,
           isPinned: false,
           title: 'Terminal',
-          cwd: project.path
+          cwd: project.path,
         })
       })
-      .catch((error) => {
+      .catch(error => {
         console.error('Failed to create default terminal:', error)
       })
   }, [project, projectId, addTerminal])
@@ -78,25 +86,25 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
 
     // Restore terminals
     if (session.terminals && session.terminals.length > 0) {
-      session.terminals.forEach((terminalData) => {
+      session.terminals.forEach(terminalData => {
         // Create PTY and add terminal to store
         window.api.pty
           .create({
             projectId,
             cwd: terminalData.cwd,
-            shell: undefined
+            shell: undefined,
           })
-          .then((response) => {
+          .then(response => {
             addTerminal({
               id: terminalData.id,
               projectId,
               ptyId: response.ptyId,
               isPinned: terminalData.isPinned,
               title: `Terminal ${terminalData.id.slice(0, 8)}`,
-              cwd: terminalData.cwd
+              cwd: terminalData.cwd,
             })
           })
-          .catch((error) => {
+          .catch(error => {
             console.error('Failed to restore terminal:', error)
           })
       })
@@ -115,24 +123,24 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
       // Cleanup: save session state before unmounting
       const terminals = getTerminalsByProject(projectId)
       const sessionState: SessionState = {
-        terminals: terminals.map((t) => ({
+        terminals: terminals.map(t => ({
           id: t.id,
           cwd: t.cwd,
           isPinned: t.isPinned,
           layout: {
             projectId,
-            panes: []
-          }
+            panes: [],
+          },
         })),
         agentConversation: [],
         contextFiles: [],
-        activeTerminalId: null
+        activeTerminalId: null,
       }
 
       saveSession({ projectId, state: sessionState })
 
       // Clear non-pinned terminals
-      terminals.forEach((terminal) => {
+      terminals.forEach(terminal => {
         if (!terminal.isPinned) {
           window.api.pty.kill({ ptyId: terminal.ptyId }).catch(console.error)
         }
@@ -157,18 +165,18 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
     // Save session before navigating away
     const terminals = getTerminalsByProject(projectId)
     const sessionState: SessionState = {
-      terminals: terminals.map((t) => ({
+      terminals: terminals.map(t => ({
         id: t.id,
         cwd: t.cwd,
         isPinned: t.isPinned,
         layout: {
           projectId,
-          panes: []
-        }
+          panes: [],
+        },
       })),
       agentConversation: [],
       contextFiles: [],
-      activeTerminalId: null
+      activeTerminalId: null,
     }
 
     saveSession({ projectId, state: sessionState })
@@ -189,8 +197,8 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
         <div className="text-center">
           <p className="text-neutral-500 mb-4">Project not found</p>
           <button
-            onClick={handleBackToDashboard}
             className="px-4 py-2 bg-amber-500 text-white rounded-sm hover:bg-amber-600"
+            onClick={handleBackToDashboard}
           >
             Back to Dashboard
           </button>
@@ -206,26 +214,32 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={handleBackToDashboard}
               className="text-neutral-600 hover:text-neutral-900"
+              onClick={handleBackToDashboard}
             >
               ← Back
             </button>
             <div>
-              <h1 className="text-xl font-semibold text-neutral-900">{project.name}</h1>
+              <h1 className="text-xl font-semibold text-neutral-900">
+                {project.name}
+              </h1>
               <p className="text-sm text-neutral-500">{project.path}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Zen Mode Toggle */}
             <button
-              onClick={toggleZenMode}
               className={`px-3 py-1.5 rounded-sm text-sm transition-colors ${
                 zenMode
                   ? 'bg-amber-500 text-white hover:bg-amber-600'
                   : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
               }`}
-              title={zenMode ? 'Exit Zen Mode (Mod+Shift+Z)' : 'Enter Zen Mode (Mod+Shift+Z)'}
+              onClick={toggleZenMode}
+              title={
+                zenMode
+                  ? 'Exit Zen Mode (Mod+Shift+Z)'
+                  : 'Enter Zen Mode (Mod+Shift+Z)'
+              }
             >
               {zenMode ? '🧘 Zen' : '🧘'}
             </button>
@@ -233,15 +247,15 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
             {!zenMode && (
               <>
                 <button
-                  onClick={toggleSidebar}
                   className="px-3 py-1.5 bg-neutral-200 text-neutral-700 hover:bg-neutral-300 rounded-sm text-sm"
+                  onClick={toggleSidebar}
                   title="Toggle Sidebar (Mod+B)"
                 >
                   {sidebarCollapsed ? '☰' : '←'}
                 </button>
                 <button
-                  onClick={toggleAgentPanel}
                   className="px-3 py-1.5 bg-neutral-200 text-neutral-700 hover:bg-neutral-300 rounded-sm text-sm"
+                  onClick={toggleAgentPanel}
                   title="Toggle Agent Panel"
                 >
                   {agentPanelCollapsed ? '🤖' : '→'}
@@ -264,9 +278,9 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
         {/* Terminal Area */}
         <main className="flex-1 overflow-hidden">
           <Terminal
+            onErrorContext={handleErrorContext}
             projectId={projectId}
             projectPath={project.path}
-            onErrorContext={handleErrorContext}
           />
         </main>
 
@@ -275,10 +289,12 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
           <aside className="w-96 bg-white border-l border-neutral-200 flex flex-col overflow-hidden">
             {/* Agent Panel Header */}
             <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-              <h2 className="text-lg font-semibold text-neutral-900">AI Agent</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                AI Agent
+              </h2>
               <button
-                onClick={toggleAgentPanel}
                 className="text-neutral-500 hover:text-neutral-700"
+                onClick={toggleAgentPanel}
                 title="Hide Agent Panel"
               >
                 ✕
@@ -298,9 +314,9 @@ export function ProjectWorkspace({ projectId }: ProjectWorkspaceProps): React.JS
             {/* Conversation View - takes remaining space */}
             <div className="flex-1 overflow-hidden">
               <ConversationView
-                projectId={projectId}
                 errorContext={errorContext}
                 onErrorContextUsed={handleErrorContextUsed}
+                projectId={projectId}
               />
             </div>
           </aside>

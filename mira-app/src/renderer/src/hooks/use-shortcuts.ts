@@ -2,7 +2,7 @@
 // Requirements: 14.1, 14.2, 14.3, 14.4
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ShortcutListRequest, ShortcutSetRequest } from '../../../shared/ipc-types'
+import type { ShortcutListRequest, ShortcutSetRequest } from 'shared/ipc-types'
 
 /**
  * Hook for fetching all keyboard shortcuts
@@ -15,7 +15,7 @@ export function useShortcuts() {
       const response = await window.api.shortcuts.list(request)
       return response.shortcuts
     },
-    staleTime: Infinity // Shortcuts rarely change
+    staleTime: Infinity, // Shortcuts rarely change
   })
 }
 
@@ -26,7 +26,13 @@ export function useSetShortcut() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ action, binding }: { action: string; binding: string }) => {
+    mutationFn: async ({
+      action,
+      binding,
+    }: {
+      action: string
+      binding: string
+    }) => {
       const request: ShortcutSetRequest = { action, binding }
       const response = await window.api.shortcuts.set(request)
 
@@ -39,6 +45,6 @@ export function useSetShortcut() {
     onSuccess: () => {
       // Invalidate shortcuts query to refetch
       queryClient.invalidateQueries({ queryKey: ['shortcuts'] })
-    }
+    },
   })
 }

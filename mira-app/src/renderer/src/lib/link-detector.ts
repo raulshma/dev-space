@@ -31,16 +31,17 @@ const WINDOWS_PATH_REGEX = /[a-zA-Z]:\\[^\s:]+/g
  */
 export function detectUrls(text: string): DetectedLink[] {
   const links: DetectedLink[] = []
-  let match: RegExpExecArray | null
 
   const regex = new RegExp(URL_REGEX)
-  while ((match = regex.exec(text)) !== null) {
+  let match = regex.exec(text)
+  while (match !== null) {
     links.push({
       text: match[0],
       type: 'url',
       startIndex: match.index,
-      endIndex: match.index + match[0].length
+      endIndex: match.index + match[0].length,
     })
+    match = regex.exec(text)
   }
 
   return links
@@ -53,26 +54,29 @@ export function detectFilePaths(text: string): DetectedLink[] {
   const links: DetectedLink[] = []
 
   // Detect Unix-style paths
-  let match: RegExpExecArray | null
   const unixRegex = new RegExp(UNIX_PATH_REGEX)
-  while ((match = unixRegex.exec(text)) !== null) {
+  let unixMatch = unixRegex.exec(text)
+  while (unixMatch !== null) {
     links.push({
-      text: match[0],
+      text: unixMatch[0],
       type: 'file',
-      startIndex: match.index,
-      endIndex: match.index + match[0].length
+      startIndex: unixMatch.index,
+      endIndex: unixMatch.index + unixMatch[0].length,
     })
+    unixMatch = unixRegex.exec(text)
   }
 
   // Detect Windows-style paths
   const windowsRegex = new RegExp(WINDOWS_PATH_REGEX)
-  while ((match = windowsRegex.exec(text)) !== null) {
+  let windowsMatch = windowsRegex.exec(text)
+  while (windowsMatch !== null) {
     links.push({
-      text: match[0],
+      text: windowsMatch[0],
       type: 'file',
-      startIndex: match.index,
-      endIndex: match.index + match[0].length
+      startIndex: windowsMatch.index,
+      endIndex: windowsMatch.index + windowsMatch[0].length,
     })
+    windowsMatch = windowsRegex.exec(text)
   }
 
   return links
@@ -86,7 +90,9 @@ export function detectLinks(text: string): DetectedLink[] {
   const filePaths = detectFilePaths(text)
 
   // Combine and sort by start index
-  const allLinks = [...urls, ...filePaths].sort((a, b) => a.startIndex - b.startIndex)
+  const allLinks = [...urls, ...filePaths].sort(
+    (a, b) => a.startIndex - b.startIndex
+  )
 
   // Remove overlapping links (prefer URLs over file paths)
   const filteredLinks: DetectedLink[] = []

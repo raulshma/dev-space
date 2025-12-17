@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand'
-import type { DetectedError } from '../lib/error-detector'
+import type { DetectedError } from 'renderer/lib/error-detector'
 
 export interface AppError {
   id: string
@@ -46,14 +46,14 @@ export const useErrorStore = create<ErrorState>((set, get) => ({
 
   // Terminal error actions
   addError: (error: DetectedError) =>
-    set((state) => {
+    set(state => {
       const newErrors = new Map(state.errors)
       newErrors.set(error.id, error)
       return { errors: newErrors }
     }),
 
   removeError: (errorId: string) =>
-    set((state) => {
+    set(state => {
       const newErrors = new Map(state.errors)
       newErrors.delete(errorId)
       return { errors: newErrors }
@@ -65,43 +65,45 @@ export const useErrorStore = create<ErrorState>((set, get) => ({
 
   getErrorsByTerminal: (terminalId: string) => {
     const errors = get().errors
-    return Array.from(errors.values()).filter((e) => e.terminalId === terminalId)
+    return Array.from(errors.values()).filter(e => e.terminalId === terminalId)
   },
 
   clearTerminalErrors: (terminalId: string) =>
-    set((state) => {
+    set(state => {
       const newErrors = new Map(state.errors)
-      Array.from(newErrors.values())
-        .filter((e) => e.terminalId === terminalId)
-        .forEach((e) => newErrors.delete(e.id))
+      for (const e of Array.from(newErrors.values()).filter(
+        e => e.terminalId === terminalId
+      )) {
+        newErrors.delete(e.id)
+      }
       return { errors: newErrors }
     }),
 
   clearAllErrors: () =>
     set({
-      errors: new Map()
+      errors: new Map(),
     }),
 
   // Global error notification actions
   addAppError: (error: Omit<AppError, 'id' | 'timestamp'>) =>
-    set((state) => ({
+    set(state => ({
       appErrors: [
         ...state.appErrors,
         {
           ...error,
           id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          timestamp: new Date()
-        }
-      ]
+          timestamp: new Date(),
+        },
+      ],
     })),
 
   dismissAppError: (errorId: string) =>
-    set((state) => ({
-      appErrors: state.appErrors.filter((e) => e.id !== errorId)
+    set(state => ({
+      appErrors: state.appErrors.filter(e => e.id !== errorId),
     })),
 
   clearAppErrors: () =>
     set({
-      appErrors: []
-    })
+      appErrors: [],
+    }),
 }))

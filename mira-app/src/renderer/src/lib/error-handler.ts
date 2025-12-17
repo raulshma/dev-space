@@ -5,7 +5,7 @@
  * Requirements: 18.4
  */
 
-import { useErrorStore } from '../stores/error-store'
+import { useErrorStore } from 'renderer/stores/error-store'
 import { IPCError } from './ipc-client'
 
 export interface ErrorHandlerOptions {
@@ -22,7 +22,10 @@ export interface ErrorHandlerOptions {
 /**
  * Handle an error and display it in the UI
  */
-export function handleError(error: unknown, options: ErrorHandlerOptions = {}): void {
+export function handleError(
+  error: unknown,
+  options: ErrorHandlerOptions = {}
+): void {
   const { addAppError } = useErrorStore.getState()
 
   let title = options.title || 'An error occurred'
@@ -34,7 +37,9 @@ export function handleError(error: unknown, options: ErrorHandlerOptions = {}): 
     title = options.title || 'Communication Error'
     message = error.message
     details =
-      options.showDetails !== false ? { code: error.code, details: error.details } : undefined
+      options.showDetails !== false
+        ? { code: error.code, details: error.details }
+        : undefined
   } else if (error instanceof Error) {
     message = error.message
     details = options.showDetails !== false ? error.stack : undefined
@@ -50,7 +55,7 @@ export function handleError(error: unknown, options: ErrorHandlerOptions = {}): 
     severity: options.severity || 'error',
     details,
     persistent: options.persistent,
-    recoveryAction: options.recoveryAction
+    recoveryAction: options.recoveryAction,
   })
 }
 
@@ -64,8 +69,8 @@ export function handleDatabaseError(error: unknown, _operation: string): void {
     persistent: true,
     recoveryAction: {
       label: 'Reload Application',
-      action: () => window.location.reload()
-    }
+      action: () => window.location.reload(),
+    },
   })
 }
 
@@ -76,7 +81,7 @@ export function handleIPCError(error: unknown, _operation: string): void {
   handleError(error, {
     title: 'Communication Error',
     severity: 'error',
-    showDetails: true
+    showDetails: true,
   })
 }
 
@@ -87,7 +92,7 @@ export function handleTerminalError(error: unknown, _terminalId: string): void {
   handleError(error, {
     title: 'Terminal Error',
     severity: 'warning',
-    showDetails: true
+    showDetails: true,
   })
 }
 
@@ -98,7 +103,7 @@ export function handleGitError(error: unknown): void {
   handleError(error, {
     title: 'Git Operation Failed',
     severity: 'warning',
-    showDetails: false
+    showDetails: false,
   })
 }
 
@@ -110,7 +115,7 @@ export function showSuccess(message: string, title: string = 'Success'): void {
   addAppError({
     title,
     message,
-    severity: 'info'
+    severity: 'info',
   })
 }
 
@@ -122,6 +127,6 @@ export function showWarning(message: string, title: string = 'Warning'): void {
   addAppError({
     title,
     message,
-    severity: 'warning'
+    severity: 'warning',
   })
 }

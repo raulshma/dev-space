@@ -1,43 +1,31 @@
-appId: com.electron.app
-productName: mira-app
+appId: com.mira.mira-app
+productName: Mira App
+copyright: Copyright © 2024 — Mira
+
 directories:
-  buildResources: build
-files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-asarUnpack:
-  - resources/**
-win:
-  executableName: mira-app
-nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
+  app: node_modules/.dev
+  output: dist/v1.0.0
+
 mac:
-  entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: mira-app-v1.0.0-${os}.${ext}
+  icon: src/resources/build/icons/icon.icns
+  category: public.app-category.utilities
+  target:
+    - zip
+    - dmg
+    - dir
+
 linux:
+  artifactName: mira-app-v1.0.0-${os}.${ext}
+  category: Utilities
+  synopsis: An Electron application with React and TypeScript
   target:
     - AppImage
-    - snap
     - deb
-  maintainer: electronjs.org
-  category: Utility
-appImage:
-  artifactName: ${name}-${version}.${ext}
-npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates
+
+win:
+  artifactName: mira-app-v1.0.0-${os}.${ext}
+  icon: src/resources/build/icons/icon.ico
+  target:
+    - zip
+    - portable

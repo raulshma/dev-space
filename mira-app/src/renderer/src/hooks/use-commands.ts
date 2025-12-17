@@ -2,13 +2,13 @@
 // Requirements: 1.1, 3.2
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { CreateCommandInput } from '../../../shared/models'
+import type { CreateCommandInput } from 'shared/models'
 
 // Query keys
 export const commandKeys = {
   all: ['commands'] as const,
   lists: () => [...commandKeys.all, 'list'] as const,
-  list: () => [...commandKeys.lists()] as const
+  list: () => [...commandKeys.lists()] as const,
 }
 
 // Hook to fetch all commands
@@ -18,7 +18,7 @@ export function useCommands() {
     queryFn: async () => {
       const response = await window.api.commands.list({})
       return response.commands
-    }
+    },
   })
 }
 
@@ -34,6 +34,6 @@ export function useCreateCommand() {
     onSuccess: () => {
       // Invalidate command list to refetch
       queryClient.invalidateQueries({ queryKey: commandKeys.lists() })
-    }
+    },
   })
 }

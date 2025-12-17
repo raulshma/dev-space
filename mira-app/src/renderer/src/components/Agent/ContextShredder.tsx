@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { ContextFile, TokenUsage } from '../../../../shared/models'
+import type { ContextFile, TokenUsage } from 'shared/models'
 
 /**
  * ContextShredder Component
@@ -19,7 +19,7 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>({
     used: 0,
     limit: 128000,
-    percentage: 0
+    percentage: 0,
   })
   const [isDragging, setIsDragging] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -33,7 +33,7 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
     try {
       const [filesResponse, usageResponse] = await Promise.all([
         window.api.agent.getContextFiles({ projectId }),
-        window.api.agent.getTokenUsage({ projectId })
+        window.api.agent.getTokenUsage({ projectId }),
       ])
 
       setContextFiles(filesResponse.files)
@@ -119,7 +119,9 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-neutral-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-neutral-900">Context Files</h3>
+        <h3 className="text-sm font-semibold text-neutral-900">
+          Context Files
+        </h3>
         <p className="text-xs text-neutral-500">
           Drag and drop files to add them to the AI context
         </p>
@@ -130,7 +132,8 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
         <div className="mb-2 flex items-center justify-between text-xs">
           <span className="text-neutral-600">Token Usage</span>
           <span className="font-medium text-neutral-900">
-            {formatTokenCount(tokenUsage.used)} / {formatTokenCount(tokenUsage.limit)} (
+            {formatTokenCount(tokenUsage.used)} /{' '}
+            {formatTokenCount(tokenUsage.limit)} (
             {tokenUsage.percentage.toFixed(1)}%)
           </span>
         </div>
@@ -148,13 +151,14 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
       </div>
 
       {/* Drop zone */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+      <section
+        aria-label="Drop zone for context files"
         className={`flex-1 overflow-y-auto ${
           isDragging ? 'bg-amber-50' : ''
         } transition-colors`}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         {contextFiles.length === 0 ? (
           <div className="flex h-full items-center justify-center p-8">
@@ -166,10 +170,10 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
                 viewBox="0 0 24 24"
               >
                 <path
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
               <p className="mt-2 text-sm text-neutral-600">
@@ -182,31 +186,37 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
           </div>
         ) : (
           <div className="divide-y divide-neutral-200">
-            {contextFiles.map((file) => (
+            {contextFiles.map(file => (
               <div
-                key={file.path}
                 className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50"
+                key={file.path}
               >
                 <div className="flex-1 overflow-hidden">
                   <p className="truncate text-sm font-medium text-neutral-900">
                     {file.path.split('/').pop() || file.path}
                   </p>
-                  <p className="truncate text-xs text-neutral-500">{file.path}</p>
+                  <p className="truncate text-xs text-neutral-500">
+                    {file.path}
+                  </p>
                 </div>
                 <div className="ml-4 flex items-center gap-3">
                   <span className="text-xs text-neutral-600">
                     {formatTokenCount(file.tokenCount)} tokens
                   </span>
                   <button
-                    onClick={() => handleRemoveFile(file.path)}
                     className="rounded-sm p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => handleRemoveFile(file.path)}
                     title="Remove file"
                   >
-                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="h-4 w-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
                         clipRule="evenodd"
+                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                        fillRule="evenodd"
                       />
                     </svg>
                   </button>
@@ -224,7 +234,7 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

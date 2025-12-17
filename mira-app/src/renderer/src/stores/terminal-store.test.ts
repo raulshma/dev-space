@@ -9,7 +9,7 @@ describe('TerminalStore', () => {
     ptyId: 'pty-1',
     isPinned: false,
     title: 'Terminal 1',
-    cwd: '/home/user/project'
+    cwd: '/home/user/project',
   }
 
   beforeEach(() => {
@@ -17,7 +17,7 @@ describe('TerminalStore', () => {
     useTerminalStore.setState({
       terminals: new Map(),
       layouts: new Map(),
-      focusedTerminalId: null
+      focusedTerminalId: null,
     })
   })
 
@@ -31,7 +31,8 @@ describe('TerminalStore', () => {
   })
 
   it('should remove a terminal', () => {
-    const { addTerminal, removeTerminal, getTerminal } = useTerminalStore.getState()
+    const { addTerminal, removeTerminal, getTerminal } =
+      useTerminalStore.getState()
 
     addTerminal(mockTerminal)
     expect(getTerminal('term-1')).toBeDefined()
@@ -41,7 +42,8 @@ describe('TerminalStore', () => {
   })
 
   it('should update a terminal', () => {
-    const { addTerminal, updateTerminal, getTerminal } = useTerminalStore.getState()
+    const { addTerminal, updateTerminal, getTerminal } =
+      useTerminalStore.getState()
 
     addTerminal(mockTerminal)
 
@@ -78,7 +80,8 @@ describe('TerminalStore', () => {
   })
 
   it('should pin and unpin a terminal', () => {
-    const { addTerminal, pinTerminal, unpinTerminal, getTerminal } = useTerminalStore.getState()
+    const { addTerminal, pinTerminal, unpinTerminal, getTerminal } =
+      useTerminalStore.getState()
 
     addTerminal(mockTerminal)
 
@@ -90,7 +93,8 @@ describe('TerminalStore', () => {
   })
 
   it('should clear all terminals for a project', () => {
-    const { addTerminal, clearProject, getTerminalsByProject } = useTerminalStore.getState()
+    const { addTerminal, clearProject, getTerminalsByProject } =
+      useTerminalStore.getState()
 
     const terminal1 = { ...mockTerminal, id: 'term-1', projectId: 'project-1' }
     const terminal2 = { ...mockTerminal, id: 'term-2', projectId: 'project-1' }
@@ -107,7 +111,8 @@ describe('TerminalStore', () => {
   })
 
   it('should clear focused terminal when removing it', () => {
-    const { addTerminal, focusTerminal, removeTerminal } = useTerminalStore.getState()
+    const { addTerminal, focusTerminal, removeTerminal } =
+      useTerminalStore.getState()
 
     addTerminal(mockTerminal)
     focusTerminal('term-1')

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { BlueprintService } from './blueprint-service'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import * as os from 'node:os'
 
 describe('BlueprintService', () => {
   let blueprintService: BlueprintService
@@ -26,7 +26,10 @@ describe('BlueprintService', () => {
       // Create test structure
       fs.mkdirSync(path.join(testDir, 'src'))
       fs.writeFileSync(path.join(testDir, 'package.json'), '{"name": "test"}')
-      fs.writeFileSync(path.join(testDir, 'src', 'index.ts'), 'console.log("test")')
+      fs.writeFileSync(
+        path.join(testDir, 'src', 'index.ts'),
+        'console.log("test")'
+      )
 
       const blueprint = blueprintService.captureBlueprint(testDir)
 
@@ -35,12 +38,14 @@ describe('BlueprintService', () => {
       expect(blueprint.excludePatterns).toBeDefined()
 
       // Check that package.json was captured with content
-      const packageJson = blueprint.files.find((f) => f.relativePath === 'package.json')
+      const packageJson = blueprint.files.find(
+        f => f.relativePath === 'package.json'
+      )
       expect(packageJson).toBeDefined()
       expect(packageJson?.content).toBe('{"name": "test"}')
 
       // Check that src directory was captured
-      const srcDir = blueprint.files.find((f) => f.relativePath === 'src')
+      const srcDir = blueprint.files.find(f => f.relativePath === 'src')
       expect(srcDir).toBeDefined()
       expect(srcDir?.isDirectory).toBe(true)
     })
@@ -54,7 +59,9 @@ describe('BlueprintService', () => {
       const blueprint = blueprintService.captureBlueprint(testDir)
 
       // node_modules should not be in the captured files
-      const nodeModules = blueprint.files.find((f) => f.relativePath.includes('node_modules'))
+      const nodeModules = blueprint.files.find(f =>
+        f.relativePath.includes('node_modules')
+      )
       expect(nodeModules).toBeUndefined()
     })
 
@@ -71,10 +78,18 @@ describe('BlueprintService', () => {
       const blueprint = {
         files: [
           { relativePath: 'src', isDirectory: true },
-          { relativePath: 'package.json', isDirectory: false, content: '{"name": "test"}' },
-          { relativePath: 'src/index.ts', isDirectory: false, content: 'console.log("test")' }
+          {
+            relativePath: 'package.json',
+            isDirectory: false,
+            content: '{"name": "test"}',
+          },
+          {
+            relativePath: 'src/index.ts',
+            isDirectory: false,
+            content: 'console.log("test")',
+          },
         ],
-        excludePatterns: []
+        excludePatterns: [],
       }
 
       const targetDir = path.join(testDir, 'target')
@@ -86,14 +101,19 @@ describe('BlueprintService', () => {
       expect(fs.existsSync(path.join(targetDir, 'src', 'index.ts'))).toBe(true)
 
       // Check content
-      const packageContent = fs.readFileSync(path.join(targetDir, 'package.json'), 'utf-8')
+      const packageContent = fs.readFileSync(
+        path.join(targetDir, 'package.json'),
+        'utf-8'
+      )
       expect(packageContent).toBe('{"name": "test"}')
     })
 
     it('should create target directory if it does not exist', () => {
       const blueprint = {
-        files: [{ relativePath: 'test.txt', isDirectory: false, content: 'test' }],
-        excludePatterns: []
+        files: [
+          { relativePath: 'test.txt', isDirectory: false, content: 'test' },
+        ],
+        excludePatterns: [],
       }
 
       const targetDir = path.join(testDir, 'new', 'nested', 'dir')

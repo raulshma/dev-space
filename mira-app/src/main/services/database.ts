@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
-import * as path from 'path'
-import * as fs from 'fs'
+import * as path from 'node:path'
+import * as fs from 'node:fs'
 import type {
   Project,
   Tag,
@@ -13,8 +13,8 @@ import type {
   CreateTagInput,
   CreateCommandInput,
   CreateBlueprintInput,
-  ProjectFilter
-} from '../../shared/models'
+  ProjectFilter,
+} from 'shared/models'
 
 // Database row interfaces
 interface ProjectRow {
@@ -246,7 +246,8 @@ export class DatabaseService {
 
     // Add search query filtering
     if (filter?.searchQuery) {
-      const searchCondition = filter.tagFilter && filter.tagFilter.length > 0 ? 'AND' : 'WHERE'
+      const searchCondition =
+        filter.tagFilter && filter.tagFilter.length > 0 ? 'AND' : 'WHERE'
       query += `
         ${searchCondition} (p.name LIKE ? OR p.path LIKE ?)
       `
@@ -260,7 +261,7 @@ export class DatabaseService {
     const rows = stmt.all(...params) as ProjectRow[]
 
     // Convert rows to Project objects and check for missing paths
-    return rows.map((row) => this.rowToProject(row))
+    return rows.map(row => this.rowToProject(row))
   }
 
   /**
@@ -296,7 +297,11 @@ export class DatabaseService {
 
     stmt.run(id, data.name, data.path, now, now, isMissing ? 1 : 0)
 
-    return this.getProject(id)!
+    const project = this.getProject(id)
+    if (!project) {
+      throw new Error(`Failed to create project with id ${id}`)
+    }
+    return project
   }
 
   /**
@@ -337,7 +342,11 @@ export class DatabaseService {
 
     stmt.run(...params)
 
-    return this.getProject(id)!
+    const project = this.getProject(id)
+    if (!project) {
+      throw new Error(`Failed to update project with id ${id}`)
+    }
+    return project
   }
 
   /**
@@ -369,7 +378,9 @@ export class DatabaseService {
 
     // Update is_missing flag if it changed
     if (isMissing !== Boolean(row.is_missing)) {
-      const updateStmt = db.prepare('UPDATE projects SET is_missing = ? WHERE id = ?')
+      const updateStmt = db.prepare(
+        'UPDATE projects SET is_missing = ? WHERE id = ?'
+      )
       updateStmt.run(isMissing ? 1 : 0, row.id)
     }
 
@@ -381,12 +392,12 @@ export class DatabaseService {
       updatedAt: new Date(row.updated_at),
       lastOpenedAt: row.last_opened_at ? new Date(row.last_opened_at) : null,
       isMissing,
-      tags: tagRows.map((tagRow) => ({
+      tags: tagRows.map(tagRow => ({
         id: tagRow.id,
         name: tagRow.name,
         category: tagRow.category,
-        color: tagRow.color || undefined
-      }))
+        color: tagRow.color || undefined,
+      })),
     }
   }
 
@@ -410,11 +421,11 @@ export class DatabaseService {
     const stmt = db.prepare('SELECT * FROM tags ORDER BY name')
     const rows = stmt.all() as TagRow[]
 
-    return rows.map((row) => ({
+    return rows.map(row => ({
       id: row.id,
       name: row.name,
       category: row.category,
-      color: row.color || undefined
+      color: row.color || undefined,
     }))
   }
 
@@ -437,7 +448,7 @@ export class DatabaseService {
       id,
       name: data.name,
       category: data.category,
-      color: data.color
+      color: data.color,
     }
   }
 
@@ -496,7 +507,9 @@ export class DatabaseService {
   getSession(projectId: string): SessionState | null {
     const db = this.getDb()
 
-    const stmt = db.prepare('SELECT state_json FROM sessions WHERE project_id = ?')
+    const stmt = db.prepare(
+      'SELECT state_json FROM sessions WHERE project_id = ?'
+    )
     const row = stmt.get(projectId) as { state_json: string } | undefined
 
     if (!row) return null
@@ -522,12 +535,12 @@ export class DatabaseService {
     const stmt = db.prepare('SELECT * FROM commands ORDER BY category, name')
     const rows = stmt.all() as CommandRow[]
 
-    return rows.map((row) => ({
+    return rows.map(row => ({
       id: row.id,
       name: row.name,
       command: row.command,
       category: row.category || null,
-      isCustom: Boolean(row.is_custom)
+      isCustom: Boolean(row.is_custom),
     }))
   }
 
@@ -549,18 +562,38 @@ export class DatabaseService {
     // Default commands to seed
     const defaultCommands = [
       // Package Management
-      { name: 'Install Dependencies', command: 'npm install', category: 'Package Management' },
+      {
+        name: 'Install Dependencies',
+        command: 'npm install',
+        category: 'Package Management',
+      },
       {
         name: 'Install Dev Dependency',
         command: 'npm install --save-dev ',
-        category: 'Package Management'
+        category: 'Package Management',
       },
-      { name: 'Update Dependencies', command: 'npm update', category: 'Package Management' },
-      { name: 'Clean Install', command: 'npm ci', category: 'Package Management' },
+      {
+        name: 'Update Dependencies',
+        command: 'npm update',
+        category: 'Package Management',
+      },
+      {
+        name: 'Clean Install',
+        command: 'npm ci',
+        category: 'Package Management',
+      },
 
       // Development
-      { name: 'Start Dev Server', command: 'npm run dev', category: 'Development' },
-      { name: 'Build Project', command: 'npm run build', category: 'Development' },
+      {
+        name: 'Start Dev Server',
+        command: 'npm run dev',
+        category: 'Development',
+      },
+      {
+        name: 'Build Project',
+        command: 'npm run build',
+        category: 'Development',
+      },
       { name: 'Run Tests', command: 'npm test', category: 'Development' },
       { name: 'Lint Code', command: 'npm run lint', category: 'Development' },
 
@@ -573,9 +606,13 @@ export class DatabaseService {
 
       // File Operations
       { name: 'List Files', command: 'ls -la', category: 'File Operations' },
-      { name: 'Create Directory', command: 'mkdir ', category: 'File Operations' },
+      {
+        name: 'Create Directory',
+        command: 'mkdir ',
+        category: 'File Operations',
+      },
       { name: 'Remove File', command: 'rm ', category: 'File Operations' },
-      { name: 'Copy File', command: 'cp ', category: 'File Operations' }
+      { name: 'Copy File', command: 'cp ', category: 'File Operations' },
     ]
 
     const stmt = db.prepare(`
@@ -609,7 +646,7 @@ export class DatabaseService {
       name: data.name,
       command: data.command,
       category: data.category || null,
-      isCustom: true
+      isCustom: true,
     }
   }
 
@@ -626,12 +663,12 @@ export class DatabaseService {
     const stmt = db.prepare('SELECT * FROM blueprints ORDER BY name')
     const rows = stmt.all() as BlueprintRow[]
 
-    return rows.map((row) => ({
+    return rows.map(row => ({
       id: row.id,
       name: row.name,
       description: row.description || null,
       structure: JSON.parse(row.structure_json),
-      createdAt: new Date(row.created_at)
+      createdAt: new Date(row.created_at),
     }))
   }
 
@@ -657,7 +694,7 @@ export class DatabaseService {
       name: data.name,
       description: data.description || null,
       structure: data.structure,
-      createdAt: new Date(now)
+      createdAt: new Date(now),
     }
   }
 
@@ -723,7 +760,9 @@ export class DatabaseService {
     const conflictStmt = db.prepare(
       'SELECT action FROM shortcuts WHERE binding = ? AND action != ?'
     )
-    const conflict = conflictStmt.get(binding, action) as { action: string } | undefined
+    const conflict = conflictStmt.get(binding, action) as
+      | { action: string }
+      | undefined
 
     if (conflict) {
       // Conflict detected
