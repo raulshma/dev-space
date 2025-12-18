@@ -50,6 +50,42 @@ describe('KeychainService', () => {
       expect(await service.getApiKey('google')).toBe(googleKey)
     })
 
+    it('should store and retrieve OpenRouter API key', async () => {
+      const provider: AIProvider = 'openrouter'
+      const apiKey = 'sk-or-v1-test-openrouter-key-12345'
+
+      await service.setApiKey(provider, apiKey)
+      const retrieved = await service.getApiKey(provider)
+
+      expect(retrieved).toBe(apiKey)
+    })
+
+    it('should handle OpenRouter key alongside other providers', async () => {
+      const openrouterKey = 'sk-or-v1-openrouter-key'
+      const openaiKey = 'sk-openai-key'
+      const anthropicKey = 'sk-anthropic-key'
+
+      await service.setApiKey('openrouter', openrouterKey)
+      await service.setApiKey('openai', openaiKey)
+      await service.setApiKey('anthropic', anthropicKey)
+
+      expect(await service.getApiKey('openrouter')).toBe(openrouterKey)
+      expect(await service.getApiKey('openai')).toBe(openaiKey)
+      expect(await service.getApiKey('anthropic')).toBe(anthropicKey)
+    })
+
+    it('should delete OpenRouter API key', async () => {
+      const provider: AIProvider = 'openrouter'
+      const apiKey = 'sk-or-v1-test-key'
+
+      await service.setApiKey(provider, apiKey)
+      expect(await service.hasApiKey(provider)).toBe(true)
+
+      await service.deleteApiKey(provider)
+      expect(await service.hasApiKey(provider)).toBe(false)
+      expect(await service.getApiKey(provider)).toBeNull()
+    })
+
     it('should delete an API key', async () => {
       const provider: AIProvider = 'openai'
       const apiKey = 'sk-test-key'

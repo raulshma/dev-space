@@ -101,6 +101,57 @@ import type {
   AgentGenerateFixResponse,
   DialogOpenDirectoryRequest,
   DialogOpenDirectoryResponse,
+  // New AI Service types
+  AIGenerateTextRequest,
+  AIGenerateTextResponse,
+  AIStreamTextRequest,
+  AIStreamTextResponse,
+  AIStreamTextChunkData,
+  AIGetModelsRequest,
+  AIGetModelsResponse,
+  AISetDefaultModelRequest,
+  AISetDefaultModelResponse,
+  AISetActionModelRequest,
+  AISetActionModelResponse,
+  AIGetConversationRequest,
+  AIGetConversationResponse,
+  AIClearConversationRequest,
+  AIClearConversationResponse,
+  AIGetRequestLogsRequest,
+  AIGetRequestLogsResponse,
+  AIGetRequestLogRequest,
+  AIGetRequestLogResponse,
+  // Agent Executor types
+  AgentTaskCreateRequest,
+  AgentTaskCreateResponse,
+  AgentTaskGetRequest,
+  AgentTaskGetResponse,
+  AgentTaskListRequest,
+  AgentTaskListResponse,
+  AgentTaskUpdateRequest,
+  AgentTaskUpdateResponse,
+  AgentTaskDeleteRequest,
+  AgentTaskDeleteResponse,
+  AgentTaskStartRequest,
+  AgentTaskStartResponse,
+  AgentTaskPauseRequest,
+  AgentTaskPauseResponse,
+  AgentTaskResumeRequest,
+  AgentTaskResumeResponse,
+  AgentTaskStopRequest,
+  AgentTaskStopResponse,
+  AgentTaskGetOutputRequest,
+  AgentTaskGetOutputResponse,
+  AgentTaskOutputStreamData,
+  // Agent Config types
+  AgentConfigGetRequest,
+  AgentConfigGetResponse,
+  AgentConfigSetRequest,
+  AgentConfigSetResponse,
+  AgentConfigValidateRequest,
+  AgentConfigValidateResponse,
+  AgentConfigIsConfiguredRequest,
+  AgentConfigIsConfiguredResponse,
 } from 'shared/ipc-types'
 
 /**
@@ -274,7 +325,7 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIRECTORY, request),
   },
 
-  // AI Agent operations
+  // AI Agent operations (legacy)
   agent: {
     setModel: (request: AgentSetModelRequest): Promise<AgentSetModelResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_SET_MODEL, request),
@@ -316,6 +367,123 @@ const api = {
       request: AgentGenerateFixRequest
     ): Promise<AgentGenerateFixResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_GENERATE_FIX, request),
+  },
+
+  // AI Service operations (Vercel AI SDK)
+  ai: {
+    generateText: (
+      request: AIGenerateTextRequest
+    ): Promise<AIGenerateTextResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_GENERATE_TEXT, request),
+    streamText: (
+      request: AIStreamTextRequest
+    ): Promise<AIStreamTextResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_STREAM_TEXT, request),
+    onStreamChunk: (
+      callback: (data: AIStreamTextChunkData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AIStreamTextChunkData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AI_STREAM_TEXT_CHUNK, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.AI_STREAM_TEXT_CHUNK, listener)
+    },
+    getModels: (request: AIGetModelsRequest): Promise<AIGetModelsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_GET_MODELS, request),
+    setDefaultModel: (
+      request: AISetDefaultModelRequest
+    ): Promise<AISetDefaultModelResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_SET_DEFAULT_MODEL, request),
+    setActionModel: (
+      request: AISetActionModelRequest
+    ): Promise<AISetActionModelResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_SET_ACTION_MODEL, request),
+    getConversation: (
+      request: AIGetConversationRequest
+    ): Promise<AIGetConversationResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_GET_CONVERSATION, request),
+    clearConversation: (
+      request: AIClearConversationRequest
+    ): Promise<AIClearConversationResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_CLEAR_CONVERSATION, request),
+    getRequestLogs: (
+      request: AIGetRequestLogsRequest
+    ): Promise<AIGetRequestLogsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_GET_REQUEST_LOGS, request),
+    getRequestLog: (
+      request: AIGetRequestLogRequest
+    ): Promise<AIGetRequestLogResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AI_GET_REQUEST_LOG, request),
+  },
+
+  // Agent Executor operations
+  agentTasks: {
+    create: (
+      request: AgentTaskCreateRequest
+    ): Promise<AgentTaskCreateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_CREATE, request),
+    get: (request: AgentTaskGetRequest): Promise<AgentTaskGetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_GET, request),
+    list: (request: AgentTaskListRequest): Promise<AgentTaskListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_LIST, request),
+    update: (
+      request: AgentTaskUpdateRequest
+    ): Promise<AgentTaskUpdateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_UPDATE, request),
+    delete: (
+      request: AgentTaskDeleteRequest
+    ): Promise<AgentTaskDeleteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_DELETE, request),
+    start: (request: AgentTaskStartRequest): Promise<AgentTaskStartResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_START, request),
+    pause: (request: AgentTaskPauseRequest): Promise<AgentTaskPauseResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_PAUSE, request),
+    resume: (
+      request: AgentTaskResumeRequest
+    ): Promise<AgentTaskResumeResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_RESUME, request),
+    stop: (request: AgentTaskStopRequest): Promise<AgentTaskStopResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_STOP, request),
+    getOutput: (
+      request: AgentTaskGetOutputRequest
+    ): Promise<AgentTaskGetOutputResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_GET_OUTPUT, request),
+    subscribeOutput: (
+      request: AgentTaskGetOutputRequest
+    ): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_SUBSCRIBE_OUTPUT, request),
+    onOutputLine: (
+      callback: (data: AgentTaskOutputStreamData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AgentTaskOutputStreamData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM,
+          listener
+        )
+    },
+  },
+
+  // Agent Configuration operations
+  agentConfig: {
+    get: (request: AgentConfigGetRequest): Promise<AgentConfigGetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CONFIG_GET, request),
+    set: (request: AgentConfigSetRequest): Promise<AgentConfigSetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CONFIG_SET, request),
+    validate: (
+      request: AgentConfigValidateRequest
+    ): Promise<AgentConfigValidateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CONFIG_VALIDATE, request),
+    isConfigured: (
+      request: AgentConfigIsConfiguredRequest
+    ): Promise<AgentConfigIsConfiguredResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CONFIG_IS_CONFIGURED, request),
   },
 }
 

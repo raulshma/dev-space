@@ -26,3 +26,33 @@ export function makeAppId(id: string = appId): string {
 export function waitFor(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+/**
+ * Masks an API key for secure display, showing only the last 4 characters.
+ * For keys with length > 4, replaces all but the last 4 characters with asterisks.
+ * For keys with length <= 4, returns all asterisks.
+ *
+ * @param {string} apiKey - The API key to mask
+ * @returns {string} The masked API key
+ * @example
+ * maskApiKey('sk-or-v1-abc123xyz789') // => '**************789'
+ * maskApiKey('abc') // => '***'
+ * maskApiKey('') // => ''
+ */
+export function maskApiKey(apiKey: string): string {
+  if (!apiKey) {
+    return ''
+  }
+
+  const visibleChars = 4
+  const keyLength = apiKey.length
+
+  if (keyLength <= visibleChars) {
+    return '*'.repeat(keyLength)
+  }
+
+  const maskedLength = keyLength - visibleChars
+  const lastFourChars = apiKey.slice(-visibleChars)
+
+  return '*'.repeat(maskedLength) + lastFourChars
+}

@@ -1,10 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { DatabaseService } from '../services/database'
 import { PTYManager } from '../services/pty-manager'
 import { GitService } from '../services/git-service'
 import { KeychainService } from '../services/keychain-service'
 import { AgentService } from '../services/agent-service'
 import { IPCHandlers } from './handlers'
+import type { AIService } from '../services/ai-service'
+import type { AgentExecutorService } from '../services/agent-executor-service'
+import type { AgentConfigService } from '../services/agent/agent-config-service'
+import type { RequestLogger } from '../services/ai/request-logger'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
@@ -99,6 +103,188 @@ describe('IPCHandlers', () => {
       // Just verify the service is instantiated correctly
       expect(keychainService).toBeDefined()
       expect(keychainService).toBeInstanceOf(KeychainService)
+    })
+  })
+
+  describe('new service integration', () => {
+    it('should accept optional AI service', () => {
+      const mockAIService = {
+        initialize: vi.fn(),
+        getProvider: vi.fn(),
+        getAvailableModels: vi.fn().mockResolvedValue([]),
+        setDefaultModel: vi.fn(),
+        setActionModel: vi.fn(),
+        getModelForAction: vi.fn(),
+        generateText: vi.fn(),
+        streamText: vi.fn(),
+        getConversation: vi.fn().mockReturnValue([]),
+        clearConversation: vi.fn(),
+        addMessageToConversation: vi.fn(),
+      } as unknown as AIService
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        agentService,
+        mockAIService
+      )
+
+      expect(handlers).toBeDefined()
+    })
+
+    it('should accept optional agent executor service', () => {
+      const mockAgentExecutor = {
+        createTask: vi.fn(),
+        getTask: vi.fn(),
+        getTasks: vi.fn().mockReturnValue([]),
+        updateTask: vi.fn(),
+        deleteTask: vi.fn(),
+        startTask: vi.fn(),
+        pauseTask: vi.fn(),
+        resumeTask: vi.fn(),
+        stopTask: vi.fn(),
+        getTaskOutput: vi.fn().mockReturnValue([]),
+        subscribeToOutput: vi.fn().mockReturnValue(() => {}),
+        getBacklogSize: vi.fn().mockReturnValue(0),
+        reorderBacklog: vi.fn(),
+      } as unknown as AgentExecutorService
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        agentService,
+        undefined,
+        mockAgentExecutor
+      )
+
+      expect(handlers).toBeDefined()
+    })
+
+    it('should accept optional agent config service', () => {
+      const mockAgentConfig = {
+        getConfig: vi.fn().mockResolvedValue({
+          anthropicAuthToken: 'test-token',
+          apiTimeoutMs: 30000,
+          pythonPath: 'python',
+          customEnvVars: {},
+        }),
+        setConfig: vi.fn(),
+        validateConfig: vi.fn().mockReturnValue({ isValid: true, errors: [] }),
+        isConfigured: vi.fn().mockResolvedValue(true),
+        clearConfig: vi.fn(),
+      } as unknown as AgentConfigService
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        agentService,
+        undefined,
+        undefined,
+        mockAgentConfig
+      )
+
+      expect(handlers).toBeDefined()
+    })
+
+    it('should accept optional request logger', () => {
+      const mockRequestLogger = {
+        logRequest: vi.fn().mockReturnValue('log-id'),
+        updateResponse: vi.fn(),
+        logError: vi.fn(),
+        getLogs: vi.fn().mockReturnValue([]),
+        getLog: vi.fn().mockReturnValue(null),
+        clearOldLogs: vi.fn().mockReturnValue(0),
+        stopPeriodicCleanup: vi.fn(),
+      } as unknown as RequestLogger
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        agentService,
+        undefined,
+        undefined,
+        undefined,
+        mockRequestLogger
+      )
+
+      expect(handlers).toBeDefined()
+    })
+
+    it('should accept all optional services together', () => {
+      const mockAIService = {
+        initialize: vi.fn(),
+        getProvider: vi.fn(),
+        getAvailableModels: vi.fn().mockResolvedValue([]),
+        setDefaultModel: vi.fn(),
+        setActionModel: vi.fn(),
+        getModelForAction: vi.fn(),
+        generateText: vi.fn(),
+        streamText: vi.fn(),
+        getConversation: vi.fn().mockReturnValue([]),
+        clearConversation: vi.fn(),
+        addMessageToConversation: vi.fn(),
+      } as unknown as AIService
+
+      const mockAgentExecutor = {
+        createTask: vi.fn(),
+        getTask: vi.fn(),
+        getTasks: vi.fn().mockReturnValue([]),
+        updateTask: vi.fn(),
+        deleteTask: vi.fn(),
+        startTask: vi.fn(),
+        pauseTask: vi.fn(),
+        resumeTask: vi.fn(),
+        stopTask: vi.fn(),
+        getTaskOutput: vi.fn().mockReturnValue([]),
+        subscribeToOutput: vi.fn().mockReturnValue(() => {}),
+        getBacklogSize: vi.fn().mockReturnValue(0),
+        reorderBacklog: vi.fn(),
+      } as unknown as AgentExecutorService
+
+      const mockAgentConfig = {
+        getConfig: vi.fn().mockResolvedValue({
+          anthropicAuthToken: 'test-token',
+          apiTimeoutMs: 30000,
+          pythonPath: 'python',
+          customEnvVars: {},
+        }),
+        setConfig: vi.fn(),
+        validateConfig: vi.fn().mockReturnValue({ isValid: true, errors: [] }),
+        isConfigured: vi.fn().mockResolvedValue(true),
+        clearConfig: vi.fn(),
+      } as unknown as AgentConfigService
+
+      const mockRequestLogger = {
+        logRequest: vi.fn().mockReturnValue('log-id'),
+        updateResponse: vi.fn(),
+        logError: vi.fn(),
+        getLogs: vi.fn().mockReturnValue([]),
+        getLog: vi.fn().mockReturnValue(null),
+        clearOldLogs: vi.fn().mockReturnValue(0),
+        stopPeriodicCleanup: vi.fn(),
+      } as unknown as RequestLogger
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        agentService,
+        mockAIService,
+        mockAgentExecutor,
+        mockAgentConfig,
+        mockRequestLogger
+      )
+
+      expect(handlers).toBeDefined()
     })
   })
 })

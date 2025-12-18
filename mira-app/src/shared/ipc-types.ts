@@ -84,7 +84,7 @@ export const IPC_CHANNELS = {
   SHORTCUT_LIST: 'shortcut:list',
   SHORTCUT_SET: 'shortcut:set',
 
-  // AI Agent operations
+  // AI Agent operations (legacy)
   AGENT_SET_MODEL: 'agent:setModel',
   AGENT_GET_MODEL: 'agent:getModel',
   AGENT_GET_MODELS: 'agent:getModels',
@@ -96,6 +96,38 @@ export const IPC_CHANNELS = {
   AGENT_GET_CONTEXT_FILES: 'agent:getContextFiles',
   AGENT_GET_TOKEN_USAGE: 'agent:getTokenUsage',
   AGENT_GENERATE_FIX: 'agent:generateFix',
+
+  // AI Service operations (new Vercel AI SDK)
+  AI_GENERATE_TEXT: 'ai:generateText',
+  AI_STREAM_TEXT: 'ai:streamText',
+  AI_STREAM_TEXT_CHUNK: 'ai:streamTextChunk',
+  AI_GET_MODELS: 'ai:getModels',
+  AI_SET_DEFAULT_MODEL: 'ai:setDefaultModel',
+  AI_SET_ACTION_MODEL: 'ai:setActionModel',
+  AI_GET_CONVERSATION: 'ai:getConversation',
+  AI_CLEAR_CONVERSATION: 'ai:clearConversation',
+  AI_GET_REQUEST_LOGS: 'ai:getRequestLogs',
+  AI_GET_REQUEST_LOG: 'ai:getRequestLog',
+
+  // Agent Executor operations
+  AGENT_TASK_CREATE: 'agentTask:create',
+  AGENT_TASK_GET: 'agentTask:get',
+  AGENT_TASK_LIST: 'agentTask:list',
+  AGENT_TASK_UPDATE: 'agentTask:update',
+  AGENT_TASK_DELETE: 'agentTask:delete',
+  AGENT_TASK_START: 'agentTask:start',
+  AGENT_TASK_PAUSE: 'agentTask:pause',
+  AGENT_TASK_RESUME: 'agentTask:resume',
+  AGENT_TASK_STOP: 'agentTask:stop',
+  AGENT_TASK_GET_OUTPUT: 'agentTask:getOutput',
+  AGENT_TASK_OUTPUT_STREAM: 'agentTask:outputStream',
+  AGENT_TASK_SUBSCRIBE_OUTPUT: 'agentTask:subscribeOutput',
+
+  // Agent Configuration operations
+  AGENT_CONFIG_GET: 'agentConfig:get',
+  AGENT_CONFIG_SET: 'agentConfig:set',
+  AGENT_CONFIG_VALIDATE: 'agentConfig:validate',
+  AGENT_CONFIG_IS_CONFIGURED: 'agentConfig:isConfigured',
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
@@ -528,4 +560,224 @@ export interface IPCErrorResponse {
   error: string
   code?: string
   details?: unknown
+}
+
+// ============================================================================
+// AI Service Request/Response Types (Vercel AI SDK)
+// ============================================================================
+
+export interface AIGenerateTextRequest {
+  projectId: string
+  content: string
+  action?: import('./ai-types').AIAction
+  systemPrompt?: string
+}
+
+export interface AIGenerateTextResponse {
+  text: string
+  usage: import('./ai-types').TokenUsage
+  model: string
+  finishReason: string
+}
+
+export interface AIStreamTextRequest {
+  projectId: string
+  content: string
+  action?: import('./ai-types').AIAction
+  systemPrompt?: string
+  streamId: string
+}
+
+export interface AIStreamTextResponse {
+  streamId: string
+  started: boolean
+}
+
+export interface AIStreamTextChunkData {
+  streamId: string
+  text: string
+  isComplete: boolean
+  usage?: import('./ai-types').TokenUsage
+  error?: string
+}
+
+export interface AIGetModelsRequest {}
+
+export interface AIGetModelsResponse {
+  models: import('./ai-types').AIModel[]
+}
+
+export interface AISetDefaultModelRequest {
+  modelId: string
+}
+
+export interface AISetDefaultModelResponse {
+  success: boolean
+}
+
+export interface AISetActionModelRequest {
+  action: import('./ai-types').AIAction
+  modelId: string
+}
+
+export interface AISetActionModelResponse {
+  success: boolean
+}
+
+export interface AIGetConversationRequest {
+  projectId: string
+}
+
+export interface AIGetConversationResponse {
+  messages: import('./ai-types').ConversationMessage[]
+}
+
+export interface AIClearConversationRequest {
+  projectId: string
+}
+
+export interface AIClearConversationResponse {
+  success: boolean
+}
+
+export interface AIGetRequestLogsRequest {
+  filter?: import('./ai-types').AILogFilter
+}
+
+export interface AIGetRequestLogsResponse {
+  logs: import('./ai-types').AIRequestLog[]
+}
+
+export interface AIGetRequestLogRequest {
+  logId: string
+}
+
+export interface AIGetRequestLogResponse {
+  log: import('./ai-types').AIRequestLog | null
+}
+
+// ============================================================================
+// Agent Executor Request/Response Types
+// ============================================================================
+
+export interface AgentTaskCreateRequest {
+  description: string
+  agentType: import('./ai-types').AgentType
+  targetDirectory: string
+  parameters?: import('./ai-types').AgentParameters
+  priority?: number
+}
+
+export interface AgentTaskCreateResponse {
+  task: import('./ai-types').AgentTask
+}
+
+export interface AgentTaskGetRequest {
+  taskId: string
+}
+
+export interface AgentTaskGetResponse {
+  task: import('./ai-types').AgentTask | null
+}
+
+export interface AgentTaskListRequest {
+  filter?: import('./ai-types').AgentTaskFilter
+}
+
+export interface AgentTaskListResponse {
+  tasks: import('./ai-types').AgentTask[]
+}
+
+export interface AgentTaskUpdateRequest {
+  taskId: string
+  updates: import('./ai-types').UpdateAgentTaskInput
+}
+
+export interface AgentTaskUpdateResponse {
+  task: import('./ai-types').AgentTask
+}
+
+export interface AgentTaskDeleteRequest {
+  taskId: string
+}
+
+export interface AgentTaskDeleteResponse {
+  success: boolean
+}
+
+export interface AgentTaskStartRequest {
+  taskId: string
+}
+
+export interface AgentTaskStartResponse {
+  success: boolean
+}
+
+export interface AgentTaskPauseRequest {
+  taskId: string
+}
+
+export interface AgentTaskPauseResponse {
+  success: boolean
+}
+
+export interface AgentTaskResumeRequest {
+  taskId: string
+}
+
+export interface AgentTaskResumeResponse {
+  success: boolean
+}
+
+export interface AgentTaskStopRequest {
+  taskId: string
+}
+
+export interface AgentTaskStopResponse {
+  success: boolean
+}
+
+export interface AgentTaskGetOutputRequest {
+  taskId: string
+}
+
+export interface AgentTaskGetOutputResponse {
+  output: import('./ai-types').OutputLine[]
+}
+
+export interface AgentTaskOutputStreamData {
+  taskId: string
+  line: import('./ai-types').OutputLine
+}
+
+// ============================================================================
+// Agent Configuration Request/Response Types
+// ============================================================================
+
+export interface AgentConfigGetRequest {}
+
+export interface AgentConfigGetResponse {
+  config: import('./ai-types').AgentEnvironmentConfig
+}
+
+export interface AgentConfigSetRequest {
+  updates: import('./ai-types').UpdateAgentConfigInput
+}
+
+export interface AgentConfigSetResponse {
+  success: boolean
+}
+
+export interface AgentConfigValidateRequest {
+  config: import('./ai-types').AgentEnvironmentConfig
+}
+
+export interface AgentConfigValidateResponse {
+  result: import('./ai-types').AgentConfigValidationResult
+}
+
+export interface AgentConfigIsConfiguredRequest {}
+
+export interface AgentConfigIsConfiguredResponse {
+  isConfigured: boolean
 }

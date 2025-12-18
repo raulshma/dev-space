@@ -49,6 +49,32 @@ import type {
   AgentGetTokenUsageRequest,
   AgentGenerateFixRequest,
   DialogOpenDirectoryRequest,
+  // New AI Service types
+  AIGenerateTextRequest,
+  AIStreamTextRequest,
+  AIGetModelsRequest,
+  AISetDefaultModelRequest,
+  AISetActionModelRequest,
+  AIGetConversationRequest,
+  AIClearConversationRequest,
+  AIGetRequestLogsRequest,
+  AIGetRequestLogRequest,
+  // Agent Executor types
+  AgentTaskCreateRequest,
+  AgentTaskGetRequest,
+  AgentTaskListRequest,
+  AgentTaskUpdateRequest,
+  AgentTaskDeleteRequest,
+  AgentTaskStartRequest,
+  AgentTaskPauseRequest,
+  AgentTaskResumeRequest,
+  AgentTaskStopRequest,
+  AgentTaskGetOutputRequest,
+  // Agent Config types
+  AgentConfigGetRequest,
+  AgentConfigSetRequest,
+  AgentConfigValidateRequest,
+  AgentConfigIsConfiguredRequest,
 } from 'shared/ipc-types'
 import type { DatabaseService } from 'main/services/database'
 import type { PTYManager } from 'main/services/pty-manager'
@@ -56,6 +82,10 @@ import type { GitService } from 'main/services/git-service'
 import type { KeychainService } from 'main/services/keychain-service'
 import type { AgentService } from 'main/services/agent-service'
 import { BlueprintService } from 'main/services/blueprint-service'
+import type { AIService } from 'main/services/ai-service'
+import type { AgentExecutorService } from 'main/services/agent-executor-service'
+import type { AgentConfigService } from 'main/services/agent/agent-config-service'
+import type { RequestLogger } from 'main/services/ai/request-logger'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -73,13 +103,21 @@ export class IPCHandlers {
   private keychainService: KeychainService
   private agentService: AgentService
   private blueprintService: BlueprintService
+  private aiService?: AIService
+  private agentExecutorService?: AgentExecutorService
+  private agentConfigService?: AgentConfigService
+  private requestLogger?: RequestLogger
 
   constructor(
     db: DatabaseService,
     ptyManager: PTYManager,
     gitService: GitService,
     keychainService: KeychainService,
-    agentService: AgentService
+    agentService: AgentService,
+    aiService?: AIService,
+    agentExecutorService?: AgentExecutorService,
+    agentConfigService?: AgentConfigService,
+    requestLogger?: RequestLogger
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -87,6 +125,10 @@ export class IPCHandlers {
     this.keychainService = keychainService
     this.agentService = agentService
     this.blueprintService = new BlueprintService()
+    this.aiService = aiService
+    this.agentExecutorService = agentExecutorService
+    this.agentConfigService = agentConfigService
+    this.requestLogger = requestLogger
   }
 
   /**
@@ -106,6 +148,10 @@ export class IPCHandlers {
     this.registerShellHandlers()
     this.registerAgentHandlers()
     this.registerDialogHandlers()
+    // New AI service handlers
+    this.registerAIServiceHandlers()
+    this.registerAgentExecutorHandlers()
+    this.registerAgentConfigHandlers()
   }
 
   /**
@@ -833,6 +879,478 @@ export class IPCHandlers {
             path: result.filePaths[0] ?? null,
             canceled: result.canceled,
           }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * AI Service operation handlers (Vercel AI SDK)
+   * Requirements: 1.2, 1.3, 3.1, 3.3, 4.5
+   */
+  private registerAIServiceHandlers(): void {
+    // Generate text (non-streaming)
+    ipcMain.handle(
+      IPC_CHANNELS.AI_GENERATE_TEXT,
+      async (_event, request: AIGenerateTextRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const result = await this.aiService.generateText({
+            projectId: request.projectId,
+            content: request.content,
+            action: request.action,
+            systemPrompt: request.systemPrompt,
+          })
+          return {
+            text: result.text,
+            usage: result.usage,
+            model: result.model,
+            finishReason: result.finishReason,
+          }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stream text generation
+    ipcMain.handle(
+      IPC_CHANNELS.AI_STREAM_TEXT,
+      async (event, request: AIStreamTextRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+
+          // Start streaming in background
+          const streamId = request.streamId
+          const sender = event.sender
+
+          // Run streaming asynchronously
+          ;(async () => {
+            try {
+              const stream = this.aiService!.streamText({
+                projectId: request.projectId,
+                content: request.content,
+                action: request.action,
+                systemPrompt: request.systemPrompt,
+              })
+
+              for await (const chunk of stream) {
+                sender.send(IPC_CHANNELS.AI_STREAM_TEXT_CHUNK, {
+                  streamId,
+                  text: chunk.text,
+                  isComplete: chunk.isComplete,
+                  usage: chunk.usage,
+                })
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Unknown error'
+              sender.send(IPC_CHANNELS.AI_STREAM_TEXT_CHUNK, {
+                streamId,
+                text: '',
+                isComplete: true,
+                error: message,
+              })
+            }
+          })()
+
+          return { streamId, started: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get available models
+    ipcMain.handle(
+      IPC_CHANNELS.AI_GET_MODELS,
+      async (_event, _request: AIGetModelsRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const models = await this.aiService.getAvailableModels()
+          return { models }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set default model
+    ipcMain.handle(
+      IPC_CHANNELS.AI_SET_DEFAULT_MODEL,
+      async (_event, request: AISetDefaultModelRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.aiService.setDefaultModel(request.modelId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set action-specific model
+    ipcMain.handle(
+      IPC_CHANNELS.AI_SET_ACTION_MODEL,
+      async (_event, request: AISetActionModelRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.aiService.setActionModel(request.action, request.modelId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get conversation
+    ipcMain.handle(
+      IPC_CHANNELS.AI_GET_CONVERSATION,
+      async (_event, request: AIGetConversationRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const messages = this.aiService.getConversation(request.projectId)
+          return { messages }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Clear conversation
+    ipcMain.handle(
+      IPC_CHANNELS.AI_CLEAR_CONVERSATION,
+      async (_event, request: AIClearConversationRequest) => {
+        try {
+          if (!this.aiService) {
+            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          this.aiService.clearConversation(request.projectId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get request logs
+    ipcMain.handle(
+      IPC_CHANNELS.AI_GET_REQUEST_LOGS,
+      async (_event, request: AIGetRequestLogsRequest) => {
+        try {
+          if (!this.requestLogger) {
+            return { error: 'Request logger not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const logs = this.requestLogger.getLogs(request.filter)
+          return { logs }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get single request log
+    ipcMain.handle(
+      IPC_CHANNELS.AI_GET_REQUEST_LOG,
+      async (_event, request: AIGetRequestLogRequest) => {
+        try {
+          if (!this.requestLogger) {
+            return { error: 'Request logger not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const log = this.requestLogger.getLog(request.logId)
+          return { log }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Agent Executor operation handlers
+   * Requirements: 6.1, 7.1, 8.1, 9.2, 10.1
+   */
+  private registerAgentExecutorHandlers(): void {
+    // Create task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_CREATE,
+      async (_event, request: AgentTaskCreateRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const task = await this.agentExecutorService.createTask({
+            description: request.description,
+            agentType: request.agentType,
+            targetDirectory: request.targetDirectory,
+            parameters: request.parameters,
+            priority: request.priority,
+          })
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_GET,
+      async (_event, request: AgentTaskGetRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const task = this.agentExecutorService.getTask(request.taskId)
+          return { task: task ?? null }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List tasks
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_LIST,
+      async (_event, request: AgentTaskListRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const tasks = this.agentExecutorService.getTasks(request.filter)
+          return { tasks }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Update task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_UPDATE,
+      async (_event, request: AgentTaskUpdateRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const task = await this.agentExecutorService.updateTask(
+            request.taskId,
+            request.updates
+          )
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Delete task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_DELETE,
+      async (_event, request: AgentTaskDeleteRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.agentExecutorService.deleteTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Start task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_START,
+      async (_event, request: AgentTaskStartRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.agentExecutorService.startTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Pause task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_PAUSE,
+      async (_event, request: AgentTaskPauseRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.agentExecutorService.pauseTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Resume task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_RESUME,
+      async (_event, request: AgentTaskResumeRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.agentExecutorService.resumeTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stop task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_STOP,
+      async (_event, request: AgentTaskStopRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.agentExecutorService.stopTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get task output
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_GET_OUTPUT,
+      async (_event, request: AgentTaskGetOutputRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const output = this.agentExecutorService.getTaskOutput(request.taskId)
+          return { output }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Subscribe to output streaming
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_SUBSCRIBE_OUTPUT,
+      async (event, request: AgentTaskGetOutputRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+
+          const sender = event.sender
+          const taskId = request.taskId
+
+          // Subscribe to output updates
+          const unsubscribe = this.agentExecutorService.subscribeToOutput(
+            taskId,
+            (line) => {
+              sender.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                taskId,
+                line,
+              })
+            }
+          )
+
+          // Store unsubscribe function for cleanup
+          // Note: In a real implementation, you'd want to track these
+          // and clean them up when the renderer disconnects
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Agent Configuration operation handlers
+   * Requirements: 5.1, 5.2, 5.5
+   */
+  private registerAgentConfigHandlers(): void {
+    // Get configuration
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_GET,
+      async (_event, _request: AgentConfigGetRequest) => {
+        try {
+          if (!this.agentConfigService) {
+            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const config = await this.agentConfigService.getConfig()
+          return { config }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set configuration
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_SET,
+      async (_event, request: AgentConfigSetRequest) => {
+        try {
+          if (!this.agentConfigService) {
+            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          await this.agentConfigService.setConfig(request.updates)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Validate configuration
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_VALIDATE,
+      async (_event, request: AgentConfigValidateRequest) => {
+        try {
+          if (!this.agentConfigService) {
+            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const result = this.agentConfigService.validateConfig(request.config)
+          return { result }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Check if configured
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_IS_CONFIGURED,
+      async (_event, _request: AgentConfigIsConfiguredRequest) => {
+        try {
+          if (!this.agentConfigService) {
+            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+          }
+          const isConfigured = await this.agentConfigService.isConfigured()
+          return { isConfigured }
         } catch (error) {
           return this.handleError(error)
         }

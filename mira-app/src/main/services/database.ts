@@ -15,6 +15,22 @@ import type {
   CreateBlueprintInput,
   ProjectFilter,
 } from 'shared/models'
+import type {
+  AIRequestLog,
+  AILogFilter,
+  CreateAIRequestLogInput,
+  AIResponseLog,
+  AIErrorLog,
+  AgentTask,
+  AgentTaskFilter,
+  CreateAgentTaskInput,
+  UpdateAgentTaskInput,
+  OutputLine,
+  CreateOutputLineInput,
+  CachedModel,
+  CacheModelInput,
+  AISetting,
+} from 'shared/ai-types'
 
 // Database row interfaces
 interface ProjectRow {
@@ -48,6 +64,65 @@ interface BlueprintRow {
   description: string | null
   structure_json: string
   created_at: number
+}
+
+// AI Request Log row interface
+interface AIRequestLogRow {
+  id: string
+  timestamp: number
+  model_id: string
+  action: string
+  input_json: string
+  metadata_json: string | null
+  status: string
+  response_json: string | null
+  error_json: string | null
+  created_at: number
+}
+
+// Agent Task row interface
+interface AgentTaskRow {
+  id: string
+  description: string
+  agent_type: string
+  target_directory: string
+  parameters_json: string | null
+  status: string
+  priority: number
+  process_id: number | null
+  exit_code: number | null
+  error: string | null
+  file_changes_json: string | null
+  created_at: number
+  started_at: number | null
+  completed_at: number | null
+}
+
+// Agent Task Output row interface
+interface AgentTaskOutputRow {
+  id: number
+  task_id: string
+  timestamp: number
+  content: string
+  stream: string
+}
+
+// Model Cache row interface
+interface ModelCacheRow {
+  id: string
+  name: string
+  provider: string
+  context_length: number
+  pricing_json: string
+  capabilities_json: string
+  cached_at: number
+}
+
+// AI Settings row interface
+interface AISettingsRow {
+  key: string
+  value: string
+  updated_at: number
 }
 
 export class DatabaseService {
@@ -176,6 +251,94 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at);
       CREATE INDEX IF NOT EXISTS idx_project_tags_project_id ON project_tags(project_id);
       CREATE INDEX IF NOT EXISTS idx_project_tags_tag_id ON project_tags(tag_id);
+    `)
+
+    // AI Request Logs table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_request_logs (
+        id TEXT PRIMARY KEY,
+        timestamp INTEGER NOT NULL,
+        model_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        input_json TEXT NOT NULL,
+        metadata_json TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        response_json TEXT,
+        error_json TEXT,
+        created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    `)
+
+    // AI Request Logs indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_ai_logs_timestamp ON ai_request_logs(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_ai_logs_model ON ai_request_logs(model_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_logs_status ON ai_request_logs(status);
+    `)
+
+    // Agent Tasks table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_tasks (
+        id TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        agent_type TEXT NOT NULL,
+        target_directory TEXT NOT NULL,
+        parameters_json TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        priority INTEGER NOT NULL DEFAULT 0,
+        process_id INTEGER,
+        exit_code INTEGER,
+        error TEXT,
+        file_changes_json TEXT,
+        created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        started_at INTEGER,
+        completed_at INTEGER
+      )
+    `)
+
+    // Agent Tasks indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_agent_tasks_status ON agent_tasks(status);
+      CREATE INDEX IF NOT EXISTS idx_agent_tasks_priority ON agent_tasks(priority);
+    `)
+
+    // Agent Task Output table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_task_output (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        stream TEXT NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Agent Task Output index
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_task_output_task ON agent_task_output(task_id);
+    `)
+
+    // Model Cache table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS model_cache (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        context_length INTEGER,
+        pricing_json TEXT,
+        capabilities_json TEXT,
+        cached_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    `)
+
+    // AI Settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS ai_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
+      )
     `)
   }
 
@@ -789,5 +952,632 @@ export class DatabaseService {
     const row = stmt.get(action) as { binding: string } | undefined
 
     return row ? row.binding : null
+  }
+
+  // ============================================================================
+  // AI REQUEST LOG OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new AI request log entry
+   */
+  createAIRequestLog(data: CreateAIRequestLogInput): AIRequestLog {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO ai_request_logs (id, timestamp, model_id, action, input_json, metadata_json, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id,
+      now,
+      data.modelId,
+      data.action,
+      JSON.stringify(data.input),
+      data.metadata ? JSON.stringify(data.metadata) : null,
+      'pending',
+      now
+    )
+
+    return {
+      id,
+      timestamp: new Date(now),
+      modelId: data.modelId,
+      action: data.action,
+      input: data.input,
+      metadata: data.metadata,
+      status: 'pending',
+    }
+  }
+
+  /**
+   * Update an AI request log with response data
+   */
+  updateAIRequestLogResponse(logId: string, response: AIResponseLog): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      UPDATE ai_request_logs
+      SET response_json = ?, status = 'completed'
+      WHERE id = ?
+    `)
+
+    stmt.run(JSON.stringify(response), logId)
+  }
+
+  /**
+   * Update an AI request log with error data
+   */
+  updateAIRequestLogError(logId: string, error: AIErrorLog): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      UPDATE ai_request_logs
+      SET error_json = ?, status = 'failed'
+      WHERE id = ?
+    `)
+
+    stmt.run(JSON.stringify(error), logId)
+  }
+
+  /**
+   * Get AI request logs with optional filtering
+   */
+  getAIRequestLogs(filter?: AILogFilter): AIRequestLog[] {
+    const db = this.getDb()
+
+    let query = 'SELECT * FROM ai_request_logs WHERE 1=1'
+    const params: (string | number)[] = []
+
+    if (filter?.startDate) {
+      query += ' AND timestamp >= ?'
+      params.push(filter.startDate.getTime())
+    }
+
+    if (filter?.endDate) {
+      query += ' AND timestamp <= ?'
+      params.push(filter.endDate.getTime())
+    }
+
+    if (filter?.modelId) {
+      query += ' AND model_id = ?'
+      params.push(filter.modelId)
+    }
+
+    if (filter?.action) {
+      query += ' AND action = ?'
+      params.push(filter.action)
+    }
+
+    if (filter?.status) {
+      query += ' AND status = ?'
+      params.push(filter.status)
+    }
+
+    query += ' ORDER BY timestamp DESC'
+
+    if (filter?.limit) {
+      query += ' LIMIT ?'
+      params.push(filter.limit)
+    }
+
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as AIRequestLogRow[]
+
+    return rows.map(row => this.rowToAIRequestLog(row))
+  }
+
+  /**
+   * Get a single AI request log by ID
+   */
+  getAIRequestLog(id: string): AIRequestLog | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM ai_request_logs WHERE id = ?')
+    const row = stmt.get(id) as AIRequestLogRow | undefined
+
+    if (!row) return null
+
+    return this.rowToAIRequestLog(row)
+  }
+
+  /**
+   * Delete AI request logs older than the specified retention period
+   */
+  clearOldAIRequestLogs(retentionDays: number): number {
+    const db = this.getDb()
+
+    const cutoffTime = Date.now() - retentionDays * 24 * 60 * 60 * 1000
+
+    const stmt = db.prepare('DELETE FROM ai_request_logs WHERE timestamp < ?')
+    const result = stmt.run(cutoffTime)
+
+    return result.changes
+  }
+
+  /**
+   * Convert a database row to an AIRequestLog object
+   */
+  private rowToAIRequestLog(row: AIRequestLogRow): AIRequestLog {
+    return {
+      id: row.id,
+      timestamp: new Date(row.timestamp),
+      modelId: row.model_id,
+      action: row.action as AIRequestLog['action'],
+      input: JSON.parse(row.input_json),
+      metadata: row.metadata_json ? JSON.parse(row.metadata_json) : undefined,
+      status: row.status as AIRequestLog['status'],
+      response: row.response_json ? JSON.parse(row.response_json) : undefined,
+      error: row.error_json ? JSON.parse(row.error_json) : undefined,
+    }
+  }
+
+  // ============================================================================
+  // AGENT TASK OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new agent task
+   */
+  createAgentTask(data: CreateAgentTaskInput): AgentTask {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id,
+      data.description,
+      data.agentType,
+      data.targetDirectory,
+      data.parameters ? JSON.stringify(data.parameters) : null,
+      'pending',
+      data.priority ?? 0,
+      now
+    )
+
+    return {
+      id,
+      description: data.description,
+      agentType: data.agentType,
+      targetDirectory: data.targetDirectory,
+      parameters: data.parameters ?? {},
+      status: 'pending',
+      priority: data.priority ?? 0,
+      createdAt: new Date(now),
+    }
+  }
+
+  /**
+   * Get a single agent task by ID
+   */
+  getAgentTask(id: string): AgentTask | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM agent_tasks WHERE id = ?')
+    const row = stmt.get(id) as AgentTaskRow | undefined
+
+    if (!row) return null
+
+    return this.rowToAgentTask(row)
+  }
+
+  /**
+   * Get agent tasks with optional filtering
+   */
+  getAgentTasks(filter?: AgentTaskFilter): AgentTask[] {
+    const db = this.getDb()
+
+    let query = 'SELECT * FROM agent_tasks WHERE 1=1'
+    const params: (string | number)[] = []
+
+    if (filter?.status) {
+      query += ' AND status = ?'
+      params.push(filter.status)
+    }
+
+    if (filter?.agentType) {
+      query += ' AND agent_type = ?'
+      params.push(filter.agentType)
+    }
+
+    query += ' ORDER BY priority DESC, created_at ASC'
+
+    if (filter?.limit) {
+      query += ' LIMIT ?'
+      params.push(filter.limit)
+    }
+
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as AgentTaskRow[]
+
+    return rows.map(row => this.rowToAgentTask(row))
+  }
+
+  /**
+   * Update an agent task
+   */
+  updateAgentTask(id: string, data: UpdateAgentTaskInput): AgentTask | null {
+    const db = this.getDb()
+
+    const updates: string[] = []
+    const params: (string | number | null)[] = []
+
+    if (data.description !== undefined) {
+      updates.push('description = ?')
+      params.push(data.description)
+    }
+
+    if (data.parameters !== undefined) {
+      updates.push('parameters_json = ?')
+      params.push(JSON.stringify(data.parameters))
+    }
+
+    if (data.status !== undefined) {
+      updates.push('status = ?')
+      params.push(data.status)
+    }
+
+    if (data.priority !== undefined) {
+      updates.push('priority = ?')
+      params.push(data.priority)
+    }
+
+    if (data.processId !== undefined) {
+      updates.push('process_id = ?')
+      params.push(data.processId)
+    }
+
+    if (data.exitCode !== undefined) {
+      updates.push('exit_code = ?')
+      params.push(data.exitCode)
+    }
+
+    if (data.error !== undefined) {
+      updates.push('error = ?')
+      params.push(data.error)
+    }
+
+    if (data.fileChanges !== undefined) {
+      updates.push('file_changes_json = ?')
+      params.push(JSON.stringify(data.fileChanges))
+    }
+
+    if (data.startedAt !== undefined) {
+      updates.push('started_at = ?')
+      params.push(data.startedAt.getTime())
+    }
+
+    if (data.completedAt !== undefined) {
+      updates.push('completed_at = ?')
+      params.push(data.completedAt.getTime())
+    }
+
+    if (updates.length === 0) {
+      return this.getAgentTask(id)
+    }
+
+    params.push(id)
+
+    const stmt = db.prepare(`
+      UPDATE agent_tasks
+      SET ${updates.join(', ')}
+      WHERE id = ?
+    `)
+
+    stmt.run(...params)
+
+    return this.getAgentTask(id)
+  }
+
+  /**
+   * Delete an agent task
+   */
+  deleteAgentTask(id: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM agent_tasks WHERE id = ?')
+    stmt.run(id)
+  }
+
+  /**
+   * Convert a database row to an AgentTask object
+   */
+  private rowToAgentTask(row: AgentTaskRow): AgentTask {
+    return {
+      id: row.id,
+      description: row.description,
+      agentType: row.agent_type as AgentTask['agentType'],
+      targetDirectory: row.target_directory,
+      parameters: row.parameters_json ? JSON.parse(row.parameters_json) : {},
+      status: row.status as AgentTask['status'],
+      priority: row.priority,
+      createdAt: new Date(row.created_at),
+      startedAt: row.started_at ? new Date(row.started_at) : undefined,
+      completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+      processId: row.process_id ?? undefined,
+      exitCode: row.exit_code ?? undefined,
+      error: row.error ?? undefined,
+      fileChanges: row.file_changes_json ? JSON.parse(row.file_changes_json) : undefined,
+    }
+  }
+
+  // ============================================================================
+  // AGENT TASK OUTPUT OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new output line for an agent task
+   */
+  createTaskOutput(data: CreateOutputLineInput): OutputLine {
+    const db = this.getDb()
+
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO agent_task_output (task_id, timestamp, content, stream)
+      VALUES (?, ?, ?, ?)
+    `)
+
+    const result = stmt.run(data.taskId, now, data.content, data.stream)
+
+    return {
+      id: Number(result.lastInsertRowid),
+      taskId: data.taskId,
+      timestamp: new Date(now),
+      content: data.content,
+      stream: data.stream,
+    }
+  }
+
+  /**
+   * Get output lines for an agent task
+   */
+  getTaskOutput(taskId: string, fromIndex?: number): OutputLine[] {
+    const db = this.getDb()
+
+    let query = 'SELECT * FROM agent_task_output WHERE task_id = ?'
+    const params: (string | number)[] = [taskId]
+
+    if (fromIndex !== undefined) {
+      query += ' AND id > ?'
+      params.push(fromIndex)
+    }
+
+    query += ' ORDER BY id ASC'
+
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as AgentTaskOutputRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      taskId: row.task_id,
+      timestamp: new Date(row.timestamp),
+      content: row.content,
+      stream: row.stream as OutputLine['stream'],
+    }))
+  }
+
+  /**
+   * Get the count of output lines for an agent task
+   */
+  getTaskOutputCount(taskId: string): number {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM agent_task_output WHERE task_id = ?')
+    const result = stmt.get(taskId) as { count: number }
+
+    return result.count
+  }
+
+  /**
+   * Clear output lines for an agent task
+   */
+  clearTaskOutput(taskId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM agent_task_output WHERE task_id = ?')
+    stmt.run(taskId)
+  }
+
+  // ============================================================================
+  // MODEL CACHE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Cache a model
+   */
+  cacheModel(data: CacheModelInput): CachedModel {
+    const db = this.getDb()
+
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO model_cache (id, name, provider, context_length, pricing_json, capabilities_json, cached_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      data.id,
+      data.name,
+      data.provider,
+      data.contextLength,
+      JSON.stringify(data.pricing),
+      JSON.stringify(data.capabilities),
+      now
+    )
+
+    return {
+      id: data.id,
+      name: data.name,
+      provider: data.provider,
+      contextLength: data.contextLength,
+      pricing: data.pricing,
+      capabilities: data.capabilities,
+      cachedAt: new Date(now),
+    }
+  }
+
+  /**
+   * Cache multiple models at once
+   */
+  cacheModels(models: CacheModelInput[]): void {
+    const db = this.getDb()
+
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO model_cache (id, name, provider, context_length, pricing_json, capabilities_json, cached_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    const insertMany = db.transaction((models: CacheModelInput[]) => {
+      for (const model of models) {
+        stmt.run(
+          model.id,
+          model.name,
+          model.provider,
+          model.contextLength,
+          JSON.stringify(model.pricing),
+          JSON.stringify(model.capabilities),
+          now
+        )
+      }
+    })
+
+    insertMany(models)
+  }
+
+  /**
+   * Get all cached models
+   */
+  getCachedModels(): CachedModel[] {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM model_cache ORDER BY name')
+    const rows = stmt.all() as ModelCacheRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      provider: row.provider,
+      contextLength: row.context_length,
+      pricing: JSON.parse(row.pricing_json),
+      capabilities: JSON.parse(row.capabilities_json),
+      cachedAt: new Date(row.cached_at),
+    }))
+  }
+
+  /**
+   * Get a cached model by ID
+   */
+  getCachedModel(id: string): CachedModel | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM model_cache WHERE id = ?')
+    const row = stmt.get(id) as ModelCacheRow | undefined
+
+    if (!row) return null
+
+    return {
+      id: row.id,
+      name: row.name,
+      provider: row.provider,
+      contextLength: row.context_length,
+      pricing: JSON.parse(row.pricing_json),
+      capabilities: JSON.parse(row.capabilities_json),
+      cachedAt: new Date(row.cached_at),
+    }
+  }
+
+  /**
+   * Clear the model cache
+   */
+  clearModelCache(): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM model_cache')
+    stmt.run()
+  }
+
+  /**
+   * Check if the model cache is stale (older than TTL)
+   */
+  isModelCacheStale(ttlMs: number): boolean {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT MIN(cached_at) as oldest FROM model_cache')
+    const result = stmt.get() as { oldest: number | null }
+
+    if (!result.oldest) return true
+
+    return Date.now() - result.oldest > ttlMs
+  }
+
+  // ============================================================================
+  // AI SETTINGS OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get an AI setting value by key
+   */
+  getAISetting(key: string): string | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT value FROM ai_settings WHERE key = ?')
+    const row = stmt.get(key) as { value: string } | undefined
+
+    return row ? row.value : null
+  }
+
+  /**
+   * Set an AI setting value
+   */
+  setAISetting(key: string, value: string): void {
+    const db = this.getDb()
+
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO ai_settings (key, value, updated_at)
+      VALUES (?, ?, ?)
+    `)
+
+    stmt.run(key, value, now)
+  }
+
+  /**
+   * Get all AI settings
+   */
+  getAllAISettings(): AISetting[] {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM ai_settings')
+    const rows = stmt.all() as AISettingsRow[]
+
+    return rows.map(row => ({
+      key: row.key,
+      value: row.value,
+      updatedAt: new Date(row.updated_at),
+    }))
+  }
+
+  /**
+   * Delete an AI setting
+   */
+  deleteAISetting(key: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM ai_settings WHERE key = ?')
+    stmt.run(key)
   }
 }
