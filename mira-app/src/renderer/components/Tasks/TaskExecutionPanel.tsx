@@ -4,7 +4,7 @@
  * Side panel showing task details, output stream, and controls
  */
 
-import { useEffect, useRef, useCallback, useState, memo } from 'react'
+import { useEffect, useRef, useCallback, useState, memo, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
@@ -41,6 +41,8 @@ import {
   IconExternalLink,
   IconListCheck,
   IconBrandGithub,
+  IconFiles,
+  IconGitCommit,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -607,10 +609,10 @@ const JulesActivityItem = memo(function JulesActivityItem({
                         )}
                       </div>
                     )}
-                    {artifact.changeSet?.gitPatch?.suggestedCommitMessage && (
-                      <div>
-                        <span className="text-muted-foreground">Commit: </span>
-                        {artifact.changeSet.gitPatch.suggestedCommitMessage}
+                    {artifact.changeSet && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <IconFileCode className="h-3 w-3" />
+                        <span>Code changes available in Changes tab</span>
                       </div>
                     )}
                     {artifact.media && (
@@ -628,6 +630,456 @@ const JulesActivityItem = memo(function JulesActivityItem({
     </div>
   )
 })
+
+/**
+ * Jules Changes Tab Component
+ * Displays all file changes from Jules activities in a dedicated tab
+ */
+function JulesChangesTab({ taskId }: { taskId: string }): React.JSX.Element {
+  const [selectedFile, setSelectedFile] = useState<{
+    path: string
+    type: 'added' | 'deleted' | 'modified' | 'renamed'
+    additions: number
+    deletions: number
+    hunks: Array<{
+      header: string
+      lines: Array<{
+        type: 'context' | 'addition' | 'deletion' | 'header'
+        content: string
+        raw: string
+        oldLineNumber?: number
+        newLineNumber?: number
+      }>
+    }>
+  } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Fetch Jules activities
+  const { data: activitiesData, isLoading } = useQuery({
+    queryKey: ['jules-activities', taskId],
+    queryFn: async () => {
+      const response = await window.api.jules.getActivities({ taskId })
+      return response.activities ?? []
+    },
+    staleTime: 0,
+    refetchOnMount: 'always',
+  })
+
+  // Extract all changesets from activities
+  const allChanges = useMemo(() => {
+    if (!activitiesData) return null
+
+    const files: Map<
+      string,
+      {
+        path: string
+        type: 'added' | 'deleted' | 'modified' | 'renamed'
+        additions: number
+        deletions: number
+        hunks: Array<{
+          header: string
+          lines: Array<{
+            type: 'context' | 'addition' | 'deletion' | 'header'
+            content: string
+            raw: string
+            oldLineNumber?: number
+            newLineNumber?: number
+          }>
+        }>
+      }
+    > = new Map()
+
+    let totalAdditions = 0
+    let totalDeletions = 0
+    let latestCommitMessage: string | undefined
+
+    for (const activity of activitiesData) {
+      if (!activity.artifacts) continue
+
+      for (const artifact of activity.artifacts) {
+        if (!artifact.changeSet?.gitPatch?.unidiffPatch) continue
+
+        const patch = artifact.changeSet.gitPatch.unidiffPatch
+        if (artifact.changeSet.gitPatch.suggestedCommitMessage) {
+          latestCommitMessage =
+            artifact.changeSet.gitPatch.suggestedCommitMessage
+        }
+
+        // Parse the unidiff
+        const parsed = parseUnidiffForTab(patch)
+        for (const file of parsed.files) {
+          const key = file.type === 'deleted' ? file.oldPath : file.newPath
+          // Use the latest version of each file
+          files.set(key, {
+            path: key,
+            type: file.type,
+            additions: file.additions,
+            deletions: file.deletions,
+            hunks: file.hunks,
+          })
+          totalAdditions += file.additions
+          totalDeletions += file.deletions
+        }
+      }
+    }
+
+    return {
+      files: Array.from(files.values()),
+      totalAdditions,
+      totalDeletions,
+      commitMessage: latestCommitMessage,
+    }
+  }, [activitiesData])
+
+  const handleCopyDiff = async (): Promise<void> => {
+    if (!selectedFile) return
+    const diffText = selectedFile.hunks
+      .map(h => `${h.header}\n${h.lines.map(l => l.raw).join('\n')}`)
+      .join('\n\n')
+    try {
+      await navigator.clipboard.writeText(diffText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy:', error)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <IconLoader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!allChanges || allChanges.files.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <IconFiles className="h-8 w-8 mb-2" />
+        <p className="text-sm">No file changes yet</p>
+      </div>
+    )
+  }
+
+  const addedFiles = allChanges.files.filter(f => f.type === 'added')
+  const modifiedFiles = allChanges.files.filter(f => f.type === 'modified')
+  const deletedFiles = allChanges.files.filter(f => f.type === 'deleted')
+
+  return (
+    <div className="h-full flex overflow-hidden">
+      {/* File list sidebar */}
+      <div className="w-64 border-r border-border flex flex-col min-h-0 overflow-hidden">
+        <div className="p-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 text-xs">
+            <IconFiles className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">{allChanges.files.length} files</span>
+            <span className="text-green-500">+{allChanges.totalAdditions}</span>
+            <span className="text-red-500">-{allChanges.totalDeletions}</span>
+          </div>
+          {allChanges.commitMessage && (
+            <div className="mt-2 text-xs text-muted-foreground truncate">
+              <IconGitCommit className="h-3 w-3 inline mr-1" />
+              {allChanges.commitMessage}
+            </div>
+          )}
+        </div>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-2 space-y-1">
+            {addedFiles.length > 0 && (
+              <div className="mb-2">
+                <div className="text-xs text-muted-foreground px-2 py-1 flex items-center gap-1 sticky top-0 bg-card z-10">
+                  <IconFilePlus className="h-3 w-3 text-green-500" />
+                  Added ({addedFiles.length})
+                </div>
+                {addedFiles.map(file => (
+                  <button
+                    className={`w-full text-left px-2 py-1.5 text-xs rounded flex items-center justify-between gap-1 ${
+                      selectedFile?.path === file.path
+                        ? 'bg-accent text-accent-foreground'
+                        : 'hover:bg-muted/50'
+                    }`}
+                    key={file.path}
+                    onClick={() => setSelectedFile(file)}
+                    type="button"
+                  >
+                    <span className="font-mono truncate">{file.path}</span>
+                    <span className="text-green-500 shrink-0">
+                      +{file.additions}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {modifiedFiles.length > 0 && (
+              <div className="mb-2">
+                <div className="text-xs text-muted-foreground px-2 py-1 flex items-center gap-1 sticky top-0 bg-card z-10">
+                  <IconFileCode className="h-3 w-3 text-blue-500" />
+                  Modified ({modifiedFiles.length})
+                </div>
+                {modifiedFiles.map(file => (
+                  <button
+                    className={`w-full text-left px-2 py-1.5 text-xs rounded flex items-center justify-between gap-1 ${
+                      selectedFile?.path === file.path
+                        ? 'bg-accent text-accent-foreground'
+                        : 'hover:bg-muted/50'
+                    }`}
+                    key={file.path}
+                    onClick={() => setSelectedFile(file)}
+                    type="button"
+                  >
+                    <span className="font-mono truncate">{file.path}</span>
+                    <span className="shrink-0">
+                      <span className="text-green-500">+{file.additions}</span>
+                      <span className="text-muted-foreground mx-0.5">/</span>
+                      <span className="text-red-500">-{file.deletions}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {deletedFiles.length > 0 && (
+              <div className="mb-2">
+                <div className="text-xs text-muted-foreground px-2 py-1 flex items-center gap-1 sticky top-0 bg-card z-10">
+                  <IconFileX className="h-3 w-3 text-red-500" />
+                  Deleted ({deletedFiles.length})
+                </div>
+                {deletedFiles.map(file => (
+                  <button
+                    className={`w-full text-left px-2 py-1.5 text-xs rounded flex items-center justify-between gap-1 ${
+                      selectedFile?.path === file.path
+                        ? 'bg-accent text-accent-foreground'
+                        : 'hover:bg-muted/50'
+                    }`}
+                    key={file.path}
+                    onClick={() => setSelectedFile(file)}
+                    type="button"
+                  >
+                    <span className="font-mono truncate">{file.path}</span>
+                    <span className="text-red-500 shrink-0">
+                      -{file.deletions}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Diff viewer */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        {selectedFile ? (
+          <>
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                {selectedFile.type === 'added' && (
+                  <IconFilePlus className="h-4 w-4 text-green-500 shrink-0" />
+                )}
+                {selectedFile.type === 'modified' && (
+                  <IconFileCode className="h-4 w-4 text-blue-500 shrink-0" />
+                )}
+                {selectedFile.type === 'deleted' && (
+                  <IconFileX className="h-4 w-4 text-red-500 shrink-0" />
+                )}
+                <span className="font-mono text-sm truncate">
+                  {selectedFile.path}
+                </span>
+                <Badge className="shrink-0" variant="secondary">
+                  <span className="text-green-500">
+                    +{selectedFile.additions}
+                  </span>
+                  {' / '}
+                  <span className="text-red-500">
+                    -{selectedFile.deletions}
+                  </span>
+                </Badge>
+              </div>
+              <Button onClick={handleCopyDiff} size="sm" variant="ghost">
+                <IconCopy className="h-3 w-3 mr-1" />
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="font-mono text-xs">
+                  {selectedFile.hunks.map(hunk => (
+                    <div className="mb-4" key={hunk.header}>
+                      <div className="bg-blue-500/10 text-blue-500 px-2 py-1 sticky top-0 z-10">
+                        {hunk.header}
+                      </div>
+                      {hunk.lines.map((line, lineIdx) => {
+                        let className = 'text-muted-foreground'
+                        let bgClass = ''
+                        if (line.type === 'addition') {
+                          className = 'text-green-500'
+                          bgClass = 'bg-green-500/10'
+                        } else if (line.type === 'deletion') {
+                          className = 'text-red-500'
+                          bgClass = 'bg-red-500/10'
+                        }
+                        return (
+                          <div className={`flex ${bgClass}`} key={lineIdx}>
+                            <span className="w-12 text-right pr-2 text-muted-foreground/50 select-none shrink-0 border-r border-border/30">
+                              {line.oldLineNumber ?? ''}
+                            </span>
+                            <span className="w-12 text-right pr-2 text-muted-foreground/50 select-none shrink-0 border-r border-border/30">
+                              {line.newLineNumber ?? ''}
+                            </span>
+                            <span className={`flex-1 px-2 ${className}`}>
+                              {line.raw || ' '}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <IconFileCode className="h-8 w-8 mb-2" />
+            <p className="text-sm">Select a file to view changes</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Parse unidiff for the changes tab (simplified version)
+ */
+function parseUnidiffForTab(diffString: string): {
+  files: Array<{
+    oldPath: string
+    newPath: string
+    type: 'added' | 'deleted' | 'modified' | 'renamed'
+    additions: number
+    deletions: number
+    hunks: Array<{
+      header: string
+      lines: Array<{
+        type: 'context' | 'addition' | 'deletion' | 'header'
+        content: string
+        raw: string
+        oldLineNumber?: number
+        newLineNumber?: number
+      }>
+    }>
+  }>
+} {
+  const files: Array<{
+    oldPath: string
+    newPath: string
+    type: 'added' | 'deleted' | 'modified' | 'renamed'
+    additions: number
+    deletions: number
+    hunks: Array<{
+      header: string
+      lines: Array<{
+        type: 'context' | 'addition' | 'deletion' | 'header'
+        content: string
+        raw: string
+        oldLineNumber?: number
+        newLineNumber?: number
+      }>
+    }>
+  }> = []
+
+  if (!diffString || diffString.trim() === '') {
+    return { files }
+  }
+
+  const lines = diffString.split('\n')
+  let currentFile: (typeof files)[0] | null = null
+  let currentHunk: (typeof files)[0]['hunks'][0] | null = null
+  let oldLineNum = 0
+  let newLineNum = 0
+
+  for (const line of lines) {
+    if (line.startsWith('diff --git')) {
+      if (currentFile) {
+        if (currentHunk) currentFile.hunks.push(currentHunk)
+        files.push(currentFile)
+      }
+      const match = line.match(/diff --git a\/(.+) b\/(.+)/)
+      currentFile = {
+        oldPath: match?.[1] ?? '',
+        newPath: match?.[2] ?? '',
+        type: 'modified',
+        additions: 0,
+        deletions: 0,
+        hunks: [],
+      }
+      currentHunk = null
+      continue
+    }
+
+    if (line.startsWith('new file mode') && currentFile) {
+      currentFile.type = 'added'
+      continue
+    }
+    if (line.startsWith('deleted file mode') && currentFile) {
+      currentFile.type = 'deleted'
+      continue
+    }
+    if (line.startsWith('--- ') && currentFile && line.includes('/dev/null')) {
+      currentFile.type = 'added'
+      continue
+    }
+    if (line.startsWith('+++ ') && currentFile && line.includes('/dev/null')) {
+      currentFile.type = 'deleted'
+      continue
+    }
+
+    const hunkMatch = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
+    if (hunkMatch && currentFile) {
+      if (currentHunk) currentFile.hunks.push(currentHunk)
+      oldLineNum = Number.parseInt(hunkMatch[1], 10)
+      newLineNum = Number.parseInt(hunkMatch[3], 10)
+      currentHunk = { header: line, lines: [] }
+      continue
+    }
+
+    if (currentHunk && currentFile) {
+      if (line.startsWith('+') && !line.startsWith('+++')) {
+        currentHunk.lines.push({
+          type: 'addition',
+          content: line.slice(1),
+          raw: line,
+          newLineNumber: newLineNum++,
+        })
+        currentFile.additions++
+      } else if (line.startsWith('-') && !line.startsWith('---')) {
+        currentHunk.lines.push({
+          type: 'deletion',
+          content: line.slice(1),
+          raw: line,
+          oldLineNumber: oldLineNum++,
+        })
+        currentFile.deletions++
+      } else if (line.startsWith(' ') || line === '') {
+        currentHunk.lines.push({
+          type: 'context',
+          content: line.slice(1),
+          raw: line,
+          oldLineNumber: oldLineNum++,
+          newLineNumber: newLineNum++,
+        })
+      }
+    }
+  }
+
+  if (currentFile) {
+    if (currentHunk) currentFile.hunks.push(currentHunk)
+    files.push(currentFile)
+  }
+
+  return { files }
+}
 
 /**
  * Jules Activities Output Component
@@ -878,7 +1330,10 @@ function JulesActivitiesOutput({
                     <p className="text-xs text-muted-foreground mb-0.5">
                       Latest from Jules
                     </p>
-                    <SimpleMarkdown className="text-sm" content={lastAgentMessage} />
+                    <SimpleMarkdown
+                      className="text-sm"
+                      content={lastAgentMessage}
+                    />
                   </div>
                 </div>
               </div>
@@ -956,51 +1411,51 @@ function JulesActivitiesOutput({
 
       {/* Message input - show for sessions that have a session ID */}
       {(sessionStatus?.sessionId || julesSessionId) && (
-          <div
-            className={`border-t px-4 py-3 ${
-              isWaitingForReply
-                ? 'border-yellow-500/30 bg-yellow-500/5'
-                : 'border-border bg-muted/30'
-            }`}
-          >
-            {isWaitingForReply && (
-              <p className="text-xs text-yellow-500 mb-2">
-                Jules is waiting for your reply
-              </p>
-            )}
-            <div className="flex items-center gap-2">
-              <Input
-                className="flex-1"
-                disabled={sendMessage.isPending}
-                onChange={e => setMessageInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSendMessage()
-                  }
-                }}
-                placeholder={
-                  isWaitingForReply
-                    ? 'Type your reply to Jules...'
-                    : 'Send a message to Jules...'
+        <div
+          className={`border-t px-4 py-3 ${
+            isWaitingForReply
+              ? 'border-yellow-500/30 bg-yellow-500/5'
+              : 'border-border bg-muted/30'
+          }`}
+        >
+          {isWaitingForReply && (
+            <p className="text-xs text-yellow-500 mb-2">
+              Jules is waiting for your reply
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <Input
+              className="flex-1"
+              disabled={sendMessage.isPending}
+              onChange={e => setMessageInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSendMessage()
                 }
-                value={messageInput}
-              />
-              <Button
-                disabled={!messageInput.trim() || sendMessage.isPending}
-                onClick={handleSendMessage}
-                size="sm"
-                variant={isWaitingForReply ? 'default' : 'outline'}
-              >
-                {sendMessage.isPending ? (
-                  <IconLoader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <IconSend className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+              }}
+              placeholder={
+                isWaitingForReply
+                  ? 'Type your reply to Jules...'
+                  : 'Send a message to Jules...'
+              }
+              value={messageInput}
+            />
+            <Button
+              disabled={!messageInput.trim() || sendMessage.isPending}
+              onClick={handleSendMessage}
+              size="sm"
+              variant={isWaitingForReply ? 'default' : 'outline'}
+            >
+              {sendMessage.isPending ? (
+                <IconLoader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <IconSend className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
       {/* Footer with activity count and controls */}
       <div className="border-t border-border px-4 py-2 flex items-center justify-between">
@@ -1308,6 +1763,11 @@ export function TaskExecutionPanel({
             <TabsTrigger className="text-xs" value="output">
               {isJulesTask ? 'Activities' : 'Output'}
             </TabsTrigger>
+            {isJulesTask && (
+              <TabsTrigger className="text-xs" value="jules-changes">
+                Changes
+              </TabsTrigger>
+            )}
             {isTerminalStatus && hasFileChanges && (
               <TabsTrigger className="text-xs" value="changes">
                 Changes
@@ -1370,6 +1830,15 @@ export function TaskExecutionPanel({
             </div>
           )}
         </TabsContent>
+
+        {isJulesTask && (
+          <TabsContent
+            className="flex-1 min-h-0 mt-0 p-0"
+            value="jules-changes"
+          >
+            <JulesChangesTab taskId={taskId} />
+          </TabsContent>
+        )}
 
         {isTerminalStatus && hasFileChanges && (
           <TabsContent className="flex-1 min-h-0 mt-0" value="changes">
