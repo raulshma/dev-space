@@ -114,7 +114,15 @@ export class RequestLogger implements IRequestLogger {
   constructor(db: DatabaseService, config?: Partial<RequestLoggerConfig>) {
     this.db = db
     this.config = { ...DEFAULT_CONFIG, ...config }
+    // Don't schedule cleanup in constructor - database may not be initialized yet
+    // Call initialize() after database is ready
+  }
 
+  /**
+   * Initialize the logger by starting periodic cleanup
+   * Must be called after database is initialized
+   */
+  initialize(): void {
     // Schedule periodic cleanup if enabled
     if (this.config.enablePeriodicCleanup) {
       this.schedulePeriodicCleanup()

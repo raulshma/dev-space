@@ -87,6 +87,10 @@ makeAppWithSingleInstanceLock(async () => {
   db.initialize()
   db.migrate()
 
+  // Initialize services that depend on database
+  modelRegistry.initialize()
+  requestLogger.initialize()
+
   // Initialize AI service (loads API key from keychain and sets up provider)
   // Requirements: 1.1
   try {

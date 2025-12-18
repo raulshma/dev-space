@@ -90,6 +90,7 @@ export class ModelRegistry implements IModelRegistry {
   private lastFetchTime: number = 0
   private usingFallback: boolean = false
   private cacheTtlMs: number
+  private initialized: boolean = false
 
   constructor(
     private database: DatabaseService,
@@ -97,7 +98,18 @@ export class ModelRegistry implements IModelRegistry {
     cacheTtlMs: number = DEFAULT_CACHE_TTL_MS
   ) {
     this.cacheTtlMs = cacheTtlMs
+    // Don't load from database in constructor - database may not be initialized yet
+    // Call initialize() after database is ready
+  }
+
+  /**
+   * Initialize the registry by loading settings from database
+   * Must be called after database is initialized
+   */
+  initialize(): void {
+    if (this.initialized) return
     this.loadSettingsFromDatabase()
+    this.initialized = true
   }
 
   /**

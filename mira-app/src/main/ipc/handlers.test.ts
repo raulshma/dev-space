@@ -46,15 +46,22 @@ describe('IPCHandlers', () => {
     )
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up
     db.close()
     ptyManager.killAll()
     gitService.stopAllRefreshes()
 
-    // Remove temp database
-    if (fs.existsSync(tempDbPath)) {
-      fs.unlinkSync(tempDbPath)
+    // Small delay to allow file handles to be released on Windows
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Remove temp database (ignore errors on Windows due to file locking)
+    try {
+      if (fs.existsSync(tempDbPath)) {
+        fs.unlinkSync(tempDbPath)
+      }
+    } catch {
+      // Ignore cleanup errors - temp files will be cleaned up by OS
     }
   })
 

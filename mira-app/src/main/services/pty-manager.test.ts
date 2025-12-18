@@ -1,11 +1,32 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { PTYManager } from './pty-manager'
+
+// Mock node-pty
+vi.mock('@lydell/node-pty', () => ({
+  spawn: vi.fn(() => ({
+    onData: vi.fn(),
+    onExit: vi.fn(),
+    write: vi.fn(),
+    resize: vi.fn(),
+    kill: vi.fn(),
+  })),
+}))
 
 describe('PTYManager', () => {
   let ptyManager: PTYManager
 
   beforeEach(() => {
+    vi.clearAllMocks()
     ptyManager = new PTYManager()
+  })
+
+  afterEach(() => {
+    // Clean up any remaining PTY instances
+    try {
+      ptyManager.killAll()
+    } catch {
+      // Ignore errors during cleanup
+    }
   })
 
   describe('create', () => {
