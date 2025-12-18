@@ -90,14 +90,10 @@ export function TerminalErrors({
   terminalId,
   onFixClick,
   onErrorContext,
-}: TerminalErrorsProps): React.JSX.Element {
+}: TerminalErrorsProps): React.JSX.Element | null {
   const errors = useErrorStore(state => state.getErrorsByTerminal(terminalId))
 
-  if (errors.length === 0) {
-    return null
-  }
-
-  return (
+  return errors.length === 0 ? null : (
     <div className="absolute bottom-4 left-4 right-4 z-10 space-y-2 max-h-[200px] overflow-y-auto">
       {errors.map(error => (
         <FixButton

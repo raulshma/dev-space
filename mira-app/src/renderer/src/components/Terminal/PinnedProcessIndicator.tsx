@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import { Pin } from 'lucide-react'
 import type { PinnedProcess } from 'shared/models'
 
-export function PinnedProcessIndicator(): React.JSX.Element {
+export function PinnedProcessIndicator(): React.JSX.Element | null {
   const [pinnedProcesses, setPinnedProcesses] = useState<PinnedProcess[]>([])
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -32,10 +32,6 @@ export function PinnedProcessIndicator(): React.JSX.Element {
     return () => clearInterval(interval)
   }, [])
 
-  if (pinnedProcesses.length === 0) {
-    return null
-  }
-
   const formatDuration = (startTime: Date): string => {
     const now = new Date()
     const start = new Date(startTime)
@@ -52,7 +48,7 @@ export function PinnedProcessIndicator(): React.JSX.Element {
     return `${diffDays}d ago`
   }
 
-  return (
+  return pinnedProcesses.length === 0 ? null : (
     <div className="fixed bottom-4 right-4 z-50">
       <div
         className={`

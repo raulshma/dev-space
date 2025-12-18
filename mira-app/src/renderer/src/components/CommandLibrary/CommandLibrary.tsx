@@ -242,7 +242,7 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
                 <span>{category}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-neutral-500">
-                    {categoryCommands.length}
+                    {categoryCommands?.length ?? 0}
                   </span>
                   <svg
                     className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -261,7 +261,7 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
               </button>
 
               {/* Command list */}
-              {isExpanded && (
+              {isExpanded && categoryCommands && (
                 <div className="bg-neutral-50/50">
                   {categoryCommands.map(command => (
                     <button

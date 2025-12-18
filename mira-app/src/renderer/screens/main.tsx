@@ -11,12 +11,7 @@ import { ErrorToast } from 'renderer/components/ErrorToast'
 import { keyboardManager } from 'renderer/lib/keyboard-manager'
 import { useShortcuts } from 'renderer/hooks/use-shortcuts'
 
-// The "api" comes from the context bridge in preload/index.ts
-declare global {
-  interface Window {
-    api: typeof import('preload/index')['api']
-  }
-}
+// The "api" type comes from preload/index.d.ts which declares Window.api globally
 
 export function MainScreen() {
   const activeProjectId = useAppStore(state => state.activeProjectId)

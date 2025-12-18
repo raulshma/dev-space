@@ -2,13 +2,22 @@
  * ProjectWorkspace Component
  *
  * Workspace view for an active project with session restoration.
- * Requirements: 4.2, 4.3, 4.4, 16.1, 16.2, 16.3, 16.4, 5.1, 6.1, 7.2, 7.3
+ * Requirements: 3.2, 4.2, 4.3, 4.4, 16.1, 16.2, 16.3, 16.4, 5.1, 6.1, 7.2, 7.3
  */
 
 import { useEffect, useCallback, useState } from 'react'
+import { Tag as TagIcon, Plus, X } from 'lucide-react'
 import { useProject } from 'renderer/hooks/use-projects'
 import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
-import { useGitTelemetryRefresh } from 'renderer/hooks/use-git-telemetry'
+import {
+  useGitTelemetry,
+  useGitTelemetryRefresh,
+} from 'renderer/hooks/use-git-telemetry'
+import {
+  useTags,
+  useAddTagToProject,
+  useRemoveTagFromProject,
+} from 'renderer/hooks/use-tags'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
@@ -26,12 +35,25 @@ interface ProjectWorkspaceProps {
 export function ProjectWorkspace({
   projectId,
 }: ProjectWorkspaceProps): React.JSX.Element {
-  const { data: project, isLoading: projectLoading } = useProject(projectId)
+  const {
+    data: project,
+    isLoading: projectLoading,
+    refetch: refetchProject,
+  } = useProject(projectId)
   const { data: session, isLoading: sessionLoading } = useSession(projectId)
   const { mutate: saveSession } = useSaveSession()
+  const { data: allTags = [] } = useTags()
+  const addTagToProject = useAddTagToProject()
+  const removeTagFromProject = useRemoveTagFromProject()
 
   // Error context state for Fix button integration
   const [errorContext, setErrorContext] = useState<ErrorContext | null>(null)
+  const [showTagMenu, setShowTagMenu] = useState(false)
+
+  // Git telemetry for header display
+  const { data: gitTelemetry } = useGitTelemetry(
+    project?.isMissing ? null : project?.path || null
+  )
 
   // Start background git telemetry refresh when project is opened
   useGitTelemetryRefresh(
@@ -160,6 +182,32 @@ export function ProjectWorkspace({
     setErrorContext(null)
   }, [])
 
+  // Handle adding a tag to the project
+  const handleAddTag = async (tagId: string): Promise<void> => {
+    try {
+      await addTagToProject.mutateAsync({ projectId, tagId })
+      refetchProject()
+      setShowTagMenu(false)
+    } catch (error) {
+      console.error('Failed to add tag:', error)
+    }
+  }
+
+  // Handle removing a tag from the project
+  const handleRemoveTag = async (tagId: string): Promise<void> => {
+    try {
+      await removeTagFromProject.mutateAsync({ projectId, tagId })
+      refetchProject()
+    } catch (error) {
+      console.error('Failed to remove tag:', error)
+    }
+  }
+
+  // Get tags that are not already on the project
+  const availableTags = allTags.filter(
+    tag => !project?.tags.some(t => t.id === tag.id)
+  )
+
   // Handle back to dashboard
   const handleBackToDashboard = (): void => {
     // Save session before navigating away
@@ -220,10 +268,107 @@ export function ProjectWorkspace({
               ← Back
             </button>
             <div>
-              <h1 className="text-xl font-semibold text-neutral-900">
-                {project.name}
-              </h1>
-              <p className="text-sm text-neutral-500">{project.path}</p>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-semibold text-neutral-900">
+                  {project.name}
+                </h1>
+                {/* Git status indicator */}
+                {gitTelemetry?.isGitRepo && (
+                  <div className="flex items-center gap-2 text-xs text-neutral-600">
+                    <span className="px-2 py-0.5 bg-neutral-100 rounded">
+                      {gitTelemetry.branch || 'main'}
+                    </span>
+                    {gitTelemetry.ahead > 0 && (
+                      <span className="text-green-600">
+                        ↑{gitTelemetry.ahead}
+                      </span>
+                    )}
+                    {gitTelemetry.behind > 0 && (
+                      <span className="text-red-600">
+                        ↓{gitTelemetry.behind}
+                      </span>
+                    )}
+                    {gitTelemetry.modified > 0 && (
+                      <span className="text-amber-600">
+                        ●{gitTelemetry.modified}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-neutral-500">{project.path}</p>
+                {/* Tags */}
+                <div className="flex items-center gap-1 ml-2">
+                  {project.tags.map(tag => (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm bg-blue-100 text-blue-800"
+                      key={tag.id}
+                      style={
+                        tag.color ? { backgroundColor: tag.color } : undefined
+                      }
+                    >
+                      {tag.name}
+                      <button
+                        className="hover:text-red-600"
+                        onClick={() => handleRemoveTag(tag.id)}
+                        title="Remove tag"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                  {/* Add tag button */}
+                  <div className="relative">
+                    <button
+                      className="p-1 text-neutral-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                      onClick={() => setShowTagMenu(!showTagMenu)}
+                      title="Add tag"
+                    >
+                      <Plus size={14} />
+                    </button>
+                    {showTagMenu && availableTags.length > 0 && (
+                      <>
+                        <button
+                          aria-label="Close tag menu"
+                          className="fixed inset-0 z-10 cursor-default bg-transparent border-none"
+                          onClick={() => setShowTagMenu(false)}
+                          tabIndex={-1}
+                          type="button"
+                        />
+                        <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[120px]">
+                          {availableTags.map(tag => (
+                            <button
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-amber-50 flex items-center gap-2"
+                              key={tag.id}
+                              onClick={() => handleAddTag(tag.id)}
+                            >
+                              <TagIcon size={12} />
+                              {tag.name}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {showTagMenu && availableTags.length === 0 && (
+                      <>
+                        <button
+                          aria-label="Close tag menu"
+                          className="fixed inset-0 z-10 cursor-default bg-transparent border-none"
+                          onClick={() => setShowTagMenu(false)}
+                          tabIndex={-1}
+                          type="button"
+                        />
+                        <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-neutral-200 rounded shadow-lg py-2 px-3 min-w-[150px]">
+                          <p className="text-xs text-neutral-500">
+                            No more tags available
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">

@@ -2,20 +2,23 @@
  * ProjectCard Component
  *
  * Displays a project card with name, path, git telemetry, tags, and missing indicator.
- * Requirements: 1.3, 2.1, 2.2, 2.4, 3.2
+ * Requirements: 1.3, 1.4, 2.1, 2.2, 2.4, 3.2
  */
 
+import { Trash2 } from 'lucide-react'
 import { useGitTelemetry } from 'renderer/hooks/use-git-telemetry'
 import type { Project } from 'shared/models'
 
 interface ProjectCardProps {
   project: Project
   onClick?: () => void
+  onDelete?: () => void
 }
 
 export function ProjectCard({
   project,
   onClick,
+  onDelete,
 }: ProjectCardProps): React.JSX.Element {
   const { data: gitTelemetry, isLoading: gitLoading } = useGitTelemetry(
     project.isMissing ? null : project.path
@@ -28,12 +31,36 @@ export function ProjectCard({
       : 'bg-green-100 text-green-800'
   }
 
+  const handleDelete = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    if (onDelete) {
+      onDelete()
+    }
+  }
+
   return (
-    <button
-      className="border rounded-sm p-4 hover:border-amber-500 cursor-pointer transition-colors bg-white text-left w-full"
+    <div
+      className="border rounded-sm p-4 hover:border-amber-500 cursor-pointer transition-colors bg-white text-left w-full relative group"
       onClick={onClick}
-      type="button"
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
+      {/* Delete button - shown on hover */}
+      {onDelete && (
+        <button
+          className="absolute top-2 right-2 p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={handleDelete}
+          title="Remove project from dashboard"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
       {/* Project Name and Missing Indicator */}
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold text-neutral-900">
@@ -107,6 +134,6 @@ export function ProjectCard({
           ))}
         </div>
       )}
-    </button>
+    </div>
   )
 }

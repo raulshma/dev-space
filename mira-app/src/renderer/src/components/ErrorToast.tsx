@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import { useErrorStore } from 'renderer/stores/error-store'
 
-export function ErrorToast(): React.JSX.Element {
+export function ErrorToast(): React.JSX.Element | null {
   const errors = useErrorStore(state => state.appErrors)
   const dismissError = useErrorStore(state => state.dismissAppError)
   const [visible, setVisible] = useState<Record<string, boolean>>({})
@@ -41,11 +41,7 @@ export function ErrorToast(): React.JSX.Element {
     })
   }, [errors, visible])
 
-  if (errors.length === 0) {
-    return null
-  }
-
-  return (
+  return errors.length === 0 ? null : (
     <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-md">
       {errors.map(error => (
         <div

@@ -106,7 +106,7 @@ function PaneLayout({
               onSplit={onSplit}
               pane={childPane}
             />
-            {index < pane.children?.length - 1 && (
+            {pane.children && index < pane.children.length - 1 && (
               <div
                 aria-label="Resize pane"
                 aria-orientation={isHorizontal ? 'vertical' : 'horizontal'}

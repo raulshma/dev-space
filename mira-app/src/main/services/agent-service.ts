@@ -259,8 +259,12 @@ export class AgentService {
   ): Promise<string> {
     const openai = new OpenAI({ apiKey })
 
+    if (!this.activeModel?.id) {
+      throw new Error('No active model set')
+    }
+
     const response = await openai.chat.completions.create({
-      model: this.activeModel?.id,
+      model: this.activeModel.id,
       messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
       temperature: 0.7,
       max_tokens: 2000,
@@ -278,12 +282,16 @@ export class AgentService {
   ): Promise<string> {
     const anthropic = new Anthropic({ apiKey })
 
+    if (!this.activeModel?.id) {
+      throw new Error('No active model set')
+    }
+
     // Anthropic requires system messages to be separate
     const systemMessages = messages.filter(m => m.role === 'system')
     const conversationMessages = messages.filter(m => m.role !== 'system')
 
     const response = await anthropic.messages.create({
-      model: this.activeModel?.id,
+      model: this.activeModel.id,
       max_tokens: 2000,
       system: systemMessages.map(m => m.content).join('\n\n'),
       messages: conversationMessages as Anthropic.MessageParam[],
@@ -300,8 +308,12 @@ export class AgentService {
     apiKey: string,
     messages: Array<{ role: string; content: string }>
   ): Promise<string> {
+    if (!this.activeModel?.id) {
+      throw new Error('No active model set')
+    }
+
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: this.activeModel?.id })
+    const model = genAI.getGenerativeModel({ model: this.activeModel.id })
 
     // Convert messages to Google format
     const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n')
