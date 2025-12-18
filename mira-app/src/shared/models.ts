@@ -23,6 +23,22 @@ export interface SessionState {
   agentConversation: ConversationMessage[]
   contextFiles: string[]
   activeTerminalId: string | null
+  workspace?: WorkspaceSessionState
+}
+
+export interface WorkspaceSessionState {
+  /**
+   * PanelGroup layout percentages in order: [left, center, right].
+   * Should sum to 100.
+   */
+  panelLayout?: number[]
+
+  /** UI state for restoring the workspace experience */
+  sidebarCollapsed?: boolean
+  agentPanelCollapsed?: boolean
+  zenMode?: boolean
+  previousSidebarState?: boolean
+  previousAgentPanelState?: boolean
 }
 
 export interface TerminalSessionData {

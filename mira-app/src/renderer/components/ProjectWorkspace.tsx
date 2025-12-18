@@ -7,6 +7,10 @@
 
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { IconTag, IconPlus, IconX } from '@tabler/icons-react'
+import type {
+  ImperativePanelGroupHandle,
+  ImperativePanelHandle,
+} from 'react-resizable-panels'
 import { useProject } from 'renderer/hooks/use-projects'
 import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
 import {
@@ -85,12 +89,72 @@ export function ProjectWorkspace({
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
   const toggleAgentPanel = useAppStore(state => state.toggleAgentPanel)
   const toggleZenMode = useAppStore(state => state.toggleZenMode)
+  const hydrateWorkspaceState = useAppStore(state => state.hydrateWorkspaceState)
 
   const addTerminal = useTerminalStore(state => state.addTerminal)
   const clearProject = useTerminalStore(state => state.clearProject)
 
   // Track if session restoration has been attempted
   const sessionRestoredRef = useRef(false)
+
+  // Panel refs for layout persistence
+  const panelGroupRef = useRef<ImperativePanelGroupHandle | null>(null)
+  const leftPanelRef = useRef<ImperativePanelHandle | null>(null)
+  const rightPanelRef = useRef<ImperativePanelHandle | null>(null)
+
+  const lastKnownLayoutRef = useRef<number[] | null>(null)
+  const lastExpandedSizesRef = useRef<{ left: number; right: number }>({
+    left: 15,
+    right: 15,
+  })
+
+  const saveDebounceTimerRef = useRef<number | null>(null)
+
+  const buildSessionState = useCallback((): SessionState => {
+    const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    const appState = useAppStore.getState()
+
+    const layout =
+      panelGroupRef.current?.getLayout() ??
+      lastKnownLayoutRef.current ??
+      undefined
+
+    return {
+      terminals: terminals.map(t => ({
+        id: t.id,
+        cwd: t.cwd,
+        isPinned: t.isPinned,
+        layout: {
+          projectId,
+          panes: [],
+        },
+      })),
+      agentConversation: [],
+      contextFiles: [],
+      activeTerminalId: appState.activeTerminalId,
+      workspace: {
+        panelLayout: layout,
+        sidebarCollapsed: appState.sidebarCollapsed,
+        agentPanelCollapsed: appState.agentPanelCollapsed,
+        zenMode: appState.zenMode,
+        previousSidebarState: appState.previousSidebarState,
+        previousAgentPanelState: appState.previousAgentPanelState,
+      },
+    }
+  }, [projectId])
+
+  const scheduleSaveSession = useCallback((): void => {
+    if (!sessionRestoredRef.current) return
+
+    if (saveDebounceTimerRef.current) {
+      window.clearTimeout(saveDebounceTimerRef.current)
+    }
+
+    saveDebounceTimerRef.current = window.setTimeout(() => {
+      saveDebounceTimerRef.current = null
+      saveSession({ projectId, state: buildSessionState() })
+    }, 800)
+  }, [buildSessionState, projectId, saveSession])
 
   // Create a default terminal if no session exists
   const createDefaultTerminal = useCallback((): void => {
@@ -142,80 +206,144 @@ export function ProjectWorkspace({
 
     sessionRestoredRef.current = true
 
-    // Check if terminals already exist for this project (e.g., from a previous mount)
+    // Restore workspace UI state + panel layout (even if terminals already exist)
+    if (session?.workspace) {
+      hydrateWorkspaceState({
+        sidebarCollapsed: session.workspace.sidebarCollapsed ?? false,
+        agentPanelCollapsed: session.workspace.agentPanelCollapsed ?? false,
+        zenMode: session.workspace.zenMode ?? false,
+        previousSidebarState: session.workspace.previousSidebarState ?? false,
+        previousAgentPanelState: session.workspace.previousAgentPanelState ?? false,
+      })
+    }
+
+    if (session?.workspace?.panelLayout?.length) {
+      lastKnownLayoutRef.current = session.workspace.panelLayout
+
+      const [left, , right] = session.workspace.panelLayout
+      if (typeof left === 'number' && left > 0) lastExpandedSizesRef.current.left = left
+      if (typeof right === 'number' && right > 0) lastExpandedSizesRef.current.right = right
+
+      try {
+        panelGroupRef.current?.setLayout(session.workspace.panelLayout)
+      } catch (error) {
+        console.warn('Failed to restore panel layout:', error)
+      }
+    }
+
+    // Restore terminals (only if none already exist)
     const existingTerminals = useTerminalStore
       .getState()
       .getTerminalsByProject(projectId)
-    if (existingTerminals.length > 0) return
 
-    // Restore terminals from session
-    if (session?.terminals && session.terminals.length > 0) {
-      session.terminals.forEach(terminalData => {
-        // Create PTY and add terminal to store
-        window.api.pty
-          .create({
-            projectId,
-            cwd: terminalData.cwd,
-            shell: undefined,
-          })
-          .then(response => {
-            addTerminal({
-              id: terminalData.id,
+    if (existingTerminals.length === 0) {
+      if (session?.terminals && session.terminals.length > 0) {
+        session.terminals.forEach(terminalData => {
+          // Create PTY and add terminal to store
+          window.api.pty
+            .create({
               projectId,
-              ptyId: response.ptyId,
-              isPinned: terminalData.isPinned,
-              title: `Terminal ${terminalData.id.slice(0, 8)}`,
               cwd: terminalData.cwd,
+              shell: undefined,
             })
-          })
-          .catch(error => {
-            console.error('Failed to restore terminal:', error)
-          })
-      })
-    } else {
-      // No saved session - create default terminal
-      createDefaultTerminal()
+            .then(response => {
+              addTerminal({
+                id: terminalData.id,
+                projectId,
+                ptyId: response.ptyId,
+                isPinned: terminalData.isPinned,
+                title: `Terminal ${terminalData.id.slice(0, 8)}`,
+                cwd: terminalData.cwd,
+              })
+            })
+            .catch(error => {
+              console.error('Failed to restore terminal:', error)
+            })
+        })
+      } else {
+        // No saved session - create default terminal
+        createDefaultTerminal()
+      }
     }
 
     // TODO: Restore agent conversation when agent service is implemented
     // TODO: Restore context files when agent service is implemented
-  }, [session, sessionLoading, projectId, addTerminal, createDefaultTerminal])
+  }, [
+    session,
+    sessionLoading,
+    projectId,
+    addTerminal,
+    createDefaultTerminal,
+    hydrateWorkspaceState,
+  ])
+
+  // Keep panel collapsed state in sync with UI state (and preserve last expanded sizes)
+  useEffect(() => {
+    if (!sessionRestoredRef.current) return
+
+    const shouldCollapseLeft = zenMode || sidebarCollapsed
+    const shouldCollapseRight = zenMode || agentPanelCollapsed
+
+    const leftPanel = leftPanelRef.current
+    const rightPanel = rightPanelRef.current
+
+    if (leftPanel) {
+      const size = leftPanel.getSize()
+      if (size > 0) lastExpandedSizesRef.current.left = size
+
+      if (shouldCollapseLeft && leftPanel.isExpanded()) {
+        leftPanel.collapse()
+      } else if (!shouldCollapseLeft && leftPanel.isCollapsed()) {
+        leftPanel.expand(10)
+        leftPanel.resize(lastExpandedSizesRef.current.left || 15)
+      }
+    }
+
+    if (rightPanel) {
+      const size = rightPanel.getSize()
+      if (size > 0) lastExpandedSizesRef.current.right = size
+
+      if (shouldCollapseRight && rightPanel.isExpanded()) {
+        rightPanel.collapse()
+      } else if (!shouldCollapseRight && rightPanel.isCollapsed()) {
+        rightPanel.expand(10)
+        rightPanel.resize(lastExpandedSizesRef.current.right || 15)
+      }
+    }
+  }, [sidebarCollapsed, agentPanelCollapsed, zenMode])
+
+  // Persist workspace state as it changes (collapsed/zen)
+  useEffect(() => {
+    scheduleSaveSession()
+  }, [sidebarCollapsed, agentPanelCollapsed, zenMode, scheduleSaveSession])
 
   // Save session when navigating away
   useEffect(() => {
     return () => {
       // Cleanup: save session state before unmounting
-      // Use getState() to get current terminals without subscribing
+      if (saveDebounceTimerRef.current) {
+        window.clearTimeout(saveDebounceTimerRef.current)
+        saveDebounceTimerRef.current = null
+      }
+
       const terminals = useTerminalStore
         .getState()
         .getTerminalsByProject(projectId)
-      const sessionState: SessionState = {
-        terminals: terminals.map(t => ({
-          id: t.id,
-          cwd: t.cwd,
-          isPinned: t.isPinned,
-          layout: {
-            projectId,
-            panes: [],
-          },
-        })),
-        agentConversation: [],
-        contextFiles: [],
-        activeTerminalId: null,
-      }
 
-      saveSession({ projectId, state: sessionState })
+      saveSession({ projectId, state: buildSessionState() })
 
       // Clear non-pinned terminals
-      terminals.forEach(terminal => {
+      terminals.forEach(
+        (terminal: { isPinned: boolean; ptyId: string }) => {
         if (!terminal.isPinned) {
           window.api.pty.kill({ ptyId: terminal.ptyId }).catch(console.error)
         }
-      })
+        }
+      )
 
       clearProject(projectId)
     }
-  }, [projectId, saveSession, clearProject])
+  }, [projectId, saveSession, clearProject, buildSessionState])
 
   // Handle task selection and navigation
   const handleTaskSelect = useCallback(
@@ -295,26 +423,7 @@ export function ProjectWorkspace({
   // Handle back to dashboard
   const handleBackToDashboard = (): void => {
     // Save session before navigating away
-    // Use getState() to get current terminals without subscribing
-    const terminals = useTerminalStore
-      .getState()
-      .getTerminalsByProject(projectId)
-    const sessionState: SessionState = {
-      terminals: terminals.map(t => ({
-        id: t.id,
-        cwd: t.cwd,
-        isPinned: t.isPinned,
-        layout: {
-          projectId,
-          panes: [],
-        },
-      })),
-      agentConversation: [],
-      contextFiles: [],
-      activeTerminalId: null,
-    }
-
-    saveSession({ projectId, state: sessionState })
+    saveSession({ projectId, state: buildSessionState() })
     setActiveProject(null)
   }
 
@@ -499,120 +608,153 @@ export function ProjectWorkspace({
       </header>
 
       {/* Main Content Area */}
-      <ResizablePanelGroup className="flex-1" direction="horizontal">
-        {/* Sidebar - Command Library (hidden in Zen Mode or when collapsed) */}
-        {!zenMode && !sidebarCollapsed && (
-          <>
-            <ResizablePanel
-              id="project-workspace-left"
-              className="bg-card"
-              defaultSize={15}
-              maxSize={30}
-              minSize={10}
-            >
-              <aside className="h-full overflow-y-auto">
-                <CommandLibrary projectId={projectId} />
-              </aside>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-          </>
-        )}
+      <ResizablePanelGroup
+        ref={panelGroupRef}
+        className="flex-1"
+        direction="horizontal"
+        autoSaveId={`project-workspace-${projectId}`}
+        onLayout={layout => {
+          lastKnownLayoutRef.current = layout
 
-        {/* Terminal Area */}
+          const [left, , right] = layout
+          if (typeof left === 'number' && left > 0) {
+            lastExpandedSizesRef.current.left = left
+          }
+          if (typeof right === 'number' && right > 0) {
+            lastExpandedSizesRef.current.right = right
+          }
+
+          scheduleSaveSession()
+        }}
+      >
+        {/* Left sidebar (collapsible) */}
+        <ResizablePanel
+          ref={leftPanelRef}
+          id="project-workspace-left"
+          className="bg-card"
+          collapsible
+          collapsedSize={0}
+          defaultSize={15}
+          maxSize={30}
+          minSize={10}
+        >
+          <aside
+            className={`h-full overflow-y-auto ${
+              zenMode || sidebarCollapsed ? 'hidden' : ''
+            }`}
+          >
+            <CommandLibrary projectId={projectId} />
+          </aside>
+        </ResizablePanel>
+
+        <ResizableHandle
+          withHandle
+          className={zenMode || sidebarCollapsed ? 'hidden' : undefined}
+        />
+
+        {/* Terminal (always visible) */}
         <ResizablePanel
           id="project-workspace-center"
-          defaultSize={zenMode || agentPanelCollapsed ? 100 : 70}
+          defaultSize={70}
+          minSize={20}
         >
           <main className="h-full overflow-hidden">
             <Terminal projectId={projectId} projectPath={project.path} />
           </main>
         </ResizablePanel>
 
-        {/* Agent Panel (hidden in Zen Mode or when collapsed) */}
-        {!zenMode && !agentPanelCollapsed && (
-          <>
-            <ResizableHandle withHandle />
-            <ResizablePanel
-              id="project-workspace-right"
-              className="bg-card"
-              defaultSize={15}
-              maxSize={40}
-              minSize={10}
-            >
-              <aside className="h-full flex flex-col overflow-hidden">
-                {/* Agent Panel Header */}
-                <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                  <span className="text-sm font-medium">🤖 Agent Tasks</span>
-                  <button
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={toggleAgentPanel}
-                    title="Hide Agent Panel"
+        <ResizableHandle
+          withHandle
+          className={zenMode || agentPanelCollapsed ? 'hidden' : undefined}
+        />
+
+        {/* Right agent panel (collapsible) */}
+        <ResizablePanel
+          ref={rightPanelRef}
+          id="project-workspace-right"
+          className="bg-card"
+          collapsible
+          collapsedSize={0}
+          defaultSize={15}
+          maxSize={40}
+          minSize={10}
+        >
+          <aside
+            className={`h-full flex flex-col overflow-hidden ${
+              zenMode || agentPanelCollapsed ? 'hidden' : ''
+            }`}
+          >
+            {/* Agent Panel Header */}
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <span className="text-sm font-medium">🤖 Agent Tasks</span>
+              <button
+                className="text-muted-foreground hover:text-foreground"
+                onClick={toggleAgentPanel}
+                title="Hide Agent Panel"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Context Shredder */}
+            <div className="h-48 border-b border-border">
+              <ContextShredder projectId={projectId} />
+            </div>
+
+            {/* Task Panel Content */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Task Panel Header */}
+              <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                {taskView !== 'list' && (
+                  <Button
+                    className="text-xs"
+                    onClick={handleBackToTaskList}
+                    size="sm"
+                    variant="ghost"
                   >
-                    ✕
-                  </button>
-                </div>
+                    ← Back to List
+                  </Button>
+                )}
+                {taskView === 'list' && (
+                  <span className="text-sm font-medium">Tasks</span>
+                )}
+                {taskView === 'list' && (
+                  <Button
+                    className="text-xs"
+                    onClick={() => setShowTaskCreation(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    + New Task
+                  </Button>
+                )}
+              </div>
 
-                {/* Context Shredder */}
-                <div className="h-48 border-b border-border">
-                  <ContextShredder projectId={projectId} />
-                </div>
-
-                {/* Task Panel Content */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* Task Panel Header */}
-                  <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                    {taskView !== 'list' && (
-                      <Button
-                        className="text-xs"
-                        onClick={handleBackToTaskList}
-                        size="sm"
-                        variant="ghost"
-                      >
-                        ← Back to List
-                      </Button>
-                    )}
-                    {taskView === 'list' && (
-                      <span className="text-sm font-medium">Tasks</span>
-                    )}
-                    {taskView === 'list' && (
-                      <Button
-                        className="text-xs"
-                        onClick={() => setShowTaskCreation(true)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        + New Task
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Task Views */}
-                  <div className="flex-1 overflow-y-auto p-4">
-                    {taskView === 'list' && (
-                      <TaskBacklogList
-                        onEditTask={handleEditTask}
-                        onTaskSelect={handleTaskSelect}
-                      />
-                    )}
-                    {taskView === 'detail' && selectedTaskId && (
-                      <TaskDetailView
-                        onBack={handleBackToTaskList}
-                        taskId={selectedTaskId}
-                      />
-                    )}
-                    {taskView === 'completion' && selectedTaskId && (
-                      <TaskCompletionView
-                        onBack={handleBackToTaskList}
-                        onViewOutput={handleViewFullOutput}
-                        taskId={selectedTaskId}
-                      />
-                    )}
-                  </div>
-                </div>
-              </aside>
-            </ResizablePanel>
-          </>
-        )}
+              {/* Task Views */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {taskView === 'list' && (
+                  <TaskBacklogList
+                    onEditTask={handleEditTask}
+                    onTaskSelect={handleTaskSelect}
+                  />
+                )}
+                {taskView === 'detail' && selectedTaskId && (
+                  <TaskDetailView
+                    onBack={handleBackToTaskList}
+                    taskId={selectedTaskId}
+                  />
+                )}
+                {taskView === 'completion' && selectedTaskId && (
+                  <TaskCompletionView
+                    onBack={handleBackToTaskList}
+                    onViewOutput={handleViewFullOutput}
+                    taskId={selectedTaskId}
+                  />
+                )}
+              </div>
+            </div>
+          </aside>
+        </ResizablePanel>
 
         {/* Task Creation Dialog */}
         <TaskCreationDialog

@@ -23,6 +23,14 @@ export interface AppState {
   toggleAgentPanel: () => void
   setAgentPanelCollapsed: (collapsed: boolean) => void
   toggleZenMode: () => void
+  hydrateWorkspaceState: (state: Partial<Pick<
+    AppState,
+    | 'sidebarCollapsed'
+    | 'agentPanelCollapsed'
+    | 'zenMode'
+    | 'previousSidebarState'
+    | 'previousAgentPanelState'
+  >>) => void
   setActiveProject: (id: string | null) => void
   setActiveTerminal: (id: string | null) => void
   openCommandPalette: () => void
@@ -83,6 +91,12 @@ export const useAppStore = create<AppState>(set => ({
         agentPanelCollapsed: state.previousAgentPanelState,
       }
     }),
+
+  hydrateWorkspaceState: state =>
+    set(current => ({
+      ...current,
+      ...state,
+    })),
 
   setActiveProject: (id: string | null) =>
     set({
