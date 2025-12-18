@@ -7,6 +7,10 @@ import {
   DEFAULT_SHORTCUTS,
   type ShortcutAction,
 } from 'renderer/lib/keyboard-manager'
+import { Button } from 'renderer/components/ui/button'
+import { Input } from 'renderer/components/ui/input'
+import { Kbd } from 'renderer/components/ui/kbd'
+import { Alert, AlertDescription } from 'renderer/components/ui/alert'
 
 interface ShortcutEditorProps {
   className?: string
@@ -154,7 +158,6 @@ export function ShortcutEditor({
 
     const parts: string[] = []
 
-    // Add modifiers
     if (e.ctrlKey || e.metaKey) {
       parts.push('Mod')
     }
@@ -165,7 +168,6 @@ export function ShortcutEditor({
       parts.push('Shift')
     }
 
-    // Add key
     const key = e.key
     if (
       key &&
@@ -202,9 +204,9 @@ export function ShortcutEditor({
         </div>
 
         {error && (
-          <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-md text-sm">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {Object.entries(groupedShortcuts).map(([category, items]) => (
@@ -227,52 +229,51 @@ export function ShortcutEditor({
 
                     {isEditing ? (
                       <div className="flex items-center gap-2">
-                        <input
-                          className="px-2 py-1 text-sm border rounded-md w-32 bg-background"
+                        <Input
+                          className="w-32 h-7"
                           onChange={e => setEditingBinding(e.target.value)}
                           onFocus={() => setRecordingKeys(false)}
                           onKeyDown={handleKeyDown}
                           placeholder="Enter shortcut..."
-                          type="text"
                           value={editingBinding}
                         />
-                        <button
-                          className="px-2 py-1 text-xs border rounded-md hover:bg-accent"
+                        <Button
                           onClick={startRecording}
+                          size="xs"
+                          variant="outline"
                         >
                           {recordingKeys ? 'Recording...' : 'Record'}
-                        </button>
-                        <button
-                          className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                          onClick={handleSave}
-                        >
+                        </Button>
+                        <Button onClick={handleSave} size="xs">
                           Save
-                        </button>
-                        <button
-                          className="px-2 py-1 text-xs border rounded-md hover:bg-accent"
+                        </Button>
+                        <Button
                           onClick={handleCancel}
+                          size="xs"
+                          variant="outline"
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-1 text-xs font-mono bg-muted rounded-md border">
-                          {currentBinding}
-                        </kbd>
-                        <button
-                          className="px-2 py-1 text-xs border rounded-md hover:bg-accent"
+                        <Kbd>{currentBinding}</Kbd>
+                        <Button
                           onClick={() => handleEdit(item.action)}
+                          size="xs"
+                          variant="outline"
                         >
                           Edit
-                        </button>
+                        </Button>
                         {currentBinding !== DEFAULT_SHORTCUTS[item.action] && (
-                          <button
-                            className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                          <Button
+                            className="text-muted-foreground"
                             onClick={() => handleReset(item.action)}
+                            size="xs"
+                            variant="ghost"
                           >
                             Reset
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}

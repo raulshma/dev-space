@@ -6,7 +6,14 @@
  */
 
 import { useEffect, useState } from 'react'
+import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
 import { useErrorStore } from 'renderer/stores/error-store'
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from 'renderer/components/ui/alert'
+import { Button } from 'renderer/components/ui/button'
 
 export function ErrorToast(): React.JSX.Element | null {
   const errors = useErrorStore(state => state.appErrors)
@@ -41,71 +48,70 @@ export function ErrorToast(): React.JSX.Element | null {
     })
   }, [errors, visible])
 
+  const getIcon = (severity: string) => {
+    switch (severity) {
+      case 'error':
+        return <AlertCircle className="h-4 w-4 text-destructive" />
+      case 'warning':
+        return <AlertTriangle className="h-4 w-4 text-amber-500" />
+      default:
+        return <Info className="h-4 w-4 text-blue-500" />
+    }
+  }
+
   return errors.length === 0 ? null : (
     <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-md">
       {errors.map(error => (
-        <div
-          className={`bg-white border-l-4 ${
-            error.severity === 'error'
-              ? 'border-red-500'
-              : error.severity === 'warning'
-                ? 'border-amber-500'
-                : 'border-blue-500'
-          } rounded-sm shadow-lg p-4 transition-all duration-300 ${
+        <Alert
+          className={`shadow-lg transition-all duration-300 ${
             visible[error.id]
               ? 'opacity-100 translate-x-0'
               : 'opacity-0 translate-x-4'
           }`}
           key={error.id}
+          variant={error.severity === 'error' ? 'destructive' : 'default'}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">
-                  {error.severity === 'error'
-                    ? '❌'
-                    : error.severity === 'warning'
-                      ? '⚠️'
-                      : 'ℹ️'}
-                </span>
-                <h4 className="font-semibold text-neutral-900">
-                  {error.title}
-                </h4>
-              </div>
-              <p className="text-sm text-neutral-600">{error.message}</p>
-              {error.details && (
-                <details className="mt-2">
-                  <summary className="text-xs text-neutral-500 cursor-pointer hover:text-neutral-700">
-                    Technical details
-                  </summary>
-                  <pre className="mt-1 p-2 bg-neutral-100 text-xs text-neutral-800 rounded-sm overflow-auto max-h-32">
-                    {typeof error.details === 'string'
-                      ? error.details
-                      : JSON.stringify(error.details, null, 2)}
-                  </pre>
-                </details>
-              )}
-              {error.recoveryAction && (
-                <button
-                  className="mt-2 text-sm text-amber-600 hover:text-amber-700 font-medium"
-                  onClick={() => {
-                    error.recoveryAction?.action()
-                    dismissError(error.id)
-                  }}
-                >
-                  {error.recoveryAction.label}
-                </button>
-              )}
-            </div>
-            <button
+          {getIcon(error.severity)}
+          <AlertTitle className="flex items-center justify-between">
+            {error.title}
+            <Button
               aria-label="Dismiss"
-              className="text-neutral-400 hover:text-neutral-600 transition-colors"
               onClick={() => dismissError(error.id)}
+              size="icon-xs"
+              variant="ghost"
             >
-              ✕
-            </button>
-          </div>
-        </div>
+              <X className="h-3 w-3" />
+            </Button>
+          </AlertTitle>
+          <AlertDescription>
+            <p>{error.message}</p>
+            {error.details && (
+              <details className="mt-2">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                  Technical details
+                </summary>
+                <pre className="mt-1 p-2 bg-muted text-xs rounded-sm overflow-auto max-h-32">
+                  {typeof error.details === 'string'
+                    ? error.details
+                    : JSON.stringify(error.details, null, 2)}
+                </pre>
+              </details>
+            )}
+            {error.recoveryAction && (
+              <Button
+                className="mt-2 p-0 h-auto"
+                onClick={() => {
+                  error.recoveryAction?.action()
+                  dismissError(error.id)
+                }}
+                size="sm"
+                variant="link"
+              >
+                {error.recoveryAction.label}
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
       ))}
     </div>
   )

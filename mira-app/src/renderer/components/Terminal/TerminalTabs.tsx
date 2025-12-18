@@ -9,7 +9,12 @@
 
 import { useEffect } from 'react'
 import { X, Plus, Pin, PinOff } from 'lucide-react'
-import { useTerminalStore, useTerminalsByProject } from 'renderer/stores/terminal-store'
+import {
+  useTerminalStore,
+  useTerminalsByProject,
+} from 'renderer/stores/terminal-store'
+import { Button } from 'renderer/components/ui/button'
+import { Kbd } from 'renderer/components/ui/kbd'
 import type { TerminalInstance } from 'renderer/stores/terminal-store'
 
 interface TerminalTabsProps {
@@ -31,21 +36,18 @@ export function TerminalTabs({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
-      // Cmd/Ctrl + T: New terminal
       if ((e.metaKey || e.ctrlKey) && e.key === 't') {
         e.preventDefault()
         onCreateTerminal()
         return
       }
 
-      // Cmd/Ctrl + W: Close current terminal
       if ((e.metaKey || e.ctrlKey) && e.key === 'w' && focusedTerminalId) {
         e.preventDefault()
         handleCloseTerminal(focusedTerminalId)
         return
       }
 
-      // Cmd/Ctrl + [1-9]: Switch to terminal by index
       if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key)) {
         e.preventDefault()
         const index = parseInt(e.key, 10) - 1
@@ -55,7 +57,6 @@ export function TerminalTabs({
         return
       }
 
-      // Cmd/Ctrl + [ or ]: Navigate between terminals
       if ((e.metaKey || e.ctrlKey) && (e.key === '[' || e.key === ']')) {
         e.preventDefault()
         const currentIndex = terminals.findIndex(
@@ -78,15 +79,12 @@ export function TerminalTabs({
     const terminal = terminals.find(t => t.id === terminalId)
     if (!terminal) return
 
-    // Kill PTY
     window.api.pty.kill({ ptyId: terminal.ptyId }).catch(error => {
       console.error('Failed to kill PTY:', error)
     })
 
-    // Remove from store
     removeTerminal(terminalId)
 
-    // Focus another terminal if this was focused
     if (focusedTerminalId === terminalId && terminals.length > 1) {
       const remainingTerminals = terminals.filter(t => t.id !== terminalId)
       if (remainingTerminals.length > 0) {
@@ -114,7 +112,7 @@ export function TerminalTabs({
   }
 
   return (
-    <div className="flex items-center gap-1 bg-neutral-100 border-b border-neutral-200 px-2 py-1">
+    <div className="flex items-center gap-1 bg-muted border-b px-2 py-1">
       {/* Terminal tabs */}
       {terminals.map((terminal: TerminalInstance, index: number) => (
         <div
@@ -124,10 +122,10 @@ export function TerminalTabs({
             transition-colors text-sm relative
             ${
               focusedTerminalId === terminal.id
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'bg-transparent text-neutral-600 hover:bg-neutral-200'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'bg-transparent text-muted-foreground hover:bg-accent'
             }
-            ${terminal.isPinned ? 'border border-amber-500/30' : ''}
+            ${terminal.isPinned ? 'border border-primary/30' : ''}
           `}
           key={terminal.id}
           onClick={() => handleTabClick(terminal.id)}
@@ -140,61 +138,70 @@ export function TerminalTabs({
           role="tab"
           tabIndex={0}
         >
-          <span className="text-xs text-neutral-400">{index + 1}</span>
+          <span className="text-xs text-muted-foreground">{index + 1}</span>
           <span className="max-w-[120px] truncate">{terminal.title}</span>
 
           {/* Pin/Unpin button */}
-          <button
+          <Button
             aria-label={terminal.isPinned ? 'Unpin terminal' : 'Pin terminal'}
-            className={`p-0.5 rounded hover:bg-neutral-300 transition-colors ${
-              terminal.isPinned ? 'text-amber-600' : 'text-neutral-400'
-            }`}
+            className={
+              terminal.isPinned ? 'text-primary' : 'text-muted-foreground'
+            }
             onClick={e => {
               e.stopPropagation()
               handleTogglePin(terminal)
             }}
+            size="icon-xs"
             title={
               terminal.isPinned
                 ? 'Unpin (will close when leaving project)'
                 : 'Pin (keeps running when leaving project)'
             }
+            variant="ghost"
           >
             {terminal.isPinned ? (
-              <Pin fill="currentColor" size={14} />
+              <Pin className="h-3 w-3" fill="currentColor" />
             ) : (
-              <PinOff size={14} />
+              <PinOff className="h-3 w-3" />
             )}
-          </button>
+          </Button>
 
           {/* Close button */}
-          <button
+          <Button
             aria-label="Close terminal"
-            className="p-0.5 rounded hover:bg-neutral-300 transition-colors"
             onClick={e => {
               e.stopPropagation()
               handleCloseTerminal(terminal.id)
             }}
+            size="icon-xs"
+            variant="ghost"
           >
-            <X size={14} />
-          </button>
+            <X className="h-3 w-3" />
+          </Button>
         </div>
       ))}
 
       {/* Add terminal button */}
-      <button
+      <Button
         aria-label="New terminal"
-        className="flex items-center gap-1 px-2 py-1.5 rounded-sm text-sm
-                   text-neutral-600 hover:bg-neutral-200 transition-colors"
         onClick={onCreateTerminal}
+        size="sm"
+        variant="ghost"
       >
-        <Plus size={16} />
-      </button>
+        <Plus className="h-4 w-4" />
+      </Button>
 
       {/* Keyboard shortcuts hint */}
-      <div className="ml-auto text-xs text-neutral-400 hidden md:block">
-        <span className="mr-3">⌘T New</span>
-        <span className="mr-3">⌘W Close</span>
-        <span>⌘1-9 Switch</span>
+      <div className="ml-auto hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Kbd>⌘T</Kbd> New
+        </span>
+        <span className="flex items-center gap-1">
+          <Kbd>⌘W</Kbd> Close
+        </span>
+        <span className="flex items-center gap-1">
+          <Kbd>⌘1-9</Kbd> Switch
+        </span>
       </div>
     </div>
   )

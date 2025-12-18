@@ -1,6 +1,25 @@
 import { useState } from 'react'
+import { ChevronRight, Terminal } from 'lucide-react'
 import { useCommands, useCreateCommand } from 'renderer/hooks/use-commands'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
+import { Button } from 'renderer/components/ui/button'
+import { Input } from 'renderer/components/ui/input'
+import { Label } from 'renderer/components/ui/label'
+import { Badge } from 'renderer/components/ui/badge'
+import { ScrollArea } from 'renderer/components/ui/scroll-area'
+import { Separator } from 'renderer/components/ui/separator'
+import { Spinner } from 'renderer/components/ui/spinner'
+import {
+  Empty,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from 'renderer/components/ui/empty'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from 'renderer/components/ui/collapsible'
 import type { Command } from 'shared/models'
 
 /**
@@ -30,7 +49,6 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
   const [newCommandText, setNewCommandText] = useState('')
   const [newCommandCategory, setNewCommandCategory] = useState('')
 
-  // Group commands by category
   const commandsByCategory = commands?.reduce(
     (acc, command) => {
       const category = command.category || 'Uncategorized'
@@ -60,7 +78,6 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
   }
 
   const handleCommandClick = async (command: Command): Promise<void> => {
-    // Get the focused terminal for this project
     const terminal = focusedTerminalId ? getTerminal(focusedTerminalId) : null
 
     if (!terminal || terminal.projectId !== projectId) {
@@ -69,7 +86,6 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
     }
 
     try {
-      // Write command to the terminal (without executing it)
       await window.api.pty.write({
         ptyId: terminal.ptyId,
         data: command.command,
@@ -95,7 +111,6 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
         category: newCommandCategory.trim() || undefined,
       })
 
-      // Reset form
       setNewCommandName('')
       setNewCommandText('')
       setNewCommandCategory('')
@@ -116,14 +131,14 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-amber-500" />
+        <Spinner className="h-5 w-5" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="p-4 text-sm text-red-600">
+      <div className="p-4 text-sm text-destructive">
         Failed to load commands. Please try again.
       </div>
     )
@@ -131,166 +146,152 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
 
   if (!commands || commands.length === 0) {
     return (
-      <div className="p-4 text-sm text-neutral-500">
-        No commands available. Add custom commands to get started.
-      </div>
+      <Empty>
+        <EmptyMedia variant="icon">
+          <Terminal className="h-4 w-4" />
+        </EmptyMedia>
+        <EmptyTitle>No commands available</EmptyTitle>
+        <EmptyDescription>Add custom commands to get started.</EmptyDescription>
+      </Empty>
     )
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2">
-        <h3 className="text-sm font-semibold text-neutral-900">
-          Command Library
-        </h3>
-        <button
-          className="rounded-sm bg-amber-500 px-2 py-1 text-xs font-medium text-white hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500"
+      <div className="flex items-center justify-between px-3 py-2">
+        <h3 className="text-sm font-semibold">Command Library</h3>
+        <Button
           onClick={() => setShowAddForm(!showAddForm)}
+          size="xs"
           title="Add custom command"
         >
           {showAddForm ? 'Cancel' : '+ Add'}
-        </button>
+        </Button>
       </div>
+      <Separator />
 
       {/* Add command form */}
       {showAddForm && (
-        <div className="border-b border-neutral-200 bg-neutral-50 p-3">
-          <form className="flex flex-col gap-2" onSubmit={handleAddCommand}>
-            <div>
-              <label
-                className="mb-1 block text-xs font-medium text-neutral-700"
-                htmlFor="command-name"
-              >
-                Name
-              </label>
-              <input
-                className="w-full rounded-sm border border-neutral-300 px-2 py-1 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                id="command-name"
-                onChange={e => setNewCommandName(e.target.value)}
-                placeholder="e.g., Install dependencies"
-                type="text"
-                value={newCommandName}
-              />
-            </div>
+        <>
+          <div className="bg-muted/50 p-3">
+            <form className="flex flex-col gap-2" onSubmit={handleAddCommand}>
+              <div className="space-y-1">
+                <Label className="text-xs" htmlFor="command-name">
+                  Name
+                </Label>
+                <Input
+                  className="h-7"
+                  id="command-name"
+                  onChange={e => setNewCommandName(e.target.value)}
+                  placeholder="e.g., Install dependencies"
+                  value={newCommandName}
+                />
+              </div>
 
-            <div>
-              <label
-                className="mb-1 block text-xs font-medium text-neutral-700"
-                htmlFor="command-text"
-              >
-                Command
-              </label>
-              <input
-                className="w-full rounded-sm border border-neutral-300 px-2 py-1 font-mono text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                id="command-text"
-                onChange={e => setNewCommandText(e.target.value)}
-                placeholder="e.g., npm install"
-                type="text"
-                value={newCommandText}
-              />
-            </div>
+              <div className="space-y-1">
+                <Label className="text-xs" htmlFor="command-text">
+                  Command
+                </Label>
+                <Input
+                  className="h-7 font-mono"
+                  id="command-text"
+                  onChange={e => setNewCommandText(e.target.value)}
+                  placeholder="e.g., npm install"
+                  value={newCommandText}
+                />
+              </div>
 
-            <div>
-              <label
-                className="mb-1 block text-xs font-medium text-neutral-700"
-                htmlFor="command-category"
-              >
-                Category (optional)
-              </label>
-              <input
-                className="w-full rounded-sm border border-neutral-300 px-2 py-1 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                id="command-category"
-                onChange={e => setNewCommandCategory(e.target.value)}
-                placeholder="e.g., Package Management"
-                type="text"
-                value={newCommandCategory}
-              />
-            </div>
+              <div className="space-y-1">
+                <Label className="text-xs" htmlFor="command-category">
+                  Category (optional)
+                </Label>
+                <Input
+                  className="h-7"
+                  id="command-category"
+                  onChange={e => setNewCommandCategory(e.target.value)}
+                  placeholder="e.g., Package Management"
+                  value={newCommandCategory}
+                />
+              </div>
 
-            <div className="flex gap-2">
-              <button
-                className="flex-1 rounded-sm bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
-                disabled={createCommand.isPending}
-                type="submit"
-              >
-                {createCommand.isPending ? 'Adding...' : 'Add Command'}
-              </button>
-              <button
-                className="rounded-sm border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-500"
-                onClick={handleCancelAdd}
-                type="button"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  disabled={createCommand.isPending}
+                  size="sm"
+                  type="submit"
+                >
+                  {createCommand.isPending ? 'Adding...' : 'Add Command'}
+                </Button>
+                <Button
+                  onClick={handleCancelAdd}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+          <Separator />
+        </>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1">
         {categories.map(category => {
           const isExpanded = expandedCategories.has(category)
           const categoryCommands = commandsByCategory?.[category]
 
           return (
-            <div className="border-b border-neutral-100" key={category}>
-              {/* Category header */}
-              <button
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                onClick={() => toggleCategory(category)}
-              >
+            <Collapsible
+              key={category}
+              onOpenChange={() => toggleCategory(category)}
+              open={isExpanded}
+            >
+              <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium hover:bg-muted/50">
                 <span>{category}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-500">
+                  <span className="text-xs text-muted-foreground">
                     {categoryCommands?.length ?? 0}
                   </span>
-                  <svg
+                  <ChevronRight
                     className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M9 5l7 7-7 7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                    />
-                  </svg>
+                  />
                 </div>
-              </button>
+              </CollapsibleTrigger>
 
-              {/* Command list */}
-              {isExpanded && categoryCommands && (
-                <div className="bg-neutral-50/50">
-                  {categoryCommands.map(command => (
-                    <button
-                      className="flex w-full flex-col items-start gap-1 px-4 py-2 text-left text-sm hover:bg-amber-50 focus:bg-amber-50 focus:outline-none"
-                      key={command.id}
-                      onClick={() => handleCommandClick(command)}
-                      title={`Click to inject: ${command.command}`}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="font-medium text-neutral-900">
-                          {command.name}
-                        </span>
-                        {command.isCustom && (
-                          <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
-                            Custom
-                          </span>
-                        )}
-                      </div>
-                      <code className="text-xs text-neutral-600">
-                        {command.command}
-                      </code>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              <CollapsibleContent>
+                {categoryCommands && (
+                  <div className="bg-muted/30">
+                    {categoryCommands.map(command => (
+                      <button
+                        className="flex w-full flex-col items-start gap-1 px-4 py-2 text-left text-sm hover:bg-primary/5 focus:bg-primary/5 focus:outline-none"
+                        key={command.id}
+                        onClick={() => handleCommandClick(command)}
+                        title={`Click to inject: ${command.command}`}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="font-medium">{command.name}</span>
+                          {command.isCustom && (
+                            <Badge className="text-xs" variant="secondary">
+                              Custom
+                            </Badge>
+                          )}
+                        </div>
+                        <code className="text-xs text-muted-foreground">
+                          {command.command}
+                        </code>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CollapsibleContent>
+              <Separator />
+            </Collapsible>
           )
         })}
-      </div>
+      </ScrollArea>
     </div>
   )
 }

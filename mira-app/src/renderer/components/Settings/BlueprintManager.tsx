@@ -1,8 +1,35 @@
 import { useState } from 'react'
+import { Package } from 'lucide-react'
 import {
   useBlueprints,
   useCreateBlueprint,
 } from 'renderer/hooks/use-blueprints'
+import { Button } from 'renderer/components/ui/button'
+import { Input } from 'renderer/components/ui/input'
+import { Textarea } from 'renderer/components/ui/textarea'
+import { Label } from 'renderer/components/ui/label'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from 'renderer/components/ui/card'
+import { ScrollArea } from 'renderer/components/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from 'renderer/components/ui/dialog'
+import {
+  Empty,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from 'renderer/components/ui/empty'
 import type { Blueprint } from 'shared/models'
 
 /**
@@ -39,7 +66,6 @@ export function BlueprintManager(): React.JSX.Element {
     }
 
     try {
-      // Capture the blueprint structure
       const captureResponse = await window.api.blueprints.capture({
         projectPath: capturePath,
         customExcludePatterns: captureExcludePatterns
@@ -47,14 +73,12 @@ export function BlueprintManager(): React.JSX.Element {
           : undefined,
       })
 
-      // Create the blueprint in database
       await createBlueprint.mutateAsync({
         name: captureName,
         description: captureDescription || undefined,
         structure: captureResponse.structure,
       })
 
-      // Reset form and close dialog
       setCapturePath('')
       setCaptureName('')
       setCaptureDescription('')
@@ -82,7 +106,6 @@ export function BlueprintManager(): React.JSX.Element {
         targetPath: applyTargetPath,
       })
 
-      // Reset form and close dialog
       setApplyTargetPath('')
       setShowApplyDialog(false)
       setSelectedBlueprint(null)
@@ -104,7 +127,7 @@ export function BlueprintManager(): React.JSX.Element {
   if (isLoading) {
     return (
       <div className="p-4">
-        <p className="text-sm text-neutral-400">Loading blueprints...</p>
+        <p className="text-sm text-muted-foreground">Loading blueprints...</p>
       </div>
     )
   }
@@ -112,7 +135,7 @@ export function BlueprintManager(): React.JSX.Element {
   if (error) {
     return (
       <div className="p-4">
-        <p className="text-sm text-red-400">Failed to load blueprints</p>
+        <p className="text-sm text-destructive">Failed to load blueprints</p>
       </div>
     )
   }
@@ -123,225 +146,208 @@ export function BlueprintManager(): React.JSX.Element {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-neutral-100">
-              Scaffold Blueprints
-            </h2>
-            <p className="text-sm text-neutral-400">
+            <h2 className="text-lg font-semibold">Scaffold Blueprints</h2>
+            <p className="text-sm text-muted-foreground">
               Save and reuse project templates
             </p>
           </div>
-          <button
-            className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded hover:bg-amber-700"
-            onClick={() => setShowCaptureDialog(true)}
-          >
+          <Button onClick={() => setShowCaptureDialog(true)}>
             Save as Template
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Blueprint List */}
-      <div className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1">
         {!blueprints || blueprints.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-neutral-400">No blueprints saved yet</p>
-            <p className="text-xs text-neutral-500 mt-1">
-              Click &quot;Save as Template&quot; to create your first blueprint
-            </p>
-          </div>
+          <Empty>
+            <EmptyMedia variant="icon">
+              <Package className="h-4 w-4" />
+            </EmptyMedia>
+            <EmptyTitle>No blueprints saved yet</EmptyTitle>
+            <EmptyDescription>
+              Click &apos;Save as Template&apos; to create your first blueprint
+            </EmptyDescription>
+          </Empty>
         ) : (
           <div className="space-y-3">
             {blueprints.map(blueprint => (
-              <div
-                className="p-3 border border-neutral-700 rounded-lg hover:bg-neutral-800/50 transition-colors"
+              <Card
+                className="hover:bg-muted/50 transition-colors"
                 key={blueprint.id}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm text-neutral-100">
-                      {blueprint.name}
-                    </h3>
-                    {blueprint.description && (
-                      <p className="text-xs text-neutral-400 mt-1">
-                        {blueprint.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-neutral-500">
-                      <span>{blueprint.structure.files.length} files</span>
-                      <span>•</span>
-                      <span>
-                        Created{' '}
-                        {new Date(blueprint.createdAt).toLocaleDateString()}
-                      </span>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-sm">
+                        {blueprint.name}
+                      </CardTitle>
+                      {blueprint.description && (
+                        <CardDescription className="mt-1">
+                          {blueprint.description}
+                        </CardDescription>
+                      )}
                     </div>
+                    <Button
+                      onClick={() => openApplyDialog(blueprint)}
+                      size="sm"
+                    >
+                      Apply
+                    </Button>
                   </div>
-                  <button
-                    className="ml-3 px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700"
-                    onClick={() => openApplyDialog(blueprint)}
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{blueprint.structure.files.length} files</span>
+                    <span>•</span>
+                    <span>
+                      Created{' '}
+                      {new Date(blueprint.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
-      </div>
+      </ScrollArea>
 
       {/* Capture Dialog */}
-      {showCaptureDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-neutral-100">
-              Save Project as Template
-            </h3>
+      <Dialog onOpenChange={setShowCaptureDialog} open={showCaptureDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Project as Template</DialogTitle>
+            <DialogDescription>
+              Capture the structure of an existing project as a reusable
+              blueprint.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-neutral-200">
-                  Project Path <span className="text-red-400">*</span>
-                  <input
-                    className="w-full px-3 py-2 text-sm border border-neutral-600 bg-neutral-900 text-neutral-100 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mt-1"
-                    onChange={e => setCapturePath(e.target.value)}
-                    placeholder="/path/to/project"
-                    type="text"
-                    value={capturePath}
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-neutral-200">
-                  Blueprint Name <span className="text-red-400">*</span>
-                  <input
-                    className="w-full px-3 py-2 text-sm border border-neutral-600 bg-neutral-900 text-neutral-100 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mt-1"
-                    onChange={e => setCaptureName(e.target.value)}
-                    placeholder="My Project Template"
-                    type="text"
-                    value={captureName}
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-neutral-200">
-                  Description
-                  <textarea
-                    className="w-full px-3 py-2 text-sm border border-neutral-600 bg-neutral-900 text-neutral-100 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none mt-1"
-                    onChange={e => setCaptureDescription(e.target.value)}
-                    placeholder="Optional description..."
-                    rows={3}
-                    value={captureDescription}
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-neutral-200">
-                  Additional Exclude Patterns
-                  <input
-                    className="w-full px-3 py-2 text-sm border border-neutral-600 bg-neutral-900 text-neutral-100 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mt-1"
-                    onChange={e => setCaptureExcludePatterns(e.target.value)}
-                    placeholder="*.log, temp, cache"
-                    type="text"
-                    value={captureExcludePatterns}
-                  />
-                </label>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Comma-separated patterns (node_modules, .git, build are
-                  excluded by default)
-                </p>
-              </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="capture-path">
+                Project Path <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="capture-path"
+                onChange={e => setCapturePath(e.target.value)}
+                placeholder="/path/to/project"
+                value={capturePath}
+              />
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                className="px-3 py-1.5 text-sm border border-neutral-600 text-neutral-300 rounded hover:bg-neutral-700"
-                onClick={() => {
-                  setShowCaptureDialog(false)
-                  setCapturePath('')
-                  setCaptureName('')
-                  setCaptureDescription('')
-                  setCaptureExcludePatterns('')
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={
-                  !capturePath || !captureName || createBlueprint.isPending
-                }
-                onClick={handleSaveAsTemplate}
-              >
-                {createBlueprint.isPending ? 'Saving...' : 'Save Template'}
-              </button>
+            <div className="space-y-2">
+              <Label htmlFor="capture-name">
+                Blueprint Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="capture-name"
+                onChange={e => setCaptureName(e.target.value)}
+                placeholder="My Project Template"
+                value={captureName}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="capture-description">Description</Label>
+              <Textarea
+                id="capture-description"
+                onChange={e => setCaptureDescription(e.target.value)}
+                placeholder="Optional description..."
+                value={captureDescription}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="capture-exclude">
+                Additional Exclude Patterns
+              </Label>
+              <Input
+                id="capture-exclude"
+                onChange={e => setCaptureExcludePatterns(e.target.value)}
+                placeholder="*.log, temp, cache"
+                value={captureExcludePatterns}
+              />
+              <p className="text-xs text-muted-foreground">
+                Comma-separated patterns (node_modules, .git, build are excluded
+                by default)
+              </p>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowCaptureDialog(false)
+                setCapturePath('')
+                setCaptureName('')
+                setCaptureDescription('')
+                setCaptureExcludePatterns('')
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !capturePath || !captureName || createBlueprint.isPending
+              }
+              onClick={handleSaveAsTemplate}
+            >
+              {createBlueprint.isPending ? 'Saving...' : 'Save Template'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Apply Dialog */}
-      {showApplyDialog && selectedBlueprint && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 border border-neutral-700 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-neutral-100">
-              Apply Blueprint
-            </h3>
+      <Dialog onOpenChange={setShowApplyDialog} open={showApplyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apply Blueprint</DialogTitle>
+            {selectedBlueprint && (
+              <DialogDescription>
+                Applying: {selectedBlueprint.name}
+                {selectedBlueprint.description &&
+                  ` - ${selectedBlueprint.description}`}
+              </DialogDescription>
+            )}
+          </DialogHeader>
 
-            <div className="mb-4">
-              <p className="text-sm text-neutral-400">
-                Applying:{' '}
-                <span className="font-medium text-neutral-100">
-                  {selectedBlueprint.name}
-                </span>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="apply-target">
+                Target Directory <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="apply-target"
+                onChange={e => setApplyTargetPath(e.target.value)}
+                placeholder="/path/to/new-project"
+                value={applyTargetPath}
+              />
+              <p className="text-xs text-muted-foreground">
+                The blueprint structure will be created in this directory
               </p>
-              {selectedBlueprint.description && (
-                <p className="text-xs text-neutral-500 mt-1">
-                  {selectedBlueprint.description}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-neutral-200">
-                  Target Directory <span className="text-red-400">*</span>
-                  <input
-                    className="w-full px-3 py-2 text-sm border border-neutral-600 bg-neutral-900 text-neutral-100 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 mt-1"
-                    onChange={e => setApplyTargetPath(e.target.value)}
-                    placeholder="/path/to/new-project"
-                    type="text"
-                    value={applyTargetPath}
-                  />
-                </label>
-                <p className="text-xs text-neutral-500 mt-1">
-                  The blueprint structure will be created in this directory
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                className="px-3 py-1.5 text-sm border border-neutral-600 text-neutral-300 rounded hover:bg-neutral-700"
-                onClick={() => {
-                  setShowApplyDialog(false)
-                  setApplyTargetPath('')
-                  setSelectedBlueprint(null)
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!applyTargetPath}
-                onClick={handleApplyBlueprint}
-              >
-                Apply Blueprint
-              </button>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowApplyDialog(false)
+                setApplyTargetPath('')
+                setSelectedBlueprint(null)
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button disabled={!applyTargetPath} onClick={handleApplyBlueprint}>
+              Apply Blueprint
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

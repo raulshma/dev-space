@@ -6,7 +6,15 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Pin } from 'lucide-react'
+import { Pin, ChevronUp, ChevronDown } from 'lucide-react'
+import { Card, CardContent, CardHeader } from 'renderer/components/ui/card'
+import { ScrollArea } from 'renderer/components/ui/scroll-area'
+import { Badge } from 'renderer/components/ui/badge'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from 'renderer/components/ui/collapsible'
 import type { PinnedProcess } from 'shared/models'
 
 export function PinnedProcessIndicator(): React.JSX.Element | null {
@@ -14,7 +22,6 @@ export function PinnedProcessIndicator(): React.JSX.Element | null {
   const [isExpanded, setIsExpanded] = useState(false)
 
   useEffect(() => {
-    // Fetch pinned processes on mount
     const fetchPinnedProcesses = async (): Promise<void> => {
       try {
         const response = await window.api.pty.getPinned({})
@@ -25,8 +32,6 @@ export function PinnedProcessIndicator(): React.JSX.Element | null {
     }
 
     fetchPinnedProcesses()
-
-    // Poll for updates every 5 seconds
     const interval = setInterval(fetchPinnedProcesses, 5000)
 
     return () => clearInterval(interval)
@@ -48,56 +53,54 @@ export function PinnedProcessIndicator(): React.JSX.Element | null {
     return `${diffDays}d ago`
   }
 
-  return pinnedProcesses.length === 0 ? null : (
-    <div className="fixed bottom-4 right-4 z-50">
-      <div
-        className={`
-          bg-amber-900/90 backdrop-blur-sm border border-amber-700/50 rounded-sm
-          shadow-lg transition-all duration-200
-          ${isExpanded ? 'w-80' : 'w-auto'}
-        `}
-      >
-        {/* Header */}
-        <button
-          className="flex items-center gap-2 px-3 py-2 w-full hover:bg-amber-800/50 transition-colors"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <Pin className="text-amber-400" fill="currentColor" size={16} />
-          <span className="text-sm text-amber-100 font-medium">
-            {pinnedProcesses.length} Pinned Process
-            {pinnedProcesses.length !== 1 ? 'es' : ''}
-          </span>
-          <span className="ml-auto text-amber-400 text-xs">
-            {isExpanded ? '▼' : '▲'}
-          </span>
-        </button>
+  if (pinnedProcesses.length === 0) return null
 
-        {/* Expanded list */}
-        {isExpanded && (
-          <div className="border-t border-amber-700/50 max-h-60 overflow-y-auto">
-            {pinnedProcesses.map(process => (
-              <div
-                className="px-3 py-2 border-b border-amber-700/30 last:border-b-0"
-                key={process.ptyId}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-amber-100 font-mono truncate">
-                      {process.command}
-                    </div>
-                    <div className="text-xs text-amber-400 mt-0.5">
-                      Project: {process.projectId.slice(0, 8)}...
-                    </div>
-                  </div>
-                  <div className="text-xs text-amber-500 whitespace-nowrap">
-                    {formatDuration(process.startTime)}
-                  </div>
-                </div>
+  return (
+    <div className="fixed bottom-4 right-4 z-50">
+      <Card className="shadow-lg backdrop-blur-sm bg-card/95">
+        <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-2">
+                <Pin className="h-4 w-4 text-primary" fill="currentColor" />
+                <span className="text-sm font-medium">
+                  {pinnedProcesses.length} Pinned Process
+                  {pinnedProcesses.length !== 1 ? 'es' : ''}
+                </span>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground" />
+                ) : (
+                  <ChevronUp className="h-4 w-4 ml-auto text-muted-foreground" />
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent>
+            <ScrollArea className="max-h-60">
+              <CardContent className="p-0">
+                {pinnedProcesses.map(process => (
+                  <div className="px-3 py-2 border-t" key={process.ptyId}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-mono truncate">
+                          {process.command}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Project: {process.projectId.slice(0, 8)}...
+                        </div>
+                      </div>
+                      <Badge className="text-xs shrink-0" variant="secondary">
+                        {formatDuration(process.startTime)}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </ScrollArea>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
     </div>
   )
 }

@@ -5,9 +5,12 @@
  * Requirements: 7.1, 7.4
  */
 
-import { Wrench } from 'lucide-react'
+import { Wrench, X } from 'lucide-react'
 import { useErrorStore, useErrorsByTerminal } from 'renderer/stores/error-store'
 import { createErrorContext } from 'renderer/lib/error-detector'
+import { Button } from 'renderer/components/ui/button'
+import { Alert, AlertDescription } from 'renderer/components/ui/alert'
+import { ScrollArea } from 'renderer/components/ui/scroll-area'
 import type { DetectedError } from 'renderer/lib/error-detector'
 import type { ErrorContext } from 'shared/models'
 
@@ -25,20 +28,16 @@ export function FixButton({
   const removeError = useErrorStore(state => state.removeError)
 
   const handleClick = (): void => {
-    // Create error context
     const errorContext = createErrorContext(error)
 
-    // Send error context to parent (ProjectWorkspace -> ConversationView)
     if (onErrorContext) {
       onErrorContext(errorContext)
     }
 
-    // Notify parent
     if (onFixClick) {
       onFixClick(error.id)
     }
 
-    // Remove error after clicking fix
     removeError(error.id)
   }
 
@@ -48,35 +47,31 @@ export function FixButton({
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-red-900/20 border border-red-700/50 rounded-sm">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 text-sm text-red-400">
-          <span className="font-mono">Exit code: {error.exitCode}</span>
-          <span className="text-red-600">•</span>
-          <span className="text-red-500 truncate max-w-[200px]">
-            {error.command}
-          </span>
-        </div>
-      </div>
+    <Alert className="flex items-center gap-2" variant="destructive">
+      <AlertDescription className="flex-1 flex items-center gap-2">
+        <span className="font-mono text-sm">Exit code: {error.exitCode}</span>
+        <span>•</span>
+        <span className="truncate max-w-[200px] text-sm">{error.command}</span>
+      </AlertDescription>
 
-      <button
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700
-                   text-white text-sm rounded-sm transition-colors"
+      <Button
         onClick={handleClick}
+        size="sm"
         title="Send error to AI agent for fix suggestions"
       >
-        <Wrench size={14} />
-        <span>Fix</span>
-      </button>
+        <Wrench className="h-3 w-3 mr-1" />
+        Fix
+      </Button>
 
-      <button
-        className="px-2 py-1 text-red-400 hover:text-red-300 text-xs"
+      <Button
         onClick={handleDismiss}
+        size="icon-xs"
         title="Dismiss error"
+        variant="ghost"
       >
-        ✕
-      </button>
-    </div>
+        <X className="h-3 w-3" />
+      </Button>
+    </Alert>
   )
 }
 
@@ -94,15 +89,17 @@ export function TerminalErrors({
   const errors = useErrorsByTerminal(terminalId)
 
   return errors.length === 0 ? null : (
-    <div className="absolute bottom-4 left-4 right-4 z-10 space-y-2 max-h-[200px] overflow-y-auto">
-      {errors.map(error => (
-        <FixButton
-          error={error}
-          key={error.id}
-          onErrorContext={onErrorContext}
-          onFixClick={onFixClick}
-        />
-      ))}
-    </div>
+    <ScrollArea className="absolute bottom-4 left-4 right-4 z-10 max-h-[200px]">
+      <div className="space-y-2">
+        {errors.map(error => (
+          <FixButton
+            error={error}
+            key={error.id}
+            onErrorContext={onErrorContext}
+            onFixClick={onFixClick}
+          />
+        ))}
+      </div>
+    </ScrollArea>
   )
 }

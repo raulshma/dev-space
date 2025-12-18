@@ -1,4 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { MessageSquare, Send } from 'lucide-react'
+import { Button } from 'renderer/components/ui/button'
+import { Textarea } from 'renderer/components/ui/textarea'
+import { ScrollArea } from 'renderer/components/ui/scroll-area'
+import { Spinner } from 'renderer/components/ui/spinner'
+import { Separator } from 'renderer/components/ui/separator'
 import type { ConversationMessage, ErrorContext } from 'shared/models'
 
 /**
@@ -70,15 +76,11 @@ export function ConversationView({
     setIsSending(true)
 
     try {
-      // Send message and get response
       await window.api.agent.sendMessage({ projectId, content })
-
-      // Reload conversation to get both user and assistant messages
       await loadConversation()
     } catch (error) {
       console.error('Failed to send message:', error)
       alert('Failed to send message. Please check your API key configuration.')
-      // Restore input value on error
       setInputValue(content)
     } finally {
       setIsSending(false)
@@ -114,38 +116,31 @@ export function ConversationView({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-neutral-900">Conversation</h3>
+      <div className="flex items-center justify-between px-4 py-3">
+        <h3 className="text-sm font-semibold">Conversation</h3>
         {messages.length > 0 && (
-          <button
-            className="text-xs text-neutral-500 hover:text-red-600"
+          <Button
+            className="text-muted-foreground hover:text-destructive"
             onClick={handleClearConversation}
+            size="xs"
+            variant="ghost"
           >
             Clear
-          </button>
+          </Button>
         )}
       </div>
+      <Separator />
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <ScrollArea className="flex-1 px-4 py-4">
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <svg
-                className="mx-auto h-12 w-12 text-neutral-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                />
-              </svg>
-              <p className="mt-2 text-sm text-neutral-600">No messages yet</p>
-              <p className="mt-1 text-xs text-neutral-500">
+              <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <p className="mt-2 text-sm text-muted-foreground">
+                No messages yet
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground/70">
                 Start a conversation with the AI agent
               </p>
             </div>
@@ -160,19 +155,19 @@ export function ConversationView({
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === 'user'
-                      ? 'bg-amber-100 text-amber-900'
-                      : 'bg-neutral-100 text-neutral-900'
+                      ? 'bg-primary/10 text-foreground'
+                      : 'bg-muted text-foreground'
                   }`}
                 >
                   <div className="mb-1 flex items-center gap-2">
                     <span className="text-xs font-semibold">
                       {message.role === 'user' ? 'You' : 'Assistant'}
                     </span>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-muted-foreground">
                       {formatTimestamp(message.timestamp)}
                     </span>
                     {message.model && (
-                      <span className="text-xs text-neutral-400">
+                      <span className="text-xs text-muted-foreground/70">
                         • {message.model}
                       </span>
                     )}
@@ -186,36 +181,33 @@ export function ConversationView({
             <div ref={messagesEndRef} />
           </div>
         )}
-      </div>
+      </ScrollArea>
 
       {/* Input */}
-      <div className="border-t border-neutral-200 p-4">
+      <Separator />
+      <div className="p-4">
         <div className="flex gap-2">
-          <textarea
-            className="flex-1 resize-none rounded-sm border border-neutral-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:bg-neutral-100"
+          <Textarea
+            className="flex-1 min-h-[80px]"
             disabled={isSending}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message... (Shift+Enter for new line)"
-            rows={3}
             value={inputValue}
           />
-          <button
-            className="rounded-sm bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-neutral-300"
+          <Button
+            className="self-end"
             disabled={!inputValue.trim() || isSending}
             onClick={handleSendMessage}
           >
             {isSending ? (
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Sending
-              </div>
+              <Spinner className="h-4 w-4" />
             ) : (
-              'Send'
+              <Send className="h-4 w-4" />
             )}
-          </button>
+          </Button>
         </div>
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>

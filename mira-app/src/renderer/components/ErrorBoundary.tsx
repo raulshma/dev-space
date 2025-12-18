@@ -6,6 +6,13 @@
  */
 
 import { Component, type ReactNode } from 'react'
+import { AlertTriangle } from 'lucide-react'
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from 'renderer/components/ui/alert'
+import { Button } from 'renderer/components/ui/button'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -54,43 +61,36 @@ export class ErrorBoundary extends Component<
       }
 
       return (
-        <div className="flex items-center justify-center h-screen bg-neutral-50">
-          <div className="max-w-md p-6 bg-white border border-red-200 rounded-sm shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl">⚠️</span>
-              <h2 className="text-lg font-semibold text-neutral-900">
-                Something went wrong
-              </h2>
-            </div>
-            <p className="text-sm text-neutral-600 mb-4">
-              An unexpected error occurred. You can try to recover or reload the
-              application.
-            </p>
-            <details className="mb-4">
-              <summary className="text-sm text-neutral-500 cursor-pointer hover:text-neutral-700">
-                Error details
-              </summary>
-              <pre className="mt-2 p-3 bg-neutral-100 text-xs text-neutral-800 rounded-sm overflow-auto max-h-40">
-                {this.state.error.message}
-                {'\n\n'}
-                {this.state.error.stack}
-              </pre>
-            </details>
-            <div className="flex gap-2">
-              <button
-                className="px-4 py-2 bg-amber-500 text-white rounded-sm hover:bg-amber-600 transition-colors"
-                onClick={this.reset}
-              >
-                Try to recover
-              </button>
-              <button
-                className="px-4 py-2 bg-neutral-200 text-neutral-700 rounded-sm hover:bg-neutral-300 transition-colors"
-                onClick={() => window.location.reload()}
-              >
-                Reload application
-              </button>
-            </div>
-          </div>
+        <div className="flex items-center justify-center h-screen bg-background">
+          <Alert className="max-w-md" variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Something went wrong</AlertTitle>
+            <AlertDescription>
+              <p className="mb-4">
+                An unexpected error occurred. You can try to recover or reload
+                the application.
+              </p>
+              <details className="mb-4">
+                <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                  Error details
+                </summary>
+                <pre className="mt-2 p-3 bg-muted text-xs rounded-sm overflow-auto max-h-40">
+                  {this.state.error.message}
+                  {'\n\n'}
+                  {this.state.error.stack}
+                </pre>
+              </details>
+              <div className="flex gap-2">
+                <Button onClick={this.reset}>Try to recover</Button>
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                >
+                  Reload application
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
         </div>
       )
     }
