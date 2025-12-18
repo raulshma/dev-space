@@ -46,6 +46,7 @@ import { buildAgentEnvironment } from './agent/process-manager'
 import type { TaskQueue } from './agent/task-queue'
 import type { OutputBuffer, OutputCallback } from './agent/output-buffer'
 import type { AgentConfigService } from './agent/agent-config-service'
+import type { JulesService } from './agent/jules-service'
 import type { GitService } from './git-service'
 import type {
   AgentTask,
@@ -70,6 +71,8 @@ export enum AgentExecutorErrorCode {
   INVALID_CONFIGURATION = 'INVALID_CONFIGURATION',
   PROCESS_SPAWN_FAILED = 'PROCESS_SPAWN_FAILED',
   SCRIPT_NOT_FOUND = 'SCRIPT_NOT_FOUND',
+  JULES_API_ERROR = 'JULES_API_ERROR',
+  JULES_SOURCE_REQUIRED = 'JULES_SOURCE_REQUIRED',
 }
 
 /**
@@ -166,9 +169,13 @@ export class AgentExecutorService
   private outputBuffer: OutputBuffer
   private configService: AgentConfigService
   private gitService: GitService
+  private julesService: JulesService | null
 
   /** Map of task IDs to their managed processes */
   private taskProcesses: Map<string, ManagedProcess> = new Map()
+
+  /** Map of task IDs to Jules polling intervals */
+  private julesPollingIntervals: Map<string, NodeJS.Timeout> = new Map()
 
   /** Base path for agent scripts */
   private agentScriptsBasePath: string
@@ -183,7 +190,8 @@ export class AgentExecutorService
     outputBuffer: OutputBuffer,
     configService: AgentConfigService,
     gitService: GitService,
-    agentScriptsBasePath: string
+    agentScriptsBasePath: string,
+    julesService?: JulesService
   ) {
     super()
     this.db = db
@@ -193,6 +201,7 @@ export class AgentExecutorService
     this.configService = configService
     this.gitService = gitService
     this.agentScriptsBasePath = agentScriptsBasePath
+    this.julesService = julesService ?? null
   }
 
   // ============================================================================
@@ -210,21 +219,34 @@ export class AgentExecutorService
    * @throws AgentExecutorError if validation fails
    */
   async createTask(params: CreateAgentTaskInput): Promise<AgentTask> {
-    // Validate target directory exists
-    if (!existsSync(params.targetDirectory)) {
-      throw new AgentExecutorError(
-        `Target directory does not exist: ${params.targetDirectory}`,
-        AgentExecutorErrorCode.INVALID_DIRECTORY
-      )
-    }
+    const serviceType = params.serviceType ?? 'claude-code'
 
-    // For feature agents, validate that target is a git repository
-    if (params.agentType === 'feature') {
-      const isRepo = await this.gitService.isGitRepo(params.targetDirectory)
-      if (!isRepo) {
+    // Validation based on service type
+    if (serviceType === 'claude-code') {
+      // Validate target directory exists
+      if (!existsSync(params.targetDirectory)) {
         throw new AgentExecutorError(
-          `Target directory is not a valid git repository: ${params.targetDirectory}`,
-          AgentExecutorErrorCode.NOT_A_REPOSITORY
+          `Target directory does not exist: ${params.targetDirectory}`,
+          AgentExecutorErrorCode.INVALID_DIRECTORY
+        )
+      }
+
+      // For feature agents, validate that target is a git repository
+      if (params.agentType === 'feature') {
+        const isRepo = await this.gitService.isGitRepo(params.targetDirectory)
+        if (!isRepo) {
+          throw new AgentExecutorError(
+            `Target directory is not a valid git repository: ${params.targetDirectory}`,
+            AgentExecutorErrorCode.NOT_A_REPOSITORY
+          )
+        }
+      }
+    } else if (serviceType === 'google-jules') {
+      // Validate Jules source is provided
+      if (!params.julesParams?.source) {
+        throw new AgentExecutorError(
+          'Jules source (GitHub repository) is required',
+          AgentExecutorErrorCode.JULES_SOURCE_REQUIRED
         )
       }
     }
@@ -513,7 +535,7 @@ export class AgentExecutorService
       this.taskQueue.remove(taskId)
     }
 
-    // Kill process if running or paused
+    // Kill process if running or paused (Claude Code tasks)
     const process = this.taskProcesses.get(taskId)
     if (process) {
       // Resume first if paused (so SIGTERM can be received)
@@ -523,6 +545,9 @@ export class AgentExecutorService
       process.kill('SIGTERM')
       this.taskProcesses.delete(taskId)
     }
+
+    // Stop Jules polling if this is a Jules task
+    this.stopJulesPolling(taskId)
 
     // Clear current task if this was the running task
     if (this.taskQueue.getCurrentTaskId() === taskId) {
@@ -655,11 +680,205 @@ export class AgentExecutorService
   /**
    * Execute a task
    *
-   * Spawns the appropriate Python agent process and sets up output handling.
+   * Routes to appropriate execution method based on service type.
    *
    * @param task - The task to execute
    */
   private async executeTask(task: AgentTask): Promise<void> {
+    const serviceType = task.serviceType ?? 'claude-code'
+
+    if (serviceType === 'google-jules') {
+      await this.executeJulesTask(task)
+    } else {
+      await this.executeClaudeCodeTask(task)
+    }
+  }
+
+  /**
+   * Execute a Jules task via Google Jules API
+   *
+   * @param task - The task to execute
+   */
+  private async executeJulesTask(task: AgentTask): Promise<void> {
+    if (!this.julesService) {
+      throw new AgentExecutorError(
+        'Jules service is not available',
+        AgentExecutorErrorCode.JULES_API_ERROR,
+        task.id
+      )
+    }
+
+    if (!task.julesParams?.source) {
+      throw new AgentExecutorError(
+        'Jules source is required',
+        AgentExecutorErrorCode.JULES_SOURCE_REQUIRED,
+        task.id
+      )
+    }
+
+    // Update task status to running
+    await this.updateTask(task.id, {
+      status: 'running',
+      startedAt: new Date(),
+    })
+
+    const updatedTask = this.db.getAgentTask(task.id)!
+    this.emit('taskStarted', updatedTask)
+
+    try {
+      // Create Jules session
+      const session = await this.julesService.createSession({
+        prompt: task.description,
+        source: task.julesParams.source,
+        startingBranch: task.julesParams.startingBranch,
+        automationMode: task.julesParams.automationMode,
+        requirePlanApproval: task.julesParams.requirePlanApproval,
+        title: task.julesParams.title || task.description.slice(0, 100),
+      })
+
+      // Store session ID
+      await this.updateTask(task.id, {
+        julesSessionId: session.id,
+      })
+
+      // Add initial output
+      const line = this.outputBuffer.append(
+        task.id,
+        `[Jules] Session created: ${session.id}\n[Jules] Prompt: ${task.description}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', task.id, line)
+
+      // Start polling for updates
+      this.startJulesPolling(task.id, session.id)
+    } catch (error) {
+      throw new AgentExecutorError(
+        `Failed to create Jules session: ${error instanceof Error ? error.message : String(error)}`,
+        AgentExecutorErrorCode.JULES_API_ERROR,
+        task.id,
+        error instanceof Error ? error : undefined
+      )
+    }
+  }
+
+  /**
+   * Start polling Jules API for task updates
+   */
+  private startJulesPolling(taskId: string, sessionId: string): void {
+    let lastActivityCount = 0
+
+    const pollInterval = setInterval(async () => {
+      try {
+        if (!this.julesService) {
+          this.stopJulesPolling(taskId)
+          return
+        }
+
+        // Get session status
+        const session = await this.julesService.getSession(sessionId)
+
+        // Get activities
+        const activities = await this.julesService.listActivities(sessionId)
+
+        // Process new activities
+        if (activities.length > lastActivityCount) {
+          const newActivities = activities.slice(lastActivityCount)
+          const outputLines = this.julesService.activitiesToOutputLines(
+            taskId,
+            newActivities
+          )
+
+          for (const outputLine of outputLines) {
+            const line = this.outputBuffer.append(
+              taskId,
+              outputLine.content + '\n',
+              outputLine.stream
+            )
+            this.emit('outputReceived', taskId, line)
+          }
+
+          lastActivityCount = activities.length
+        }
+
+        // Check for completion
+        if (session.outputs && session.outputs.length > 0) {
+          // Session has outputs (e.g., PR created)
+          for (const output of session.outputs) {
+            if (output.pullRequest) {
+              const line = this.outputBuffer.append(
+                taskId,
+                `\n[Jules] Pull Request created: ${output.pullRequest.url}\n` +
+                  `  Title: ${output.pullRequest.title}\n` +
+                  `  Description: ${output.pullRequest.description}\n`,
+                'stdout'
+              )
+              this.emit('outputReceived', taskId, line)
+            }
+          }
+
+          // Mark as completed
+          this.stopJulesPolling(taskId)
+          await this.handleJulesCompletion(taskId, session)
+        }
+      } catch (error) {
+        console.error(`Jules polling error for task ${taskId}:`, error)
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Jules] Error: ${error instanceof Error ? error.message : String(error)}\n`,
+          'stderr'
+        )
+        this.emit('outputReceived', taskId, line)
+      }
+    }, 5000) // Poll every 5 seconds
+
+    this.julesPollingIntervals.set(taskId, pollInterval)
+  }
+
+  /**
+   * Stop polling for a Jules task
+   */
+  private stopJulesPolling(taskId: string): void {
+    const interval = this.julesPollingIntervals.get(taskId)
+    if (interval) {
+      clearInterval(interval)
+      this.julesPollingIntervals.delete(taskId)
+    }
+  }
+
+  /**
+   * Handle Jules task completion
+   */
+  private async handleJulesCompletion(
+    taskId: string,
+    session: { outputs?: Array<{ pullRequest?: { url: string } }> }
+  ): Promise<void> {
+    // Clear current task
+    if (this.taskQueue.getCurrentTaskId() === taskId) {
+      this.taskQueue.setCurrentTask(undefined)
+    }
+
+    // Persist output buffer
+    await this.outputBuffer.persist(taskId)
+
+    // Update task status
+    await this.updateTask(taskId, {
+      status: 'completed',
+      completedAt: new Date(),
+    })
+
+    const task = this.db.getAgentTask(taskId)!
+    this.emit('taskCompleted', task)
+
+    // Process next task
+    await this.processNextTask()
+  }
+
+  /**
+   * Execute a Claude Code task via local Python agent
+   *
+   * @param task - The task to execute
+   */
+  private async executeClaudeCodeTask(task: AgentTask): Promise<void> {
     // Get agent configuration
     const config = await this.configService.getConfig()
 
@@ -953,6 +1172,11 @@ export class AgentExecutorService
    * Called when the application is closing.
    */
   async shutdown(): Promise<void> {
+    // Stop all Jules polling intervals
+    for (const [taskId] of this.julesPollingIntervals) {
+      this.stopJulesPolling(taskId)
+    }
+
     // Stop all running tasks
     const runningTasks = this.db.getAgentTasks({ status: 'running' })
     const pausedTasks = this.db.getAgentTasks({ status: 'paused' })

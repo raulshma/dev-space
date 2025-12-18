@@ -96,6 +96,9 @@ interface AgentTaskRow {
   created_at: number
   started_at: number | null
   completed_at: number | null
+  service_type: string | null
+  jules_session_id: string | null
+  jules_params_json: string | null
 }
 
 // Agent Task Output row interface
@@ -301,9 +304,29 @@ export class DatabaseService {
         file_changes_json TEXT,
         created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
         started_at INTEGER,
-        completed_at INTEGER
+        completed_at INTEGER,
+        service_type TEXT,
+        jules_session_id TEXT,
+        jules_params_json TEXT
       )
     `)
+
+    // Migration: Add new columns if they don't exist
+    try {
+      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN service_type TEXT`)
+    } catch {
+      // Column already exists
+    }
+    try {
+      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_session_id TEXT`)
+    } catch {
+      // Column already exists
+    }
+    try {
+      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_params_json TEXT`)
+    } catch {
+      // Column already exists
+    }
 
     // Agent Tasks indexes
     this.db.exec(`
@@ -1198,8 +1221,8 @@ export class DatabaseService {
     const now = Date.now()
 
     const stmt = db.prepare(`
-      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at, service_type, jules_params_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     stmt.run(
@@ -1210,7 +1233,9 @@ export class DatabaseService {
       data.parameters ? JSON.stringify(data.parameters) : null,
       'pending',
       data.priority ?? 0,
-      now
+      now,
+      data.serviceType ?? 'claude-code',
+      data.julesParams ? JSON.stringify(data.julesParams) : null
     )
 
     return {
@@ -1222,6 +1247,8 @@ export class DatabaseService {
       status: 'pending',
       priority: data.priority ?? 0,
       createdAt: new Date(now),
+      serviceType: data.serviceType ?? 'claude-code',
+      julesParams: data.julesParams,
     }
   }
 
@@ -1330,6 +1357,16 @@ export class DatabaseService {
       params.push(data.completedAt.getTime())
     }
 
+    if (data.julesSessionId !== undefined) {
+      updates.push('jules_session_id = ?')
+      params.push(data.julesSessionId)
+    }
+
+    if (data.julesParams !== undefined) {
+      updates.push('jules_params_json = ?')
+      params.push(JSON.stringify(data.julesParams))
+    }
+
     if (updates.length === 0) {
       return this.getAgentTask(id)
     }
@@ -1377,6 +1414,12 @@ export class DatabaseService {
       error: row.error ?? undefined,
       fileChanges: row.file_changes_json
         ? JSON.parse(row.file_changes_json)
+        : undefined,
+      serviceType:
+        (row.service_type as AgentTask['serviceType']) ?? 'claude-code',
+      julesSessionId: row.jules_session_id ?? undefined,
+      julesParams: row.jules_params_json
+        ? JSON.parse(row.jules_params_json)
         : undefined,
     }
   }

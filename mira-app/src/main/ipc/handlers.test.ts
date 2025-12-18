@@ -8,6 +8,7 @@ import { IPCHandlers } from './handlers'
 import type { AIService } from '../services/ai-service'
 import type { AgentExecutorService } from '../services/agent-executor-service'
 import type { AgentConfigService } from '../services/agent/agent-config-service'
+import type { JulesService } from '../services/agent/jules-service'
 import type { RequestLogger } from '../services/ai/request-logger'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
@@ -219,6 +220,7 @@ describe('IPCHandlers', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
         mockRequestLogger
       )
 
@@ -279,6 +281,17 @@ describe('IPCHandlers', () => {
         stopPeriodicCleanup: vi.fn(),
       } as unknown as RequestLogger
 
+      const mockJulesService = {
+        listSources: vi.fn().mockResolvedValue([]),
+        createSession: vi.fn(),
+        getSession: vi.fn(),
+        listSessions: vi.fn().mockResolvedValue([]),
+        approvePlan: vi.fn(),
+        sendMessage: vi.fn(),
+        listActivities: vi.fn().mockResolvedValue([]),
+        activitiesToOutputLines: vi.fn().mockReturnValue([]),
+      } as unknown as JulesService
+
       const handlers = new IPCHandlers(
         db,
         ptyManager,
@@ -288,6 +301,7 @@ describe('IPCHandlers', () => {
         mockAIService,
         mockAgentExecutor,
         mockAgentConfig,
+        mockJulesService,
         mockRequestLogger
       )
 

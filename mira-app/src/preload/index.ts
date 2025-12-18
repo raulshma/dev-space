@@ -152,6 +152,11 @@ import type {
   AgentConfigValidateResponse,
   AgentConfigIsConfiguredRequest,
   AgentConfigIsConfiguredResponse,
+  AgentConfigGetConfiguredServicesRequest,
+  AgentConfigGetConfiguredServicesResponse,
+  // Jules types
+  JulesListSourcesRequest,
+  JulesListSourcesResponse,
 } from 'shared/ipc-types'
 
 /**
@@ -482,6 +487,21 @@ const api = {
       request: AgentConfigIsConfiguredRequest
     ): Promise<AgentConfigIsConfiguredResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_CONFIG_IS_CONFIGURED, request),
+    getConfiguredServices: (
+      request: AgentConfigGetConfiguredServicesRequest
+    ): Promise<AgentConfigGetConfiguredServicesResponse> =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.AGENT_CONFIG_GET_CONFIGURED_SERVICES,
+        request
+      ),
+  },
+
+  // Jules operations
+  jules: {
+    listSources: (
+      request: JulesListSourcesRequest
+    ): Promise<JulesListSourcesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JULES_LIST_SOURCES, request),
   },
 }
 

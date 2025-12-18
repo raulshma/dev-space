@@ -140,12 +140,16 @@ export function useCreateAgentTask() {
       targetDirectory,
       parameters,
       priority,
+      serviceType,
+      julesParams,
     }: {
       description: string
       agentType: AgentType
       targetDirectory: string
       parameters?: AgentParameters
       priority?: number
+      serviceType?: import('shared/ai-types').TaskServiceType
+      julesParams?: import('shared/ai-types').JulesParameters
     }) => {
       const response = await window.api.agentTasks.create({
         description,
@@ -153,6 +157,8 @@ export function useCreateAgentTask() {
         targetDirectory,
         parameters,
         priority,
+        serviceType,
+        julesParams,
       })
 
       const task = {

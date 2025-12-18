@@ -27,6 +27,7 @@ import { AgentConfigService } from 'main/services/agent/agent-config-service'
 import { ProcessManager } from 'main/services/agent/process-manager'
 import { TaskQueue } from 'main/services/agent/task-queue'
 import { OutputBuffer } from 'main/services/agent/output-buffer'
+import { JulesService } from 'main/services/agent/jules-service'
 
 // Initialize core services
 const db = new DatabaseService()
@@ -51,6 +52,7 @@ const agentConfigService = new AgentConfigService(db, keychainService)
 const processManager = new ProcessManager()
 const taskQueue = new TaskQueue()
 const outputBuffer = new OutputBuffer(db)
+const julesService = new JulesService(agentConfigService)
 
 // Get the base path for agent scripts (workspace root)
 const agentScriptsBasePath = ENVIRONMENT.IS_DEV
@@ -64,7 +66,8 @@ const agentExecutorService = new AgentExecutorService(
   outputBuffer,
   agentConfigService,
   gitService,
-  agentScriptsBasePath
+  agentScriptsBasePath,
+  julesService
 )
 
 // Initialize IPC handlers with all services
@@ -77,6 +80,7 @@ const ipcHandlers = new IPCHandlers(
   aiService,
   agentExecutorService,
   agentConfigService,
+  julesService,
   requestLogger
 )
 

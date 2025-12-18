@@ -296,6 +296,45 @@ export interface CreateAIRequestLogInput {
 export type AgentType = 'autonomous' | 'feature'
 
 /**
+ * Service/CLI type for task execution
+ */
+export type TaskServiceType = 'claude-code' | 'google-jules'
+
+/**
+ * Metadata for task service types
+ */
+export interface TaskServiceInfo {
+  id: TaskServiceType
+  name: string
+  description: string
+  icon?: string
+  docsUrl?: string
+  supportsAgentTypes: AgentType[]
+}
+
+/**
+ * Available task service types
+ */
+export const TASK_SERVICE_TYPES: TaskServiceInfo[] = [
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    description:
+      'Local Python agents using Anthropic Claude for autonomous and feature development',
+    docsUrl: 'https://docs.anthropic.com/claude-code',
+    supportsAgentTypes: ['autonomous', 'feature'],
+  },
+  {
+    id: 'google-jules',
+    name: 'Google Jules',
+    description:
+      "Google's cloud-based AI coding assistant with GitHub integration",
+    docsUrl: 'https://developers.google.com/jules/api',
+    supportsAgentTypes: ['feature'],
+  },
+]
+
+/**
  * Status of an agent task
  */
 export type TaskStatus =
@@ -316,6 +355,32 @@ export interface AgentParameters {
   testCount?: number
   taskFile?: string
   customEnv?: Record<string, string>
+}
+
+/**
+ * Jules-specific parameters for Google Jules API
+ */
+export interface JulesParameters {
+  /** GitHub source in format "sources/github/owner/repo" */
+  source?: string
+  /** Starting branch for the task */
+  startingBranch?: string
+  /** Automation mode for PR creation */
+  automationMode?: 'AUTO_CREATE_PR' | 'MANUAL'
+  /** Whether to require explicit plan approval */
+  requirePlanApproval?: boolean
+  /** Session title */
+  title?: string
+}
+
+/**
+ * Combined parameters for task execution (service-agnostic)
+ */
+export interface TaskParameters extends AgentParameters {
+  /** Service type for task execution */
+  serviceType: TaskServiceType
+  /** Jules-specific parameters (only used when serviceType is 'google-jules') */
+  julesParams?: JulesParameters
 }
 
 /**
@@ -346,6 +411,12 @@ export interface AgentTask {
   exitCode?: number
   error?: string
   fileChanges?: FileChangeSummary
+  /** Service type used for this task */
+  serviceType?: TaskServiceType
+  /** Jules session ID (only for google-jules tasks) */
+  julesSessionId?: string
+  /** Jules-specific parameters */
+  julesParams?: JulesParameters
 }
 
 /**
@@ -357,6 +428,10 @@ export interface CreateAgentTaskInput {
   targetDirectory: string
   parameters?: AgentParameters
   priority?: number
+  /** Service type for task execution */
+  serviceType?: TaskServiceType
+  /** Jules-specific parameters */
+  julesParams?: JulesParameters
 }
 
 /**
@@ -373,6 +448,10 @@ export interface UpdateAgentTaskInput {
   fileChanges?: FileChangeSummary
   startedAt?: Date
   completedAt?: Date
+  /** Jules session ID */
+  julesSessionId?: string
+  /** Jules-specific parameters */
+  julesParams?: JulesParameters
 }
 
 /**

@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { ScrollArea as ScrollAreaPrimitive } from '@base-ui/react/scroll-area'
 
 import { cn } from 'renderer/lib/utils'
@@ -34,7 +33,11 @@ function ScrollBar({
   return (
     <ScrollAreaPrimitive.Scrollbar
       className={cn(
-        'data-horizontal:h-2.5 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent data-vertical:h-full data-vertical:w-2.5 data-vertical:border-l data-vertical:border-l-transparent flex touch-none p-px transition-colors select-none',
+        'flex touch-none p-0.5 transition-all select-none',
+        'data-horizontal:h-2 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent',
+        'data-vertical:h-full data-vertical:w-2 data-vertical:border-l data-vertical:border-l-transparent',
+        'opacity-0 hover:opacity-100 data-[scrolling]:opacity-100',
+        'hover:bg-muted/50 rounded-full',
         className
       )}
       data-orientation={orientation}
@@ -43,7 +46,11 @@ function ScrollBar({
       {...props}
     >
       <ScrollAreaPrimitive.Thumb
-        className="rounded-full bg-border relative flex-1"
+        className={cn(
+          'relative flex-1 rounded-full',
+          'bg-muted-foreground/30 hover:bg-muted-foreground/50 active:bg-muted-foreground/60',
+          'transition-colors duration-150'
+        )}
         data-slot="scroll-area-thumb"
       />
     </ScrollAreaPrimitive.Scrollbar>

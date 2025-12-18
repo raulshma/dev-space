@@ -128,6 +128,10 @@ export const IPC_CHANNELS = {
   AGENT_CONFIG_SET: 'agentConfig:set',
   AGENT_CONFIG_VALIDATE: 'agentConfig:validate',
   AGENT_CONFIG_IS_CONFIGURED: 'agentConfig:isConfigured',
+  AGENT_CONFIG_GET_CONFIGURED_SERVICES: 'agentConfig:getConfiguredServices',
+
+  // Jules operations
+  JULES_LIST_SOURCES: 'jules:listSources',
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
@@ -666,6 +670,8 @@ export interface AgentTaskCreateRequest {
   targetDirectory: string
   parameters?: import('./ai-types').AgentParameters
   priority?: number
+  serviceType?: import('./ai-types').TaskServiceType
+  julesParams?: import('./ai-types').JulesParameters
 }
 
 export interface AgentTaskCreateResponse {
@@ -780,4 +786,30 @@ export interface AgentConfigIsConfiguredRequest {}
 
 export interface AgentConfigIsConfiguredResponse {
   isConfigured: boolean
+}
+
+export interface AgentConfigGetConfiguredServicesRequest {}
+
+export interface AgentConfigGetConfiguredServicesResponse {
+  services: import('./ai-types').TaskServiceType[]
+}
+
+// ============================================================================
+// Jules Request/Response Types
+// ============================================================================
+
+export interface JulesSource {
+  name: string
+  id: string
+  githubRepo?: {
+    owner: string
+    repo: string
+  }
+}
+
+export interface JulesListSourcesRequest {}
+
+export interface JulesListSourcesResponse {
+  sources: JulesSource[]
+  error?: string
 }

@@ -85,6 +85,7 @@ import { BlueprintService } from 'main/services/blueprint-service'
 import type { AIService } from 'main/services/ai-service'
 import type { AgentExecutorService } from 'main/services/agent-executor-service'
 import type { AgentConfigService } from 'main/services/agent/agent-config-service'
+import type { JulesService } from 'main/services/agent/jules-service'
 import type { RequestLogger } from 'main/services/ai/request-logger'
 
 /**
@@ -106,6 +107,7 @@ export class IPCHandlers {
   private aiService?: AIService
   private agentExecutorService?: AgentExecutorService
   private agentConfigService?: AgentConfigService
+  private julesService?: JulesService
   private requestLogger?: RequestLogger
 
   constructor(
@@ -117,6 +119,7 @@ export class IPCHandlers {
     aiService?: AIService,
     agentExecutorService?: AgentExecutorService,
     agentConfigService?: AgentConfigService,
+    julesService?: JulesService,
     requestLogger?: RequestLogger
   ) {
     this.db = db
@@ -128,6 +131,7 @@ export class IPCHandlers {
     this.aiService = aiService
     this.agentExecutorService = agentExecutorService
     this.agentConfigService = agentConfigService
+    this.julesService = julesService
     this.requestLogger = requestLogger
   }
 
@@ -152,6 +156,7 @@ export class IPCHandlers {
     this.registerAIServiceHandlers()
     this.registerAgentExecutorHandlers()
     this.registerAgentConfigHandlers()
+    this.registerJulesHandlers()
   }
 
   /**
@@ -1129,6 +1134,8 @@ export class IPCHandlers {
             targetDirectory: request.targetDirectory,
             parameters: request.parameters,
             priority: request.priority,
+            serviceType: request.serviceType,
+            julesParams: request.julesParams,
           })
           return { task }
         } catch (error) {
@@ -1429,6 +1436,50 @@ export class IPCHandlers {
         }
       }
     )
+
+    // Get configured services
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_GET_CONFIGURED_SERVICES,
+      async () => {
+        try {
+          if (!this.agentConfigService) {
+            return {
+              services: [],
+              error: 'Agent config service not initialized',
+            }
+          }
+          const services = await this.agentConfigService.getConfiguredServices()
+          return { services }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Jules operation handlers
+   */
+  private registerJulesHandlers(): void {
+    // List available sources
+    ipcMain.handle(IPC_CHANNELS.JULES_LIST_SOURCES, async () => {
+      try {
+        if (!this.julesService) {
+          return {
+            sources: [],
+            error: 'Jules service not initialized',
+          }
+        }
+        const sources = await this.julesService.listSources()
+        return { sources }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return {
+          sources: [],
+          error: message,
+        }
+      }
+    })
   }
 
   /**

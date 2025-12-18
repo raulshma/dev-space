@@ -391,6 +391,35 @@ export class AgentConfigService implements IAgentConfigService {
   }
 
   /**
+   * Get list of task service types that are properly configured
+   *
+   * @returns Array of configured service type IDs
+   */
+  async getConfiguredServices(): Promise<
+    import('shared/ai-types').TaskServiceType[]
+  > {
+    const config = await this.getConfig()
+    const configuredServices: import('shared/ai-types').TaskServiceType[] = []
+
+    // Check Claude Code - requires anthropicAuthToken and pythonPath
+    if (
+      config.anthropicAuthToken &&
+      config.anthropicAuthToken.trim() !== '' &&
+      config.pythonPath &&
+      config.pythonPath.trim() !== ''
+    ) {
+      configuredServices.push('claude-code')
+    }
+
+    // Check Google Jules - requires googleApiKey
+    if (config.googleApiKey && config.googleApiKey.trim() !== '') {
+      configuredServices.push('google-jules')
+    }
+
+    return configuredServices
+  }
+
+  /**
    * Clear all agent configuration
    *
    * Removes:
