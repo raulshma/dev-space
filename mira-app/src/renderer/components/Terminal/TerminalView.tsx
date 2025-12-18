@@ -188,6 +188,12 @@ export function TerminalView({
       setTerminalBuffer(terminalBufferRef.current)
     })
 
+    // Focus terminal on click
+    const handleContainerClick = (): void => {
+      terminal.focus()
+    }
+    container.addEventListener('click', handleContainerClick)
+
     // Set up PTY exit listener
     const unsubscribeExit = window.api.pty.onExit(ptyId, (code: number) => {
       terminal.write(`\r\n\r\n[Process exited with code ${code}]\r\n`)
@@ -213,6 +219,9 @@ export function TerminalView({
       // Clear buffer after processing
       terminalBufferRef.current = ''
       setTerminalBuffer('')
+
+      // Maintain terminal focus after command execution
+      terminal.focus()
 
       if (onExit) {
         onExit(code)
@@ -258,6 +267,11 @@ export function TerminalView({
 
     resizeObserver.observe(container)
 
+    // Focus terminal initially after setup
+    requestAnimationFrame(() => {
+      terminal.focus()
+    })
+
     // Cleanup
     return () => {
       unsubscribeData()
@@ -265,6 +279,7 @@ export function TerminalView({
       disposable.dispose()
       titleDisposable.dispose()
       resizeObserver.disconnect()
+      container.removeEventListener('click', handleContainerClick)
       terminal.dispose()
     }
   }, [ptyId, terminalId, onTitleChange, onExit, addError, isContainerReady])

@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { Plus, FolderPlus, Tag as TagIcon, FolderOpen } from 'lucide-react'
+import { IconPlus, IconFolderPlus, IconTag, IconFolderOpen } from '@tabler/icons-react'
 import {
   useProjects,
   useCreateProject,
@@ -191,7 +191,7 @@ export function ProjectDashboard(): React.JSX.Element {
             onClick={() => setShowAddTagDialog(true)}
             title="Add new tag"
           >
-            <Plus size={16} />
+            <IconPlus size={16} />
           </Button>
         </div>
 
@@ -252,7 +252,7 @@ export function ProjectDashboard(): React.JSX.Element {
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold text-foreground">Projects</h1>
               <Button onClick={() => setShowAddProjectDialog(true)}>
-                <FolderPlus size={18} className="mr-2" />
+                <IconFolderPlus size={18} className="mr-2" />
                 Add Project
               </Button>
             </div>
@@ -270,7 +270,7 @@ export function ProjectDashboard(): React.JSX.Element {
             <p className="text-muted-foreground">Loading projects...</p>
           ) : projects.length === 0 ? (
             <div className="text-center py-12">
-              <FolderPlus className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+              <IconFolderPlus className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground mb-2">
                 {searchQuery || selectedTagIds.length > 0
                   ? 'No projects found'
@@ -344,7 +344,7 @@ export function ProjectDashboard(): React.JSX.Element {
                   title="Browse for directory"
                   type="button"
                 >
-                  <FolderOpen size={16} className="mr-2" />
+                  <IconFolderOpen size={16} className="mr-2" />
                   Browse
                 </Button>
               </div>
@@ -384,7 +384,7 @@ export function ProjectDashboard(): React.JSX.Element {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <TagIcon size={20} />
+              <IconTag size={20} />
               Create Tag
             </DialogTitle>
           </DialogHeader>

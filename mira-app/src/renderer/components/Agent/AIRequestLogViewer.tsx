@@ -21,17 +21,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from 'renderer/components/ui/tabs'
 import { Spinner } from 'renderer/components/ui/spinner'
 import {
-  Search,
-  Filter,
-  RefreshCw,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ChevronRight,
-  Copy,
-  ExternalLink,
-} from 'lucide-react'
+  IconSearch,
+  IconFilter,
+  IconRefresh,
+  IconClock,
+  IconCircleCheck,
+  IconCircleX,
+  IconAlertCircle,
+  IconChevronRight,
+  IconCopy,
+  IconExternalLink,
+} from '@tabler/icons-react'
 import type { AIRequestLog, AIAction, AIRequestStatus, AILogFilter } from 'shared/ai-types'
 import { useAIRequestLogs, useAIRequestLog } from 'renderer/hooks/use-ai'
 
@@ -47,17 +47,17 @@ import { useAIRequestLogs, useAIRequestLog } from 'renderer/hooks/use-ai'
 const STATUS_CONFIG: Record<AIRequestStatus, { label: string; icon: React.ReactNode; className: string }> = {
   pending: {
     label: 'Pending',
-    icon: <Clock className="h-3 w-3" />,
+    icon: <IconClock className="h-3 w-3" />,
     className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
   },
   completed: {
     label: 'Completed',
-    icon: <CheckCircle2 className="h-3 w-3" />,
+    icon: <IconCircleCheck className="h-3 w-3" />,
     className: 'bg-green-500/10 text-green-600 dark:text-green-400',
   },
   failed: {
     label: 'Failed',
-    icon: <XCircle className="h-3 w-3" />,
+    icon: <IconCircleX className="h-3 w-3" />,
     className: 'bg-red-500/10 text-red-600 dark:text-red-400',
   },
 }
@@ -162,10 +162,10 @@ export function AIRequestLogViewer(): React.JSX.Element {
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <AlertCircle className="h-8 w-8 text-destructive" />
+        <IconAlertCircle className="h-8 w-8 text-destructive" />
         <p className="text-sm text-muted-foreground">Failed to load request logs</p>
         <Button variant="outline" size="sm" onClick={handleRefresh}>
-          <RefreshCw className="mr-2 h-4 w-4" />
+          <IconRefresh className="mr-2 h-4 w-4" />
           Retry
         </Button>
       </div>
@@ -186,7 +186,7 @@ export function AIRequestLogViewer(): React.JSX.Element {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search logs..."
             value={searchQuery}
@@ -198,7 +198,7 @@ export function AIRequestLogViewer(): React.JSX.Element {
         {/* Status Filter */}
         <Select value={filter.status || 'all'} onValueChange={(value) => handleStatusFilter(value || 'all')}>
           <SelectTrigger className="w-[140px]">
-            <Filter className="mr-2 h-4 w-4" />
+            <IconFilter className="mr-2 h-4 w-4" />
             <SelectValue>
               {filter.status ? STATUS_CONFIG[filter.status].label : 'All Status'}
             </SelectValue>
@@ -230,7 +230,7 @@ export function AIRequestLogViewer(): React.JSX.Element {
 
         {/* Refresh Button */}
         <Button variant="outline" size="icon" onClick={handleRefresh}>
-          <RefreshCw className="h-4 w-4" />
+          <IconRefresh className="h-4 w-4" />
         </Button>
       </div>
 
@@ -308,7 +308,7 @@ function LogListItem({ log, onClick }: LogListItemProps): React.JSX.Element {
             <span>{formatLatency(log.response.latencyMs)}</span>
           )}
           <span>{formatDate(log.timestamp)}</span>
-          <ChevronRight className="h-4 w-4" />
+          <IconChevronRight className="h-4 w-4" />
         </div>
       </CardContent>
     </Card>
@@ -545,7 +545,7 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
             {/* Actions */}
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={handleCopyJson}>
-                <Copy className="mr-2 h-4 w-4" />
+                <IconCopy className="mr-2 h-4 w-4" />
                 Copy JSON
               </Button>
             </div>

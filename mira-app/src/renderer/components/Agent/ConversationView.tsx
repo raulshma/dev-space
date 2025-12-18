@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MessageSquare, Send } from 'lucide-react'
+import { IconMessage, IconSend } from '@tabler/icons-react'
 import { Button } from 'renderer/components/ui/button'
 import { Textarea } from 'renderer/components/ui/textarea'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
@@ -136,7 +136,7 @@ export function ConversationView({
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <IconMessage className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-2 text-sm text-muted-foreground">
                 No messages yet
               </p>
@@ -203,7 +203,7 @@ export function ConversationView({
             {isSending ? (
               <Spinner className="h-4 w-4" />
             ) : (
-              <Send className="h-4 w-4" />
+              <IconSend className="h-4 w-4" />
             )}
           </Button>
         </div>

@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useMemo } from 'react'
-import { Folder, Terminal, Zap } from 'lucide-react'
+import { IconFolder, IconTerminal, IconBolt } from '@tabler/icons-react'
 import {
   CommandDialog,
   CommandEmpty,
@@ -51,7 +51,7 @@ export function CommandPalette(): React.JSX.Element {
         type: 'action',
         title: 'Toggle Zen Mode',
         subtitle: 'Hide/show sidebar and panels',
-        icon: Zap,
+        icon: IconBolt,
         action: () => {
           toggleZenMode()
           closeCommandPalette()
@@ -62,7 +62,7 @@ export function CommandPalette(): React.JSX.Element {
         type: 'action',
         title: 'Toggle Sidebar',
         subtitle: 'Show/hide the sidebar',
-        icon: Zap,
+        icon: IconBolt,
         action: () => {
           toggleSidebar()
           closeCommandPalette()
@@ -73,7 +73,7 @@ export function CommandPalette(): React.JSX.Element {
         type: 'action',
         title: 'Open Settings',
         subtitle: 'Configure keyboard shortcuts, blueprints, and API keys',
-        icon: Zap,
+        icon: IconBolt,
         action: () => {
           openSettingsPanel()
           closeCommandPalette()
@@ -92,7 +92,7 @@ export function CommandPalette(): React.JSX.Element {
           type: 'project',
           title: project.name,
           subtitle: project.path,
-          icon: Folder,
+          icon: IconFolder,
           action: () => {
             setActiveProject(project.id)
             closeCommandPalette()
@@ -111,7 +111,7 @@ export function CommandPalette(): React.JSX.Element {
           type: 'command',
           title: command.name,
           subtitle: command.command,
-          icon: Terminal,
+          icon: IconTerminal,
           action: () => {
             // Command execution will be handled by terminal integration
             closeCommandPalette()

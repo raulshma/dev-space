@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package } from 'lucide-react'
+import { IconPackage } from '@tabler/icons-react'
 import {
   useBlueprints,
   useCreateBlueprint,
@@ -162,7 +162,7 @@ export function BlueprintManager(): React.JSX.Element {
         {!blueprints || blueprints.length === 0 ? (
           <Empty>
             <EmptyMedia variant="icon">
-              <Package className="h-4 w-4" />
+              <IconPackage className="h-4 w-4" />
             </EmptyMedia>
             <EmptyTitle>No blueprints saved yet</EmptyTitle>
             <EmptyDescription>

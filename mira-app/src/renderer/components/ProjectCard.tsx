@@ -5,7 +5,7 @@
  * Requirements: 1.3, 1.4, 2.1, 2.2, 2.4, 3.2
  */
 
-import { Trash2 } from 'lucide-react'
+import { IconTrash } from '@tabler/icons-react'
 import { useGitTelemetry } from 'renderer/hooks/use-git-telemetry'
 import { Card, CardHeader, CardContent } from 'renderer/components/ui/card'
 import { Badge } from 'renderer/components/ui/badge'
@@ -56,7 +56,7 @@ export function ProjectCard({
           onClick={handleDelete}
           title="Remove project from dashboard"
         >
-          <Trash2 size={16} />
+          <IconTrash size={16} />
         </Button>
       )}
 

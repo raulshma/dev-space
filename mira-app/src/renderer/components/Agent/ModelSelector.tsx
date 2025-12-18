@@ -13,7 +13,7 @@ import { Badge } from 'renderer/components/ui/badge'
 import { Button } from 'renderer/components/ui/button'
 import { Alert, AlertDescription } from 'renderer/components/ui/alert'
 import { Spinner } from 'renderer/components/ui/spinner'
-import { AlertTriangle, RefreshCw, Cpu, DollarSign, MessageSquare } from 'lucide-react'
+import { IconAlertTriangle, IconRefresh, IconCpu, IconCurrencyDollar, IconMessage } from '@tabler/icons-react'
 import type { AIModel, AIAction } from 'shared/ai-types'
 import { useAIModels, useSetDefaultModel, useSetActionModel } from 'renderer/hooks/use-ai'
 import { useAIStore, useUsingCachedModels } from 'renderer/stores/ai-store'
@@ -39,22 +39,22 @@ const ACTION_LABELS: Record<AIAction, { label: string; description: string; icon
   'chat': {
     label: 'Chat',
     description: 'General conversation and assistance',
-    icon: <MessageSquare className="h-4 w-4" />,
+    icon: <IconMessage className="h-4 w-4" />,
   },
   'code-generation': {
     label: 'Code Generation',
     description: 'Writing and generating code',
-    icon: <Cpu className="h-4 w-4" />,
+    icon: <IconCpu className="h-4 w-4" />,
   },
   'error-fix': {
     label: 'Error Fixing',
     description: 'Analyzing and fixing errors',
-    icon: <AlertTriangle className="h-4 w-4" />,
+    icon: <IconAlertTriangle className="h-4 w-4" />,
   },
   'parameter-extraction': {
     label: 'Parameter Extraction',
     description: 'Extracting parameters from text',
-    icon: <DollarSign className="h-4 w-4" />,
+    icon: <IconCurrencyDollar className="h-4 w-4" />,
   },
 }
 
@@ -179,11 +179,11 @@ export function ModelSelector({
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
+        <IconAlertTriangle className="h-4 w-4" />
         <AlertDescription className="flex items-center justify-between">
           <span>Failed to load models: {error.message}</span>
           <Button variant="outline" size="sm" onClick={handleRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <IconRefresh className="mr-2 h-4 w-4" />
             Retry
           </Button>
         </AlertDescription>
@@ -199,11 +199,11 @@ export function ModelSelector({
       {/* Cached Models Warning */}
       {isUsingCachedModels && (
         <Alert>
-          <AlertTriangle className="h-4 w-4" />
+          <IconAlertTriangle className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>Using cached model list. OpenRouter API may be unavailable.</span>
             <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <IconRefresh className="mr-2 h-4 w-4" />
               Refresh
             </Button>
           </AlertDescription>
@@ -418,7 +418,7 @@ export function CompactModelSelector({
   return (
     <div className="flex items-center gap-2">
       {isUsingCachedModels && (
-        <AlertTriangle className="h-4 w-4 text-yellow-500" title="Using cached models" />
+        <IconAlertTriangle className="h-4 w-4 text-yellow-500" title="Using cached models" />
       )}
       <Select
         value={defaultModelId || ''}

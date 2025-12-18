@@ -8,7 +8,7 @@
  */
 
 import { useEffect } from 'react'
-import { X, Plus, Pin, PinOff } from 'lucide-react'
+import { IconX, IconPlus, IconPin, IconPinnedOff } from '@tabler/icons-react'
 import {
   useTerminalStore,
   useTerminalsByProject,
@@ -79,16 +79,26 @@ export function TerminalTabs({
     const terminal = terminals.find(t => t.id === terminalId)
     if (!terminal) return
 
+    // Kill the PTY process
     window.api.pty.kill({ ptyId: terminal.ptyId }).catch(error => {
       console.error('Failed to kill PTY:', error)
     })
 
+    // Remove terminal from store
     removeTerminal(terminalId)
 
-    if (focusedTerminalId === terminalId && terminals.length > 1) {
-      const remainingTerminals = terminals.filter(t => t.id !== terminalId)
-      if (remainingTerminals.length > 0) {
-        focusTerminal(remainingTerminals[0].id)
+    // Focus another terminal if the closed one was focused
+    const remainingTerminals = terminals.filter(t => t.id !== terminalId)
+    if (focusedTerminalId === terminalId && remainingTerminals.length > 0) {
+      // Focus the previous terminal or the first one
+      const closedIndex = terminals.findIndex(t => t.id === terminalId)
+      const newFocusIndex = Math.max(0, closedIndex - 1)
+      const newFocusTerminal =
+        remainingTerminals[
+          Math.min(newFocusIndex, remainingTerminals.length - 1)
+        ]
+      if (newFocusTerminal) {
+        focusTerminal(newFocusTerminal.id)
       }
     }
   }
@@ -160,9 +170,9 @@ export function TerminalTabs({
             variant="ghost"
           >
             {terminal.isPinned ? (
-              <Pin className="h-3 w-3" fill="currentColor" />
+              <IconPin className="h-3 w-3" fill="currentColor" />
             ) : (
-              <PinOff className="h-3 w-3" />
+              <IconPinnedOff className="h-3 w-3" />
             )}
           </Button>
 
@@ -176,7 +186,7 @@ export function TerminalTabs({
             size="icon-xs"
             variant="ghost"
           >
-            <X className="h-3 w-3" />
+            <IconX className="h-3 w-3" />
           </Button>
         </div>
       ))}
@@ -188,7 +198,7 @@ export function TerminalTabs({
         size="sm"
         variant="ghost"
       >
-        <Plus className="h-4 w-4" />
+        <IconPlus className="h-4 w-4" />
       </Button>
 
       {/* Keyboard shortcuts hint */}

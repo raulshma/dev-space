@@ -7,7 +7,7 @@
  * Requirements: 2.1, 3.1, 5.1, 8.1, 8.2, 14.2, 14.3, 14.4, 15.1, 15.2
  */
 
-import { Keyboard, Package, Key, Cpu, Bot } from 'lucide-react'
+import { IconKeyboard, IconPackage, IconKey, IconCpu, IconRobot } from '@tabler/icons-react'
 import {
   Sheet,
   SheetContent,
@@ -46,35 +46,35 @@ export function SettingsPanel({
                   value="shortcuts"
                   className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
                 >
-                  <Keyboard className="h-4 w-4" />
+                  <IconKeyboard className="h-4 w-4" />
                   Keyboard Shortcuts
                 </TabsTrigger>
                 <TabsTrigger
                   value="blueprints"
                   className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
                 >
-                  <Package className="h-4 w-4" />
+                  <IconPackage className="h-4 w-4" />
                   Blueprints
                 </TabsTrigger>
                 <TabsTrigger
                   value="api-keys"
                   className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
                 >
-                  <Key className="h-4 w-4" />
+                  <IconKey className="h-4 w-4" />
                   API Keys
                 </TabsTrigger>
                 <TabsTrigger
                   value="ai-models"
                   className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
                 >
-                  <Cpu className="h-4 w-4" />
+                  <IconCpu className="h-4 w-4" />
                   AI Models
                 </TabsTrigger>
                 <TabsTrigger
                   value="agent-config"
                   className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
                 >
-                  <Bot className="h-4 w-4" />
+                  <IconRobot className="h-4 w-4" />
                   Agent Configuration
                 </TabsTrigger>
               </TabsList>

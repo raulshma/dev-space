@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Terminal } from 'lucide-react'
+import { IconChevronRight, IconTerminal } from '@tabler/icons-react'
 import { useCommands, useCreateCommand } from 'renderer/hooks/use-commands'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
 import { Button } from 'renderer/components/ui/button'
@@ -148,7 +148,7 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
     return (
       <Empty>
         <EmptyMedia variant="icon">
-          <Terminal className="h-4 w-4" />
+          <IconTerminal className="h-4 w-4" />
         </EmptyMedia>
         <EmptyTitle>No commands available</EmptyTitle>
         <EmptyDescription>Add custom commands to get started.</EmptyDescription>
@@ -255,7 +255,7 @@ export function CommandLibrary({ projectId }: CommandLibraryProps) {
                   <span className="text-xs text-muted-foreground">
                     {categoryCommands?.length ?? 0}
                   </span>
-                  <ChevronRight
+                  <IconChevronRight
                     className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                   />
                 </div>

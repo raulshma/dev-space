@@ -6,7 +6,7 @@
  */
 
 import { Component, type ReactNode } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { IconAlertTriangle } from '@tabler/icons-react'
 import {
   Alert,
   AlertTitle,
@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<
       return (
         <div className="flex items-center justify-center h-screen bg-background">
           <Alert className="max-w-md" variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
+            <IconAlertTriangle className="h-4 w-4" />
             <AlertTitle>Something went wrong</AlertTitle>
             <AlertDescription>
               <p className="mb-4">

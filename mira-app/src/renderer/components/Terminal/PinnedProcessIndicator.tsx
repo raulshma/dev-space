@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Pin, ChevronUp, ChevronDown } from 'lucide-react'
+import { IconPin, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { Card, CardContent, CardHeader } from 'renderer/components/ui/card'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
 import { Badge } from 'renderer/components/ui/badge'
@@ -62,15 +62,15 @@ export function PinnedProcessIndicator(): React.JSX.Element | null {
           <CollapsibleTrigger className="w-full">
             <CardHeader className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
               <div className="flex items-center gap-2">
-                <Pin className="h-4 w-4 text-primary" fill="currentColor" />
+                <IconPin className="h-4 w-4 text-primary" fill="currentColor" />
                 <span className="text-sm font-medium">
                   {pinnedProcesses.length} Pinned Process
                   {pinnedProcesses.length !== 1 ? 'es' : ''}
                 </span>
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground" />
+                  <IconChevronDown className="h-4 w-4 ml-auto text-muted-foreground" />
                 ) : (
-                  <ChevronUp className="h-4 w-4 ml-auto text-muted-foreground" />
+                  <IconChevronUp className="h-4 w-4 ml-auto text-muted-foreground" />
                 )}
               </div>
             </CardHeader>

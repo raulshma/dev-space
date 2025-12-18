@@ -5,7 +5,7 @@
  * Requirements: 7.1, 7.4
  */
 
-import { Wrench, X } from 'lucide-react'
+import { IconTool, IconX } from '@tabler/icons-react'
 import { useErrorStore, useErrorsByTerminal } from 'renderer/stores/error-store'
 import { createErrorContext } from 'renderer/lib/error-detector'
 import { Button } from 'renderer/components/ui/button'
@@ -59,7 +59,7 @@ export function FixButton({
         size="sm"
         title="Send error to AI agent for fix suggestions"
       >
-        <Wrench className="h-3 w-3 mr-1" />
+        <IconTool className="h-3 w-3 mr-1" />
         Fix
       </Button>
 
@@ -69,7 +69,7 @@ export function FixButton({
         title="Dismiss error"
         variant="ghost"
       >
-        <X className="h-3 w-3" />
+        <IconX className="h-3 w-3" />
       </Button>
     </Alert>
   )

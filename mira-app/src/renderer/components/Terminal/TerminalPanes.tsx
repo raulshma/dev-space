@@ -146,11 +146,11 @@ function PaneLayout({
     )
   }
 
-  // Leaf pane - render terminal
+  // Leaf pane - render terminal (terminal may not be ready yet during creation)
   if (!terminal) {
     return (
       <div className="flex items-center justify-center w-full h-full bg-neutral-900 text-neutral-400">
-        Terminal not found
+        <div className="animate-pulse">Loading terminal...</div>
       </div>
     )
   }
@@ -195,15 +195,69 @@ export function TerminalPanes({
   const setLayout = useTerminalStore(state => state.setLayout)
   const addTerminal = useTerminalStore(state => state.addTerminal)
 
-  // Initialize layout if not exists
+  // Initialize layout if not exists or update when terminals change
   useEffect(() => {
-    if (!layout && terminals.length > 0) {
+    if (terminals.length === 0) {
+      // Clear layout when no terminals
+      setLayout(projectId, { projectId, panes: [] })
+      return
+    }
+
+    if (!layout || layout.panes.length === 0) {
+      // Initialize layout with first terminal
       const initialLayout: TerminalPane = {
         terminalId: terminals[0].id,
         direction: null,
         size: 100,
       }
       setLayout(projectId, { projectId, panes: [initialLayout] })
+      return
+    }
+
+    // Check if layout references terminals that no longer exist
+    const terminalIds = new Set(terminals.map(t => t.id))
+    const cleanupPane = (pane: TerminalPane): TerminalPane | null => {
+      if (pane.children && pane.children.length > 0) {
+        const cleanedChildren = pane.children
+          .map(cleanupPane)
+          .filter((p): p is TerminalPane => p !== null)
+
+        if (cleanedChildren.length === 0) {
+          return null
+        }
+        if (cleanedChildren.length === 1) {
+          return { ...cleanedChildren[0], size: pane.size }
+        }
+        return { ...pane, children: cleanedChildren }
+      }
+
+      // Leaf pane - check if terminal exists
+      if (!terminalIds.has(pane.terminalId)) {
+        return null
+      }
+      return pane
+    }
+
+    const cleanedPanes = layout.panes
+      .map(cleanupPane)
+      .filter((p): p is TerminalPane => p !== null)
+
+    // Only update if panes changed
+    if (
+      cleanedPanes.length !== layout.panes.length ||
+      JSON.stringify(cleanedPanes) !== JSON.stringify(layout.panes)
+    ) {
+      if (cleanedPanes.length === 0 && terminals.length > 0) {
+        // All panes were removed but we have terminals - recreate layout
+        const initialLayout: TerminalPane = {
+          terminalId: terminals[0].id,
+          direction: null,
+          size: 100,
+        }
+        setLayout(projectId, { projectId, panes: [initialLayout] })
+      } else {
+        setLayout(projectId, { projectId, panes: cleanedPanes })
+      }
     }
   }, [layout, terminals, projectId, setLayout])
 

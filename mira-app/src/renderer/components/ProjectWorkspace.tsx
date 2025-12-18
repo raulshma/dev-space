@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Tag as TagIcon, Plus, X } from 'lucide-react'
+import { IconTag, IconPlus, IconX } from '@tabler/icons-react'
 import { useProject } from 'renderer/hooks/use-projects'
 import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
 import {
@@ -24,16 +24,18 @@ import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { CommandLibrary } from 'renderer/components/CommandLibrary'
-import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
 import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
-import { ConversationView } from 'renderer/components/Agent/ConversationView'
 import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
 import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
 import { TaskCompletionView } from 'renderer/components/Agent/TaskCompletionView'
 import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from 'renderer/components/ui/tabs'
 import { Button } from 'renderer/components/ui/button'
-import type { SessionState, ErrorContext } from 'shared/models'
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from 'renderer/components/ui/resizable'
+import type { SessionState } from 'shared/models'
 import type { AgentTask } from 'shared/ai-types'
 
 interface ProjectWorkspaceProps {
@@ -54,18 +56,15 @@ export function ProjectWorkspace({
   const addTagToProject = useAddTagToProject()
   const removeTagFromProject = useRemoveTagFromProject()
 
-  // Error context state for Fix button integration
-  const [errorContext, setErrorContext] = useState<ErrorContext | null>(null)
+  // Tag menu state
   const [showTagMenu, setShowTagMenu] = useState(false)
 
   // Agent task panel state
-  const [agentPanelTab, setAgentPanelTab] = useState<'chat' | 'tasks'>('chat')
-  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>('list')
+  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>(
+    'list'
+  )
   const [showTaskCreation, setShowTaskCreation] = useState(false)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
-  const selectedTask = useAgentTaskStore(state =>
-    selectedTaskId ? state.tasks.get(selectedTaskId) : undefined
-  )
 
   // Git telemetry for header display
   const { data: gitTelemetry } = useGitTelemetry(
@@ -98,7 +97,9 @@ export function ProjectWorkspace({
     if (!project) return
 
     // Check if terminals already exist for this project
-    const existingTerminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    const existingTerminals = useTerminalStore
+      .getState()
+      .getTerminalsByProject(projectId)
     if (existingTerminals.length > 0) return
 
     window.api.pty
@@ -109,7 +110,9 @@ export function ProjectWorkspace({
       })
       .then(response => {
         // Double-check no terminals were added while we were creating
-        const currentTerminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+        const currentTerminals = useTerminalStore
+          .getState()
+          .getTerminalsByProject(projectId)
         if (currentTerminals.length > 0) {
           // Kill the PTY we just created since it's not needed
           window.api.pty.kill({ ptyId: response.ptyId }).catch(console.error)
@@ -140,7 +143,9 @@ export function ProjectWorkspace({
     sessionRestoredRef.current = true
 
     // Check if terminals already exist for this project (e.g., from a previous mount)
-    const existingTerminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    const existingTerminals = useTerminalStore
+      .getState()
+      .getTerminalsByProject(projectId)
     if (existingTerminals.length > 0) return
 
     // Restore terminals from session
@@ -181,7 +186,9 @@ export function ProjectWorkspace({
     return () => {
       // Cleanup: save session state before unmounting
       // Use getState() to get current terminals without subscribing
-      const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+      const terminals = useTerminalStore
+        .getState()
+        .getTerminalsByProject(projectId)
       const sessionState: SessionState = {
         terminals: terminals.map(t => ({
           id: t.id,
@@ -210,36 +217,36 @@ export function ProjectWorkspace({
     }
   }, [projectId, saveSession, clearProject])
 
-  // Handle error context from Fix button
-  const handleErrorContext = useCallback((context: ErrorContext) => {
-    setErrorContext(context)
-  }, [])
-
-  // Clear error context after it's been used
-  const handleErrorContextUsed = useCallback(() => {
-    setErrorContext(null)
-  }, [])
-
   // Handle task selection and navigation
-  const handleTaskSelect = useCallback((taskId: string) => {
-    setSelectedTask(taskId)
-    const task = useAgentTaskStore.getState().tasks.get(taskId)
-    if (task) {
-      // Navigate to appropriate view based on task status
-      if (task.status === 'completed' || task.status === 'failed' || task.status === 'stopped') {
-        setTaskView('completion')
-      } else if (task.status === 'running' || task.status === 'paused') {
-        setTaskView('detail')
-      } else {
-        setTaskView('detail')
+  const handleTaskSelect = useCallback(
+    (taskId: string) => {
+      setSelectedTask(taskId)
+      const task = useAgentTaskStore.getState().tasks.get(taskId)
+      if (task) {
+        // Navigate to appropriate view based on task status
+        if (
+          task.status === 'completed' ||
+          task.status === 'failed' ||
+          task.status === 'stopped'
+        ) {
+          setTaskView('completion')
+        } else if (task.status === 'running' || task.status === 'paused') {
+          setTaskView('detail')
+        } else {
+          setTaskView('detail')
+        }
       }
-    }
-  }, [setSelectedTask])
+    },
+    [setSelectedTask]
+  )
 
-  const handleTaskCreated = useCallback((taskId: string) => {
-    setSelectedTask(taskId)
-    setTaskView('list')
-  }, [setSelectedTask])
+  const handleTaskCreated = useCallback(
+    (taskId: string) => {
+      setSelectedTask(taskId)
+      setTaskView('list')
+    },
+    [setSelectedTask]
+  )
 
   const handleBackToTaskList = useCallback(() => {
     setTaskView('list')
@@ -250,11 +257,14 @@ export function ProjectWorkspace({
     setTaskView('detail')
   }, [])
 
-  const handleEditTask = useCallback((task: AgentTask) => {
-    // For now, just select the task - editing could be implemented later
-    setSelectedTask(task.id)
-    setTaskView('detail')
-  }, [setSelectedTask])
+  const handleEditTask = useCallback(
+    (task: AgentTask) => {
+      // For now, just select the task - editing could be implemented later
+      setSelectedTask(task.id)
+      setTaskView('detail')
+    },
+    [setSelectedTask]
+  )
 
   // Handle adding a tag to the project
   const handleAddTag = async (tagId: string): Promise<void> => {
@@ -286,7 +296,9 @@ export function ProjectWorkspace({
   const handleBackToDashboard = (): void => {
     // Save session before navigating away
     // Use getState() to get current terminals without subscribing
-    const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    const terminals = useTerminalStore
+      .getState()
+      .getTerminalsByProject(projectId)
     const sessionState: SessionState = {
       terminals: terminals.map(t => ({
         id: t.id,
@@ -389,7 +401,7 @@ export function ProjectWorkspace({
                         onClick={() => handleRemoveTag(tag.id)}
                         title="Remove tag"
                       >
-                        <X size={12} />
+                        <IconX size={12} />
                       </button>
                     </span>
                   ))}
@@ -400,7 +412,7 @@ export function ProjectWorkspace({
                       onClick={() => setShowTagMenu(!showTagMenu)}
                       title="Add tag"
                     >
-                      <Plus size={14} />
+                      <IconPlus size={14} />
                     </button>
                     {showTagMenu && availableTags.length > 0 && (
                       <>
@@ -418,7 +430,7 @@ export function ProjectWorkspace({
                               key={tag.id}
                               onClick={() => handleAddTag(tag.id)}
                             >
-                              <TagIcon size={12} />
+                              <IconTag size={12} />
                               {tag.name}
                             </button>
                           ))}
@@ -487,136 +499,129 @@ export function ProjectWorkspace({
       </header>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
+      <ResizablePanelGroup className="flex-1" direction="horizontal">
         {/* Sidebar - Command Library (hidden in Zen Mode or when collapsed) */}
         {!zenMode && !sidebarCollapsed && (
-          <aside className="w-64 bg-card border-r border-border overflow-y-auto">
-            <CommandLibrary projectId={projectId} />
-          </aside>
+          <>
+            <ResizablePanel
+              id="project-workspace-left"
+              className="bg-card"
+              defaultSize={15}
+              maxSize={30}
+              minSize={10}
+            >
+              <aside className="h-full overflow-y-auto">
+                <CommandLibrary projectId={projectId} />
+              </aside>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+          </>
         )}
 
         {/* Terminal Area */}
-        <main className="flex-1 overflow-hidden">
-          <Terminal
-            onErrorContext={handleErrorContext}
-            projectId={projectId}
-            projectPath={project.path}
-          />
-        </main>
+        <ResizablePanel
+          id="project-workspace-center"
+          defaultSize={zenMode || agentPanelCollapsed ? 100 : 70}
+        >
+          <main className="h-full overflow-hidden">
+            <Terminal projectId={projectId} projectPath={project.path} />
+          </main>
+        </ResizablePanel>
 
         {/* Agent Panel (hidden in Zen Mode or when collapsed) */}
         {!zenMode && !agentPanelCollapsed && (
-          <aside className="w-96 bg-card border-l border-border flex flex-col overflow-hidden">
-            {/* Agent Panel Header with Tabs */}
-            <div className="flex items-center justify-between border-b border-border px-4 py-2">
-              <Tabs value={agentPanelTab} onValueChange={(v) => setAgentPanelTab(v as 'chat' | 'tasks')}>
-                <TabsList className="h-8">
-                  <TabsTrigger value="chat" className="text-xs px-3">
-                    💬 Chat
-                  </TabsTrigger>
-                  <TabsTrigger value="tasks" className="text-xs px-3">
-                    🤖 Tasks
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              <button
-                className="text-muted-foreground hover:text-foreground"
-                onClick={toggleAgentPanel}
-                title="Hide Agent Panel"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Chat Tab Content */}
-            {agentPanelTab === 'chat' && (
-              <>
-                {/* Model Selector */}
-                <div className="border-b border-border px-4 py-3">
-                  <ModelSelector />
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel
+              id="project-workspace-right"
+              className="bg-card"
+              defaultSize={15}
+              maxSize={40}
+              minSize={10}
+            >
+              <aside className="h-full flex flex-col overflow-hidden">
+                {/* Agent Panel Header */}
+                <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                  <span className="text-sm font-medium">🤖 Agent Tasks</span>
+                  <button
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={toggleAgentPanel}
+                    title="Hide Agent Panel"
+                  >
+                    ✕
+                  </button>
                 </div>
 
                 {/* Context Shredder */}
-                <div className="h-64 border-b border-border">
+                <div className="h-48 border-b border-border">
                   <ContextShredder projectId={projectId} />
                 </div>
 
-                {/* Conversation View - takes remaining space */}
-                <div className="flex-1 overflow-hidden">
-                  <ConversationView
-                    errorContext={errorContext}
-                    onErrorContextUsed={handleErrorContextUsed}
-                    projectId={projectId}
-                  />
-                </div>
-              </>
-            )}
+                {/* Task Panel Content */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {/* Task Panel Header */}
+                  <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                    {taskView !== 'list' && (
+                      <Button
+                        className="text-xs"
+                        onClick={handleBackToTaskList}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        ← Back to List
+                      </Button>
+                    )}
+                    {taskView === 'list' && (
+                      <span className="text-sm font-medium">Tasks</span>
+                    )}
+                    {taskView === 'list' && (
+                      <Button
+                        className="text-xs"
+                        onClick={() => setShowTaskCreation(true)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        + New Task
+                      </Button>
+                    )}
+                  </div>
 
-            {/* Tasks Tab Content */}
-            {agentPanelTab === 'tasks' && (
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Task Panel Header */}
-                <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                  {taskView !== 'list' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleBackToTaskList}
-                      className="text-xs"
-                    >
-                      ← Back to List
-                    </Button>
-                  )}
-                  {taskView === 'list' && (
-                    <span className="text-sm font-medium">Agent Tasks</span>
-                  )}
-                  {taskView === 'list' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowTaskCreation(true)}
-                      className="text-xs"
-                    >
-                      + New Task
-                    </Button>
-                  )}
+                  {/* Task Views */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {taskView === 'list' && (
+                      <TaskBacklogList
+                        onEditTask={handleEditTask}
+                        onTaskSelect={handleTaskSelect}
+                      />
+                    )}
+                    {taskView === 'detail' && selectedTaskId && (
+                      <TaskDetailView
+                        onBack={handleBackToTaskList}
+                        taskId={selectedTaskId}
+                      />
+                    )}
+                    {taskView === 'completion' && selectedTaskId && (
+                      <TaskCompletionView
+                        onBack={handleBackToTaskList}
+                        onViewOutput={handleViewFullOutput}
+                        taskId={selectedTaskId}
+                      />
+                    )}
+                  </div>
                 </div>
-
-                {/* Task Views */}
-                <div className="flex-1 overflow-y-auto p-4">
-                  {taskView === 'list' && (
-                    <TaskBacklogList
-                      onTaskSelect={handleTaskSelect}
-                      onEditTask={handleEditTask}
-                    />
-                  )}
-                  {taskView === 'detail' && selectedTaskId && (
-                    <TaskDetailView
-                      taskId={selectedTaskId}
-                      onBack={handleBackToTaskList}
-                    />
-                  )}
-                  {taskView === 'completion' && selectedTaskId && (
-                    <TaskCompletionView
-                      taskId={selectedTaskId}
-                      onBack={handleBackToTaskList}
-                      onViewOutput={handleViewFullOutput}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-          </aside>
+              </aside>
+            </ResizablePanel>
+          </>
         )}
 
         {/* Task Creation Dialog */}
         <TaskCreationDialog
-          open={showTaskCreation}
-          onOpenChange={setShowTaskCreation}
           defaultDirectory={project.path}
+          onOpenChange={setShowTaskCreation}
           onTaskCreated={handleTaskCreated}
+          open={showTaskCreation}
         />
-      </div>
+      </ResizablePanelGroup>
 
       {/* Global pinned process indicator */}
       <PinnedProcessIndicator />

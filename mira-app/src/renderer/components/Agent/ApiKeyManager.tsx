@@ -4,7 +4,7 @@ import { Input } from 'renderer/components/ui/input'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import { Alert, AlertDescription } from 'renderer/components/ui/alert'
-import { Info, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { IconInfoCircle, IconCircleCheck, IconCircleX, IconAlertTriangle } from '@tabler/icons-react'
 import type { AIProvider } from 'shared/models'
 
 /**
@@ -202,11 +202,11 @@ export function ApiKeyManager(): React.JSX.Element {
   const getStatusIcon = (status: ConfigurationStatus) => {
     switch (status) {
       case 'configured':
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />
+        return <IconCircleCheck className="h-4 w-4 text-green-500" />
       case 'error':
-        return <XCircle className="h-4 w-4 text-destructive" />
+        return <IconCircleX className="h-4 w-4 text-destructive" />
       default:
-        return <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+        return <IconAlertTriangle className="h-4 w-4 text-muted-foreground" />
     }
   }
 
@@ -313,7 +313,7 @@ export function ApiKeyManager(): React.JSX.Element {
 
       {/* Footer info */}
       <Alert className="mt-6">
-        <Info className="h-4 w-4" />
+        <IconInfoCircle className="h-4 w-4" />
         <AlertDescription>
           API keys are stored securely in your operating system&apos;s
           keychain and are never sent anywhere except to the respective AI

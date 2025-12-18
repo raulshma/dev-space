@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Upload, X } from 'lucide-react'
+import { IconUpload, IconX } from '@tabler/icons-react'
 import {
   Progress,
   ProgressLabel,
@@ -157,7 +157,7 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
         {contextFiles.length === 0 ? (
           <div className="flex h-full items-center justify-center p-8">
             <div className="text-center">
-              <Upload className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <IconUpload className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <p className="mt-2 text-sm text-muted-foreground">
                 {isDragging ? 'Drop files here' : 'No files in context'}
               </p>
@@ -193,7 +193,7 @@ export function ContextShredder({ projectId }: ContextShredderProps) {
                       title="Remove file"
                       variant="ghost"
                     >
-                      <X className="h-3 w-3" />
+                      <IconX className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>

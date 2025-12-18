@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
+import { IconX, IconAlertCircle, IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import { useErrorStore } from 'renderer/stores/error-store'
 import {
   Alert,
@@ -51,11 +51,11 @@ export function ErrorToast(): React.JSX.Element | null {
   const getIcon = (severity: string) => {
     switch (severity) {
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-destructive" />
+        return <IconAlertCircle className="h-4 w-4 text-destructive" />
       case 'warning':
-        return <AlertTriangle className="h-4 w-4 text-amber-500" />
+        return <IconAlertTriangle className="h-4 w-4 text-amber-500" />
       default:
-        return <Info className="h-4 w-4 text-blue-500" />
+        return <IconInfoCircle className="h-4 w-4 text-blue-500" />
     }
   }
 
@@ -80,7 +80,7 @@ export function ErrorToast(): React.JSX.Element | null {
               size="icon-xs"
               variant="ghost"
             >
-              <X className="h-3 w-3" />
+              <IconX className="h-3 w-3" />
             </Button>
           </AlertTitle>
           <AlertDescription>
