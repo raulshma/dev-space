@@ -74,17 +74,29 @@ class MockProviderAdapter implements AIProviderAdapter {
  */
 function hasRequiredDisplayFields(model: AIModel): boolean {
   // Check id is present and non-empty
-  if (!model.id || typeof model.id !== 'string' || model.id.trim().length === 0) {
+  if (
+    !model.id ||
+    typeof model.id !== 'string' ||
+    model.id.trim().length === 0
+  ) {
     return false
   }
 
   // Check name is present and non-empty
-  if (!model.name || typeof model.name !== 'string' || model.name.trim().length === 0) {
+  if (
+    !model.name ||
+    typeof model.name !== 'string' ||
+    model.name.trim().length === 0
+  ) {
     return false
   }
 
   // Check provider is present and non-empty
-  if (!model.provider || typeof model.provider !== 'string' || model.provider.trim().length === 0) {
+  if (
+    !model.provider ||
+    typeof model.provider !== 'string' ||
+    model.provider.trim().length === 0
+  ) {
     return false
   }
 
@@ -98,11 +110,17 @@ function hasRequiredDisplayFields(model: AIModel): boolean {
     return false
   }
 
-  if (typeof model.pricing.prompt !== 'number' || Number.isNaN(model.pricing.prompt)) {
+  if (
+    typeof model.pricing.prompt !== 'number' ||
+    Number.isNaN(model.pricing.prompt)
+  ) {
     return false
   }
 
-  if (typeof model.pricing.completion !== 'number' || Number.isNaN(model.pricing.completion)) {
+  if (
+    typeof model.pricing.completion !== 'number' ||
+    Number.isNaN(model.pricing.completion)
+  ) {
     return false
   }
 
@@ -117,7 +135,10 @@ describe('Model Registry Property Tests', () => {
 
   beforeEach(() => {
     // Create a temporary database for testing
-    tempDbPath = path.join(os.tmpdir(), `mira-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+    tempDbPath = path.join(
+      os.tmpdir(),
+      `mira-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
+    )
     database = new DatabaseService(tempDbPath)
     database.initialize()
 
@@ -150,14 +171,17 @@ describe('Model Registry Property Tests', () => {
    */
   it('all fetched models have required display fields', async () => {
     await fc.assert(
-      fc.asyncProperty(fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }), async (models) => {
-        mockProvider.setModels(models)
+      fc.asyncProperty(
+        fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }),
+        async models => {
+          mockProvider.setModels(models)
 
-        const fetchedModels = await registry.fetchModels(true)
+          const fetchedModels = await registry.fetchModels(true)
 
-        // All fetched models should have required display fields
-        return fetchedModels.every(hasRequiredDisplayFields)
-      }),
+          // All fetched models should have required display fields
+          return fetchedModels.every(hasRequiredDisplayFields)
+        }
+      ),
       { numRuns: 100 }
     )
   })
@@ -171,18 +195,21 @@ describe('Model Registry Property Tests', () => {
    */
   it('cached models preserve required display fields', async () => {
     await fc.assert(
-      fc.asyncProperty(fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }), async (models) => {
-        mockProvider.setModels(models)
+      fc.asyncProperty(
+        fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }),
+        async models => {
+          mockProvider.setModels(models)
 
-        // Fetch and cache models
-        await registry.fetchModels(true)
+          // Fetch and cache models
+          await registry.fetchModels(true)
 
-        // Get cached models
-        const cachedModels = registry.getCachedModels()
+          // Get cached models
+          const cachedModels = registry.getCachedModels()
 
-        // All cached models should have required display fields
-        return cachedModels.every(hasRequiredDisplayFields)
-      }),
+          // All cached models should have required display fields
+          return cachedModels.every(hasRequiredDisplayFields)
+        }
+      ),
       { numRuns: 100 }
     )
   })
@@ -195,22 +222,25 @@ describe('Model Registry Property Tests', () => {
    */
   it('individual model retrieval preserves display fields', async () => {
     await fc.assert(
-      fc.asyncProperty(fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }), async (models) => {
-        mockProvider.setModels(models)
+      fc.asyncProperty(
+        fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }),
+        async models => {
+          mockProvider.setModels(models)
 
-        // Fetch models
-        await registry.fetchModels(true)
+          // Fetch models
+          await registry.fetchModels(true)
 
-        // Check each model retrieved by ID
-        for (const model of models) {
-          const retrieved = registry.getModel(model.id)
-          if (retrieved && !hasRequiredDisplayFields(retrieved)) {
-            return false
+          // Check each model retrieved by ID
+          for (const model of models) {
+            const retrieved = registry.getModel(model.id)
+            if (retrieved && !hasRequiredDisplayFields(retrieved)) {
+              return false
+            }
           }
-        }
 
-        return true
-      }),
+          return true
+        }
+      ),
       { numRuns: 100 }
     )
   })
@@ -224,23 +254,26 @@ describe('Model Registry Property Tests', () => {
    */
   it('fallback models have required display fields', async () => {
     await fc.assert(
-      fc.asyncProperty(fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }), async (models) => {
-        // First, successfully fetch and cache models
-        mockProvider.setModels(models)
-        await registry.fetchModels(true)
+      fc.asyncProperty(
+        fc.array(arbitraryAIModel, { minLength: 1, maxLength: 20 }),
+        async models => {
+          // First, successfully fetch and cache models
+          mockProvider.setModels(models)
+          await registry.fetchModels(true)
 
-        // Now simulate provider failure
-        mockProvider.setShouldFail(true)
+          // Now simulate provider failure
+          mockProvider.setShouldFail(true)
 
-        // Create a new registry that will need to use fallback
-        const newRegistry = new ModelRegistry(database, mockProvider, 0) // 0 TTL to force refresh attempt
+          // Create a new registry that will need to use fallback
+          const newRegistry = new ModelRegistry(database, mockProvider, 0) // 0 TTL to force refresh attempt
 
-        // Fetch should fall back to cached models
-        const fallbackModels = await newRegistry.fetchModels(true)
+          // Fetch should fall back to cached models
+          const fallbackModels = await newRegistry.fetchModels(true)
 
-        // All fallback models should have required display fields
-        return fallbackModels.every(hasRequiredDisplayFields)
-      }),
+          // All fallback models should have required display fields
+          return fallbackModels.every(hasRequiredDisplayFields)
+        }
+      ),
       { numRuns: 100 }
     )
   })

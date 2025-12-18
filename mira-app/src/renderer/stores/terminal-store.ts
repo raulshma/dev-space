@@ -144,10 +144,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
 }))
 
 // Custom hook to get terminals by project with proper memoization
-export const useTerminalsByProject = (projectId: string): TerminalInstance[] => {
+export const useTerminalsByProject = (
+  projectId: string
+): TerminalInstance[] => {
   return useTerminalStore(
     useShallow(state =>
-      Array.from(state.terminals.values()).filter(t => t.projectId === projectId)
+      Array.from(state.terminals.values()).filter(
+        t => t.projectId === projectId
+      )
     )
   )
 }

@@ -17,50 +17,56 @@ import type { OutputStreamType } from 'shared/ai-types'
  */
 const arbitraryTaskId: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 50 })
-  .filter((s) => s.trim().length > 0)
-  .map((s) => `task-${s.trim()}`)
+  .filter(s => s.trim().length > 0)
+  .map(s => `task-${s.trim()}`)
 
 /**
  * Arbitrary generator for output stream types
  */
-const arbitraryStreamType: fc.Arbitrary<OutputStreamType> = fc.constantFrom('stdout', 'stderr')
+const arbitraryStreamType: fc.Arbitrary<OutputStreamType> = fc.constantFrom(
+  'stdout',
+  'stderr'
+)
 
 /**
  * Arbitrary generator for output content (may include ANSI codes)
  */
-const arbitraryContent: fc.Arbitrary<string> = fc.string({ minLength: 0, maxLength: 500 })
+const arbitraryContent: fc.Arbitrary<string> = fc.string({
+  minLength: 0,
+  maxLength: 500,
+})
 
 /**
  * Arbitrary generator for ANSI escape codes
  * Common ANSI codes for colors, formatting, cursor movement
  */
 const ansiCodes = [
-  '\x1b[0m',      // Reset
-  '\x1b[1m',      // Bold
-  '\x1b[2m',      // Dim
-  '\x1b[3m',      // Italic
-  '\x1b[4m',      // Underline
-  '\x1b[31m',     // Red
-  '\x1b[32m',     // Green
-  '\x1b[33m',     // Yellow
-  '\x1b[34m',     // Blue
-  '\x1b[35m',     // Magenta
-  '\x1b[36m',     // Cyan
-  '\x1b[37m',     // White
-  '\x1b[40m',     // Black background
-  '\x1b[41m',     // Red background
-  '\x1b[42m',     // Green background
-  '\x1b[91m',     // Bright red
-  '\x1b[92m',     // Bright green
-  '\x1b[93m',     // Bright yellow
-  '\x1b[2K',      // Clear line
-  '\x1b[H',       // Cursor home
-  '\x1b[1A',      // Cursor up
-  '\x1b[1B',      // Cursor down
-  '\x1b[1C',      // Cursor forward
-  '\x1b[1D',      // Cursor back
-  '\x1b[?25h',    // Show cursor
-  '\x1b[?25l',    // Hide cursor
+  '\x1b[0m', // Reset
+  '\x1b[1m', // Bold
+  '\x1b[2m', // Dim
+  '\x1b[3m', // Italic
+  '\x1b[4m', // Underline
+  '\x1b[31m', // Red
+  '\x1b[32m', // Green
+  '\x1b[33m', // Yellow
+  '\x1b[34m', // Blue
+  '\x1b[35m', // Magenta
+  '\x1b[36m', // Cyan
+  '\x1b[37m', // White
+  '\x1b[40m', // Black background
+  '\x1b[41m', // Red background
+  '\x1b[42m', // Green background
+  '\x1b[91m', // Bright red
+  '\x1b[92m', // Bright green
+  '\x1b[93m', // Bright yellow
+  '\x1b[2K', // Clear line
+  '\x1b[H', // Cursor home
+  '\x1b[1A', // Cursor up
+  '\x1b[1B', // Cursor down
+  '\x1b[1C', // Cursor forward
+  '\x1b[1D', // Cursor back
+  '\x1b[?25h', // Show cursor
+  '\x1b[?25l', // Hide cursor
 ]
 
 /**
@@ -74,7 +80,7 @@ const arbitraryContentWithAnsi: fc.Arbitrary<string> = fc
     ),
     { minLength: 1, maxLength: 10 }
   )
-  .map((parts) => parts.join(''))
+  .map(parts => parts.join(''))
 
 /**
  * Arbitrary generator for output line data
@@ -89,13 +95,15 @@ const arbitraryOutputData = fc.record({
  * Arbitrary generator for multiple output lines for the same task
  */
 const arbitraryOutputLines = (taskId: string) =>
-  fc.array(
-    fc.record({
-      content: arbitraryContent,
-      stream: arbitraryStreamType,
-    }),
-    { minLength: 1, maxLength: 20 }
-  ).map((lines) => lines.map((line) => ({ ...line, taskId })))
+  fc
+    .array(
+      fc.record({
+        content: arbitraryContent,
+        stream: arbitraryStreamType,
+      }),
+      { minLength: 1, maxLength: 20 }
+    )
+    .map(lines => lines.map(line => ({ ...line, taskId })))
 
 describe('Output Buffer Property Tests', () => {
   let outputBuffer: OutputBuffer
@@ -114,7 +122,7 @@ describe('Output Buffer Property Tests', () => {
   describe('Property 15: Output Capture with Timestamps', () => {
     it('appended output has timestamp within 100ms of append time', () => {
       fc.assert(
-        fc.property(arbitraryOutputData, (data) => {
+        fc.property(arbitraryOutputData, data => {
           const buffer = new OutputBuffer()
 
           const beforeAppend = Date.now()
@@ -134,29 +142,35 @@ describe('Output Buffer Property Tests', () => {
 
     it('multiple appends have monotonically increasing timestamps', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContent, { minLength: 2, maxLength: 20 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContent, { minLength: 2, maxLength: 20 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
 
-          const lines = contents.map((content) =>
-            buffer.append(taskId, content, 'stdout')
-          )
+            const lines = contents.map(content =>
+              buffer.append(taskId, content, 'stdout')
+            )
 
-          // Each timestamp should be >= the previous one
-          for (let i = 1; i < lines.length; i++) {
-            if (lines[i].timestamp.getTime() < lines[i - 1].timestamp.getTime()) {
-              return false
+            // Each timestamp should be >= the previous one
+            for (let i = 1; i < lines.length; i++) {
+              if (
+                lines[i].timestamp.getTime() < lines[i - 1].timestamp.getTime()
+              ) {
+                return false
+              }
             }
-          }
 
-          return true
-        }),
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('timestamp is a valid Date object', () => {
       fc.assert(
-        fc.property(arbitraryOutputData, (data) => {
+        fc.property(arbitraryOutputData, data => {
           const buffer = new OutputBuffer()
           const line = buffer.append(data.taskId, data.content, data.stream)
 
@@ -173,37 +187,44 @@ describe('Output Buffer Property Tests', () => {
 
     it('retrieved lines preserve their original timestamps', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContent, { minLength: 1, maxLength: 10 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContent, { minLength: 1, maxLength: 10 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
 
-          // Append lines and record timestamps
-          const appendedLines = contents.map((content) =>
-            buffer.append(taskId, content, 'stdout')
-          )
+            // Append lines and record timestamps
+            const appendedLines = contents.map(content =>
+              buffer.append(taskId, content, 'stdout')
+            )
 
-          // Retrieve lines
-          const retrievedLines = buffer.getLines(taskId)
+            // Retrieve lines
+            const retrievedLines = buffer.getLines(taskId)
 
-          // Timestamps should match
-          if (appendedLines.length !== retrievedLines.length) {
-            return false
-          }
-
-          for (let i = 0; i < appendedLines.length; i++) {
-            if (appendedLines[i].timestamp.getTime() !== retrievedLines[i].timestamp.getTime()) {
+            // Timestamps should match
+            if (appendedLines.length !== retrievedLines.length) {
               return false
             }
-          }
 
-          return true
-        }),
+            for (let i = 0; i < appendedLines.length; i++) {
+              if (
+                appendedLines[i].timestamp.getTime() !==
+                retrievedLines[i].timestamp.getTime()
+              ) {
+                return false
+              }
+            }
+
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('each output line has taskId, timestamp, content, and stream', () => {
       fc.assert(
-        fc.property(arbitraryOutputData, (data) => {
+        fc.property(arbitraryOutputData, data => {
           const buffer = new OutputBuffer()
           const line = buffer.append(data.taskId, data.content, data.stream)
 
@@ -230,42 +251,51 @@ describe('Output Buffer Property Tests', () => {
   describe('Property 16: ANSI Code Preservation', () => {
     it('ANSI escape codes are preserved exactly in stored content', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, arbitraryContentWithAnsi, arbitraryStreamType, (taskId, content, stream) => {
-          const buffer = new OutputBuffer()
-          const line = buffer.append(taskId, content, stream)
+        fc.property(
+          arbitraryTaskId,
+          arbitraryContentWithAnsi,
+          arbitraryStreamType,
+          (taskId, content, stream) => {
+            const buffer = new OutputBuffer()
+            const line = buffer.append(taskId, content, stream)
 
-          // Content should be exactly preserved, including ANSI codes
-          return line.content === content
-        }),
+            // Content should be exactly preserved, including ANSI codes
+            return line.content === content
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('retrieved lines preserve ANSI codes exactly', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContentWithAnsi, { minLength: 1, maxLength: 10 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContentWithAnsi, { minLength: 1, maxLength: 10 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
 
-          // Append lines with ANSI codes
-          for (const content of contents) {
-            buffer.append(taskId, content, 'stdout')
-          }
+            // Append lines with ANSI codes
+            for (const content of contents) {
+              buffer.append(taskId, content, 'stdout')
+            }
 
-          // Retrieve and verify
-          const retrievedLines = buffer.getLines(taskId)
+            // Retrieve and verify
+            const retrievedLines = buffer.getLines(taskId)
 
-          if (retrievedLines.length !== contents.length) {
-            return false
-          }
-
-          for (let i = 0; i < contents.length; i++) {
-            if (retrievedLines[i].content !== contents[i]) {
+            if (retrievedLines.length !== contents.length) {
               return false
             }
-          }
 
-          return true
-        }),
+            for (let i = 0; i < contents.length; i++) {
+              if (retrievedLines[i].content !== contents[i]) {
+                return false
+              }
+            }
+
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
@@ -284,10 +314,7 @@ describe('Output Buffer Property Tests', () => {
             const line = buffer.append(taskId, content, 'stdout')
 
             // ANSI code should be preserved
-            return (
-              line.content.includes(ansiCode) &&
-              line.content === content
-            )
+            return line.content.includes(ansiCode) && line.content === content
           }
         ),
         { numRuns: 100 }
@@ -298,8 +325,14 @@ describe('Output Buffer Property Tests', () => {
       fc.assert(
         fc.property(
           arbitraryTaskId,
-          fc.array(fc.constantFrom(...ansiCodes), { minLength: 2, maxLength: 5 }),
-          fc.array(fc.string({ minLength: 1, maxLength: 10 }), { minLength: 2, maxLength: 5 }),
+          fc.array(fc.constantFrom(...ansiCodes), {
+            minLength: 2,
+            maxLength: 5,
+          }),
+          fc.array(fc.string({ minLength: 1, maxLength: 10 }), {
+            minLength: 2,
+            maxLength: 5,
+          }),
           (taskId, codes, texts) => {
             const buffer = new OutputBuffer()
 
@@ -337,7 +370,10 @@ describe('Output Buffer Property Tests', () => {
       fc.assert(
         fc.property(
           arbitraryTaskId,
-          fc.array(fc.constantFrom(...ansiCodes), { minLength: 1, maxLength: 5 }),
+          fc.array(fc.constantFrom(...ansiCodes), {
+            minLength: 1,
+            maxLength: 5,
+          }),
           (taskId, codes) => {
             const buffer = new OutputBuffer()
             const content = codes.join('')
@@ -357,59 +393,74 @@ describe('Output Buffer Property Tests', () => {
   describe('Buffer Invariants', () => {
     it('getLineCount matches number of appended lines', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContent, { minLength: 0, maxLength: 20 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContent, { minLength: 0, maxLength: 20 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
 
-          for (const content of contents) {
-            buffer.append(taskId, content, 'stdout')
+            for (const content of contents) {
+              buffer.append(taskId, content, 'stdout')
+            }
+
+            return buffer.getLineCount(taskId) === contents.length
           }
-
-          return buffer.getLineCount(taskId) === contents.length
-        }),
+        ),
         { numRuns: 100 }
       )
     })
 
     it('getLines returns all appended lines in order', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContent, { minLength: 0, maxLength: 20 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContent, { minLength: 0, maxLength: 20 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
 
-          for (const content of contents) {
-            buffer.append(taskId, content, 'stdout')
-          }
+            for (const content of contents) {
+              buffer.append(taskId, content, 'stdout')
+            }
 
-          const lines = buffer.getLines(taskId)
+            const lines = buffer.getLines(taskId)
 
-          if (lines.length !== contents.length) {
-            return false
-          }
-
-          for (let i = 0; i < contents.length; i++) {
-            if (lines[i].content !== contents[i]) {
+            if (lines.length !== contents.length) {
               return false
             }
-          }
 
-          return true
-        }),
+            for (let i = 0; i < contents.length; i++) {
+              if (lines[i].content !== contents[i]) {
+                return false
+              }
+            }
+
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('clear removes all lines for a task', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContent, { minLength: 1, maxLength: 10 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContent, { minLength: 1, maxLength: 10 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
 
-          for (const content of contents) {
-            buffer.append(taskId, content, 'stdout')
+            for (const content of contents) {
+              buffer.append(taskId, content, 'stdout')
+            }
+
+            buffer.clear(taskId)
+
+            return (
+              buffer.getLineCount(taskId) === 0 &&
+              buffer.getLines(taskId).length === 0
+            )
           }
-
-          buffer.clear(taskId)
-
-          return buffer.getLineCount(taskId) === 0 && buffer.getLines(taskId).length === 0
-        }),
+        ),
         { numRuns: 100 }
       )
     })
@@ -446,8 +497,8 @@ describe('Output Buffer Property Tests', () => {
             return (
               lines1.length === contents1.length &&
               lines2.length === contents2.length &&
-              lines1.every((l) => l.taskId === taskId1) &&
-              lines2.every((l) => l.taskId === taskId2)
+              lines1.every(l => l.taskId === taskId1) &&
+              lines2.every(l => l.taskId === taskId2)
             )
           }
         ),
@@ -457,31 +508,35 @@ describe('Output Buffer Property Tests', () => {
 
     it('subscribers receive appended lines', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, fc.array(arbitraryContent, { minLength: 1, maxLength: 10 }), (taskId, contents) => {
-          const buffer = new OutputBuffer()
-          const receivedLines: string[] = []
+        fc.property(
+          arbitraryTaskId,
+          fc.array(arbitraryContent, { minLength: 1, maxLength: 10 }),
+          (taskId, contents) => {
+            const buffer = new OutputBuffer()
+            const receivedLines: string[] = []
 
-          buffer.subscribe(taskId, (line) => {
-            receivedLines.push(line.content)
-          })
+            buffer.subscribe(taskId, line => {
+              receivedLines.push(line.content)
+            })
 
-          for (const content of contents) {
-            buffer.append(taskId, content, 'stdout')
-          }
+            for (const content of contents) {
+              buffer.append(taskId, content, 'stdout')
+            }
 
-          // All lines should have been received
-          if (receivedLines.length !== contents.length) {
-            return false
-          }
-
-          for (let i = 0; i < contents.length; i++) {
-            if (receivedLines[i] !== contents[i]) {
+            // All lines should have been received
+            if (receivedLines.length !== contents.length) {
               return false
             }
-          }
 
-          return true
-        }),
+            for (let i = 0; i < contents.length; i++) {
+              if (receivedLines[i] !== contents[i]) {
+                return false
+              }
+            }
+
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
@@ -496,12 +551,15 @@ describe('Output Buffer Property Tests', () => {
             const buffer = new OutputBuffer()
             const receivedLines: string[] = []
 
-            const unsubscribe = buffer.subscribe(taskId, (line) => {
+            const unsubscribe = buffer.subscribe(taskId, line => {
               receivedLines.push(line.content)
             })
 
             // Append some lines
-            const actualUnsubscribeAfter = Math.min(unsubscribeAfter, contents.length - 1)
+            const actualUnsubscribeAfter = Math.min(
+              unsubscribeAfter,
+              contents.length - 1
+            )
             for (let i = 0; i < actualUnsubscribeAfter; i++) {
               buffer.append(taskId, contents[i], 'stdout')
             }
@@ -549,12 +607,17 @@ describe('Output Buffer Property Tests', () => {
 
     it('stream type is preserved correctly', () => {
       fc.assert(
-        fc.property(arbitraryTaskId, arbitraryContent, arbitraryStreamType, (taskId, content, stream) => {
-          const buffer = new OutputBuffer()
-          const line = buffer.append(taskId, content, stream)
+        fc.property(
+          arbitraryTaskId,
+          arbitraryContent,
+          arbitraryStreamType,
+          (taskId, content, stream) => {
+            const buffer = new OutputBuffer()
+            const line = buffer.append(taskId, content, stream)
 
-          return line.stream === stream
-        }),
+            return line.stream === stream
+          }
+        ),
         { numRuns: 100 }
       )
     })

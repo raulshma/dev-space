@@ -37,7 +37,11 @@ import { join } from 'node:path'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { DatabaseService } from './database'
-import type { ProcessManager, ManagedProcess, SpawnConfig } from './agent/process-manager'
+import type {
+  ProcessManager,
+  ManagedProcess,
+  SpawnConfig,
+} from './agent/process-manager'
 import { buildAgentEnvironment } from './agent/process-manager'
 import type { TaskQueue } from './agent/task-queue'
 import type { OutputBuffer, OutputCallback } from './agent/output-buffer'
@@ -152,7 +156,10 @@ export interface AgentExecutorEvents {
  * Manages the full lifecycle of coding agent tasks including creation,
  * execution, output streaming, and completion handling.
  */
-export class AgentExecutorService extends EventEmitter implements IAgentExecutorService {
+export class AgentExecutorService
+  extends EventEmitter
+  implements IAgentExecutorService
+{
   private db: DatabaseService
   private processManager: ProcessManager
   private taskQueue: TaskQueue
@@ -260,7 +267,10 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
    * @returns The updated task
    * @throws AgentExecutorError if task not found
    */
-  async updateTask(taskId: string, updates: UpdateAgentTaskInput): Promise<AgentTask> {
+  async updateTask(
+    taskId: string,
+    updates: UpdateAgentTaskInput
+  ): Promise<AgentTask> {
     const existingTask = this.db.getAgentTask(taskId)
     if (!existingTask) {
       throw new AgentExecutorError(
@@ -484,7 +494,12 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
     }
 
     // Can stop from pending, queued, running, or paused states
-    const stoppableStates: TaskStatus[] = ['pending', 'queued', 'running', 'paused']
+    const stoppableStates: TaskStatus[] = [
+      'pending',
+      'queued',
+      'running',
+      'paused',
+    ]
     if (!stoppableStates.includes(task.status)) {
       throw new AgentExecutorError(
         `Cannot stop task in ${task.status} state`,
@@ -631,7 +646,8 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
       await this.executeTask(task)
     } catch (error) {
       // Handle execution error
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
       await this.handleTaskFailure(taskId, errorMessage)
     }
   }
@@ -668,16 +684,19 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
     }
 
     // Build environment variables
-    const env = buildAgentEnvironment({}, {
-      anthropicAuthToken: config.anthropicAuthToken,
-      anthropicBaseUrl: config.anthropicBaseUrl,
-      apiTimeoutMs: config.apiTimeoutMs,
-      pythonPath: config.pythonPath,
-      customEnvVars: {
-        ...config.customEnvVars,
-        ...task.parameters.customEnv,
-      },
-    })
+    const env = buildAgentEnvironment(
+      {},
+      {
+        anthropicAuthToken: config.anthropicAuthToken,
+        anthropicBaseUrl: config.anthropicBaseUrl,
+        apiTimeoutMs: config.apiTimeoutMs,
+        pythonPath: config.pythonPath,
+        customEnvVars: {
+          ...config.customEnvVars,
+          ...task.parameters.customEnv,
+        },
+      }
+    )
 
     // Build command arguments
     const args = this.buildAgentArgs(task)
@@ -814,7 +833,9 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
     }
 
     if (!isSuccess) {
-      updates.error = signal ? `Killed by signal: ${signal}` : `Exit code: ${code}`
+      updates.error = signal
+        ? `Killed by signal: ${signal}`
+        : `Exit code: ${code}`
     }
 
     await this.updateTask(taskId, updates)
@@ -839,7 +860,10 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
    * @param taskId - The task ID
    * @param errorMessage - Error message
    */
-  private async handleTaskFailure(taskId: string, errorMessage: string): Promise<void> {
+  private async handleTaskFailure(
+    taskId: string,
+    errorMessage: string
+  ): Promise<void> {
     // Clean up
     this.taskProcesses.delete(taskId)
     if (this.taskQueue.getCurrentTaskId() === taskId) {
@@ -867,7 +891,9 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
    * @param directory - The repository directory
    * @returns File change summary
    */
-  private async captureFileChanges(directory: string): Promise<FileChangeSummary> {
+  private async captureFileChanges(
+    directory: string
+  ): Promise<FileChangeSummary> {
     const summary: FileChangeSummary = {
       created: [],
       modified: [],
@@ -876,10 +902,13 @@ export class AgentExecutorService extends EventEmitter implements IAgentExecutor
 
     try {
       // Get git status
-      const { stdout: statusOutput } = await execAsync('git status --porcelain', {
-        cwd: directory,
-        timeout: 10000,
-      })
+      const { stdout: statusOutput } = await execAsync(
+        'git status --porcelain',
+        {
+          cwd: directory,
+          timeout: 10000,
+        }
+      )
 
       const lines = statusOutput.split('\n').filter(line => line.trim())
 

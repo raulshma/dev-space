@@ -10,7 +10,12 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from 'renderer/components/ui/card'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from 'renderer/components/ui/card'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
@@ -182,7 +187,11 @@ function formatTimestamp(date: Date): string {
   })
 }
 
-function OutputLineComponent({ line }: { line: OutputLine }): React.JSX.Element {
+function OutputLineComponent({
+  line,
+}: {
+  line: OutputLine
+}): React.JSX.Element {
   return (
     <div className="flex gap-2 font-mono text-xs leading-relaxed">
       <span className="text-muted-foreground shrink-0 select-none">
@@ -234,7 +243,9 @@ export function TaskDetailView({
   // Auto-scroll to bottom when new output arrives
   useEffect(() => {
     if (isAutoScrollEnabled && !isUserScrolling && scrollRef.current) {
-      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      const scrollContainer = scrollRef.current.querySelector(
+        '[data-radix-scroll-area-viewport]'
+      )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
       }
@@ -267,7 +278,9 @@ export function TaskDetailView({
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
-      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      const scrollContainer = scrollRef.current.querySelector(
+        '[data-radix-scroll-area-viewport]'
+      )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
         setIsUserScrolling(false)
@@ -341,22 +354,18 @@ export function TaskDetailView({
         <CardContent className="pt-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>
-                Created: {task.createdAt.toLocaleString()}
-              </span>
+              <span>Created: {task.createdAt.toLocaleString()}</span>
               {task.startedAt && (
-                <span>
-                  Started: {task.startedAt.toLocaleString()}
-                </span>
+                <span>Started: {task.startedAt.toLocaleString()}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
               {canPause && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePause}
                   disabled={pauseTask.isPending}
+                  onClick={handlePause}
+                  size="sm"
+                  variant="outline"
                 >
                   <IconPlayerPause className="mr-2 h-4 w-4" />
                   Pause
@@ -364,10 +373,10 @@ export function TaskDetailView({
               )}
               {canResume && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResume}
                   disabled={resumeTask.isPending}
+                  onClick={handleResume}
+                  size="sm"
+                  variant="outline"
                 >
                   <IconPlayerPlay className="mr-2 h-4 w-4" />
                   Resume
@@ -375,10 +384,10 @@ export function TaskDetailView({
               )}
               {canStop && (
                 <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleStop}
                   disabled={stopTask.isPending}
+                  onClick={handleStop}
+                  size="sm"
+                  variant="destructive"
                 >
                   <IconPlayerStop className="mr-2 h-4 w-4" />
                   Stop
@@ -410,25 +419,19 @@ export function TaskDetailView({
           <CardTitle className="text-sm">Output</CardTitle>
           <div className="flex items-center gap-2">
             {!isAutoScrollEnabled && (
-              <Button variant="outline" size="sm" onClick={scrollToBottom}>
+              <Button onClick={scrollToBottom} size="sm" variant="outline">
                 <IconArrowDown className="mr-2 h-4 w-4" />
                 Scroll to bottom
               </Button>
             )}
-            <Badge variant="outline" className="text-xs">
+            <Badge className="text-xs" variant="outline">
               {output.length} lines
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 pt-0">
-          <div
-            ref={scrollRef}
-            className="h-full rounded-md border bg-muted/30"
-          >
-            <ScrollArea
-              className="h-full"
-              onScrollCapture={handleScroll}
-            >
+          <div className="h-full rounded-md border bg-muted/30" ref={scrollRef}>
+            <ScrollArea className="h-full" onScrollCapture={handleScroll}>
               <div className="p-3 space-y-1">
                 {output.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8">

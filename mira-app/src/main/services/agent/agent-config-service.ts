@@ -17,16 +17,19 @@ import type {
   AgentConfigValidationResult,
   AgentConfigValidationError,
   UpdateAgentConfigInput,
+  AgentCLIService,
 } from 'shared/ai-types'
 
 /**
  * Settings keys used in the ai_settings table
  */
 const SETTINGS_KEYS = {
+  AGENT_SERVICE: 'agent.service',
   ANTHROPIC_BASE_URL: 'agent.anthropic_base_url',
   API_TIMEOUT_MS: 'agent.api_timeout_ms',
   PYTHON_PATH: 'agent.python_path',
   CUSTOM_ENV_VARS: 'agent.custom_env_vars',
+  CUSTOM_COMMAND: 'agent.custom_command',
 } as const
 
 /**
@@ -34,15 +37,21 @@ const SETTINGS_KEYS = {
  */
 const KEYCHAIN_SERVICE = 'mira-agent'
 const KEYCHAIN_ACCOUNT_AUTH_TOKEN = 'anthropic_auth_token'
+const KEYCHAIN_ACCOUNT_GOOGLE_API_KEY = 'google_api_key'
+const KEYCHAIN_ACCOUNT_OPENAI_API_KEY = 'openai_api_key'
 
 /**
  * Default configuration values
  */
 const DEFAULT_CONFIG: Omit<AgentEnvironmentConfig, 'anthropicAuthToken'> = {
+  agentService: 'claude-code',
   anthropicBaseUrl: undefined,
   apiTimeoutMs: 30000,
   pythonPath: 'python',
   customEnvVars: {},
+  googleApiKey: undefined,
+  openaiApiKey: undefined,
+  customCommand: undefined,
 }
 
 /**
@@ -106,24 +115,36 @@ export class AgentConfigService implements IAgentConfigService {
    * Get the current agent environment configuration
    *
    * Retrieves:
-   * - ANTHROPIC_AUTH_TOKEN from keychain
+   * - Sensitive tokens from keychain
    * - Other settings from ai_settings table
    * - Falls back to defaults for missing values
    *
    * @returns The current configuration
    */
   async getConfig(): Promise<AgentEnvironmentConfig> {
-    // Get auth token from keychain
+    // Get tokens from keychain
     const authToken = await this.keychain.getSecret(
       KEYCHAIN_SERVICE,
       KEYCHAIN_ACCOUNT_AUTH_TOKEN
     )
+    const googleApiKey = await this.keychain.getSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_GOOGLE_API_KEY
+    )
+    const openaiApiKey = await this.keychain.getSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_OPENAI_API_KEY
+    )
 
     // Get other settings from database
+    const agentService = this.db.getAISetting(
+      SETTINGS_KEYS.AGENT_SERVICE
+    ) as AgentCLIService | null
     const baseUrl = this.db.getAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
     const timeoutStr = this.db.getAISetting(SETTINGS_KEYS.API_TIMEOUT_MS)
     const pythonPath = this.db.getAISetting(SETTINGS_KEYS.PYTHON_PATH)
     const customEnvStr = this.db.getAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS)
+    const customCommand = this.db.getAISetting(SETTINGS_KEYS.CUSTOM_COMMAND)
 
     // Parse custom env vars
     let customEnvVars: Record<string, string> = {}
@@ -137,23 +158,37 @@ export class AgentConfigService implements IAgentConfigService {
     }
 
     return {
+      agentService: agentService ?? DEFAULT_CONFIG.agentService,
       anthropicAuthToken: authToken ?? '',
       anthropicBaseUrl: baseUrl ?? DEFAULT_CONFIG.anthropicBaseUrl,
-      apiTimeoutMs: timeoutStr ? Number.parseInt(timeoutStr, 10) : DEFAULT_CONFIG.apiTimeoutMs,
+      apiTimeoutMs: timeoutStr
+        ? Number.parseInt(timeoutStr, 10)
+        : DEFAULT_CONFIG.apiTimeoutMs,
       pythonPath: pythonPath ?? DEFAULT_CONFIG.pythonPath,
-      customEnvVars: Object.keys(customEnvVars).length > 0 ? customEnvVars : DEFAULT_CONFIG.customEnvVars,
+      customEnvVars:
+        Object.keys(customEnvVars).length > 0
+          ? customEnvVars
+          : DEFAULT_CONFIG.customEnvVars,
+      googleApiKey: googleApiKey ?? DEFAULT_CONFIG.googleApiKey,
+      openaiApiKey: openaiApiKey ?? DEFAULT_CONFIG.openaiApiKey,
+      customCommand: customCommand ?? DEFAULT_CONFIG.customCommand,
     }
   }
 
   /**
    * Update the agent environment configuration
    *
-   * - Stores ANTHROPIC_AUTH_TOKEN in keychain if provided
+   * - Stores sensitive tokens in keychain if provided
    * - Stores other settings in ai_settings table
    *
    * @param updates - Partial configuration updates
    */
   async setConfig(updates: UpdateAgentConfigInput): Promise<void> {
+    // Store agent service in database
+    if (updates.agentService !== undefined) {
+      this.db.setAISetting(SETTINGS_KEYS.AGENT_SERVICE, updates.agentService)
+    }
+
     // Store auth token in keychain if provided
     if (updates.anthropicAuthToken !== undefined) {
       if (updates.anthropicAuthToken) {
@@ -163,7 +198,6 @@ export class AgentConfigService implements IAgentConfigService {
           updates.anthropicAuthToken
         )
       } else {
-        // Empty string means delete the token
         await this.keychain.deleteSecret(
           KEYCHAIN_SERVICE,
           KEYCHAIN_ACCOUNT_AUTH_TOKEN
@@ -171,41 +205,93 @@ export class AgentConfigService implements IAgentConfigService {
       }
     }
 
+    // Store Google API key in keychain if provided
+    if (updates.googleApiKey !== undefined) {
+      if (updates.googleApiKey) {
+        await this.keychain.setSecret(
+          KEYCHAIN_SERVICE,
+          KEYCHAIN_ACCOUNT_GOOGLE_API_KEY,
+          updates.googleApiKey
+        )
+      } else {
+        await this.keychain.deleteSecret(
+          KEYCHAIN_SERVICE,
+          KEYCHAIN_ACCOUNT_GOOGLE_API_KEY
+        )
+      }
+    }
+
+    // Store OpenAI API key in keychain if provided
+    if (updates.openaiApiKey !== undefined) {
+      if (updates.openaiApiKey) {
+        await this.keychain.setSecret(
+          KEYCHAIN_SERVICE,
+          KEYCHAIN_ACCOUNT_OPENAI_API_KEY,
+          updates.openaiApiKey
+        )
+      } else {
+        await this.keychain.deleteSecret(
+          KEYCHAIN_SERVICE,
+          KEYCHAIN_ACCOUNT_OPENAI_API_KEY
+        )
+      }
+    }
+
     // Store other settings in database
     if (updates.anthropicBaseUrl !== undefined) {
       if (updates.anthropicBaseUrl) {
-        this.db.setAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL, updates.anthropicBaseUrl)
+        this.db.setAISetting(
+          SETTINGS_KEYS.ANTHROPIC_BASE_URL,
+          updates.anthropicBaseUrl
+        )
       } else {
-        // Empty string means use default (delete the setting)
         this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
       }
     }
 
     if (updates.apiTimeoutMs !== undefined) {
-      this.db.setAISetting(SETTINGS_KEYS.API_TIMEOUT_MS, updates.apiTimeoutMs.toString())
+      this.db.setAISetting(
+        SETTINGS_KEYS.API_TIMEOUT_MS,
+        updates.apiTimeoutMs.toString()
+      )
     }
 
     if (updates.pythonPath !== undefined) {
       if (updates.pythonPath) {
         this.db.setAISetting(SETTINGS_KEYS.PYTHON_PATH, updates.pythonPath)
       } else {
-        // Empty string means use default
         this.db.deleteAISetting(SETTINGS_KEYS.PYTHON_PATH)
       }
     }
 
     if (updates.customEnvVars !== undefined) {
-      this.db.setAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS, JSON.stringify(updates.customEnvVars))
+      this.db.setAISetting(
+        SETTINGS_KEYS.CUSTOM_ENV_VARS,
+        JSON.stringify(updates.customEnvVars)
+      )
+    }
+
+    if (updates.customCommand !== undefined) {
+      if (updates.customCommand) {
+        this.db.setAISetting(
+          SETTINGS_KEYS.CUSTOM_COMMAND,
+          updates.customCommand
+        )
+      } else {
+        this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_COMMAND)
+      }
     }
   }
 
   /**
    * Validate the agent environment configuration
    *
-   * Validates:
-   * - anthropicAuthToken: Required, non-empty, non-whitespace
-   * - pythonPath: Required, non-empty, non-whitespace
-   * - apiTimeoutMs: Must be a positive number
+   * Validates based on selected service:
+   * - claude-code: Requires anthropicAuthToken
+   * - google-jules: Requires googleApiKey
+   * - opencode/aider: Requires openaiApiKey or anthropicAuthToken
+   * - custom: Requires customCommand
+   * - All: pythonPath required, apiTimeoutMs must be positive
    *
    * @param config - Configuration to validate
    * @returns Validation result with any errors
@@ -213,12 +299,50 @@ export class AgentConfigService implements IAgentConfigService {
   validateConfig(config: AgentEnvironmentConfig): AgentConfigValidationResult {
     const errors: AgentConfigValidationError[] = []
 
-    // Validate anthropicAuthToken - required, non-empty, non-whitespace
-    if (!config.anthropicAuthToken || config.anthropicAuthToken.trim() === '') {
-      errors.push({
-        field: 'anthropicAuthToken',
-        message: 'Anthropic authentication token is required',
-      })
+    // Validate based on selected service
+    switch (config.agentService) {
+      case 'claude-code':
+        if (
+          !config.anthropicAuthToken ||
+          config.anthropicAuthToken.trim() === ''
+        ) {
+          errors.push({
+            field: 'anthropicAuthToken',
+            message:
+              'Anthropic authentication token is required for Claude Code',
+          })
+        }
+        break
+      case 'google-jules':
+        if (!config.googleApiKey || config.googleApiKey.trim() === '') {
+          errors.push({
+            field: 'googleApiKey',
+            message: 'Google API key is required for Jules',
+          })
+        }
+        break
+      case 'opencode':
+      case 'aider':
+        // At least one API key is required
+        if (
+          (!config.openaiApiKey || config.openaiApiKey.trim() === '') &&
+          (!config.anthropicAuthToken ||
+            config.anthropicAuthToken.trim() === '')
+        ) {
+          errors.push({
+            field: 'openaiApiKey',
+            message: 'At least one API key (OpenAI or Anthropic) is required',
+          })
+        }
+        break
+      case 'custom':
+        if (!config.customCommand || config.customCommand.trim() === '') {
+          errors.push({
+            field: 'customCommand',
+            message: 'Custom command is required for custom agents',
+          })
+        }
+        break
     }
 
     // Validate pythonPath - required, non-empty, non-whitespace
@@ -270,18 +394,31 @@ export class AgentConfigService implements IAgentConfigService {
    * Clear all agent configuration
    *
    * Removes:
-   * - Auth token from keychain
+   * - All tokens from keychain
    * - All settings from database
    */
   async clearConfig(): Promise<void> {
-    // Remove auth token from keychain
-    await this.keychain.deleteSecret(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT_AUTH_TOKEN)
+    // Remove tokens from keychain
+    await this.keychain.deleteSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_AUTH_TOKEN
+    )
+    await this.keychain.deleteSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_GOOGLE_API_KEY
+    )
+    await this.keychain.deleteSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_OPENAI_API_KEY
+    )
 
     // Remove settings from database
+    this.db.deleteAISetting(SETTINGS_KEYS.AGENT_SERVICE)
     this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
     this.db.deleteAISetting(SETTINGS_KEYS.API_TIMEOUT_MS)
     this.db.deleteAISetting(SETTINGS_KEYS.PYTHON_PATH)
     this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS)
+    this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_COMMAND)
   }
 }
 

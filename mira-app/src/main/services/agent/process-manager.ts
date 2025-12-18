@@ -245,16 +245,20 @@ export class ProcessManager implements IProcessManager {
       }
 
       // Spawn the Python process
-      const childProcess = spawn(config.env.PYTHON_PATH || 'python', [config.script, ...config.args], {
-        cwd: config.cwd,
-        env: env as NodeJS.ProcessEnv,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        // Detach on non-Windows to allow signal handling
-        detached: process.platform !== 'win32',
-      })
+      const childProcess = spawn(
+        config.env.PYTHON_PATH || 'python',
+        [config.script, ...config.args],
+        {
+          cwd: config.cwd,
+          env: env as NodeJS.ProcessEnv,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          // Detach on non-Windows to allow signal handling
+          detached: process.platform !== 'win32',
+        }
+      )
 
       // Handle spawn error
-      childProcess.on('error', (error) => {
+      childProcess.on('error', error => {
         reject(new Error(`Failed to spawn process: ${error.message}`))
       })
 
@@ -332,7 +336,7 @@ export class ProcessManager implements IProcessManager {
     for (const [pid, wrapper] of this.processes) {
       if (wrapper.status !== 'stopped') {
         killPromises.push(
-          new Promise<void>((resolve) => {
+          new Promise<void>(resolve => {
             const childProcess = wrapper.getChildProcess()
 
             // Set up exit listener

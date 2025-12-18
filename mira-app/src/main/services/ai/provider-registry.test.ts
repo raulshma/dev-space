@@ -183,9 +183,18 @@ describe('ProviderRegistry', () => {
     })
 
     it('should return all registered provider names', () => {
-      registry.registerProvider('provider1', new MockProviderAdapter('provider1'))
-      registry.registerProvider('provider2', new MockProviderAdapter('provider2'))
-      registry.registerProvider('provider3', new MockProviderAdapter('provider3'))
+      registry.registerProvider(
+        'provider1',
+        new MockProviderAdapter('provider1')
+      )
+      registry.registerProvider(
+        'provider2',
+        new MockProviderAdapter('provider2')
+      )
+      registry.registerProvider(
+        'provider3',
+        new MockProviderAdapter('provider3')
+      )
 
       const providers = registry.listProviders()
 

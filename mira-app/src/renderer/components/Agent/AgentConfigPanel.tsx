@@ -2,10 +2,8 @@
  * Agent Configuration Panel Component
  *
  * Provides UI for configuring the coding agent environment including:
- * - ANTHROPIC_AUTH_TOKEN input with secure storage
- * - ANTHROPIC_BASE_URL configuration
- * - API_TIMEOUT_MS setting
- * - Python path configuration
+ * - Service/CLI selector (Claude Code, OpenCode, Google Jules, etc.)
+ * - Service-specific configuration options
  * - Custom environment variable editor
  * - Validation feedback
  *
@@ -13,7 +11,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'renderer/components/ui/card'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from 'renderer/components/ui/card'
 import { Input } from 'renderer/components/ui/input'
 import { Button } from 'renderer/components/ui/button'
 import { Label } from 'renderer/components/ui/label'
@@ -26,11 +30,21 @@ import {
   IconAlertTriangle,
   IconLoader2,
   IconInfoCircle,
+  IconChevronLeft,
+  IconExternalLink,
+  IconRobot,
+  IconBrandGoogle,
+  IconTerminal2,
+  IconCode,
+  IconSettings,
 } from '@tabler/icons-react'
 import type {
   AgentEnvironmentConfig,
   AgentConfigValidationError,
+  AgentCLIService,
+  AgentCLIServiceInfo,
 } from 'shared/ai-types'
+import { AGENT_CLI_SERVICES } from 'shared/ai-types'
 
 /**
  * Masks a token showing only the last 4 characters
@@ -47,9 +61,81 @@ interface EnvVarEntry {
   value: string
 }
 
+/**
+ * Get icon for agent service
+ */
+function getServiceIcon(serviceId: AgentCLIService): React.ReactNode {
+  switch (serviceId) {
+    case 'claude-code':
+      return <IconRobot className="h-5 w-5" />
+    case 'google-jules':
+      return <IconBrandGoogle className="h-5 w-5" />
+    case 'opencode':
+      return <IconCode className="h-5 w-5" />
+    case 'aider':
+      return <IconTerminal2 className="h-5 w-5" />
+    case 'custom':
+      return <IconSettings className="h-5 w-5" />
+    default:
+      return <IconRobot className="h-5 w-5" />
+  }
+}
+
+/**
+ * Service selector card component
+ */
+function ServiceCard({
+  service,
+  isSelected,
+  onClick,
+}: {
+  service: AgentCLIServiceInfo
+  isSelected: boolean
+  onClick: () => void
+}): React.JSX.Element {
+  return (
+    <Card
+      className={`cursor-pointer transition-all hover:border-primary/50 ${
+        isSelected ? 'border-primary bg-primary/5' : ''
+      }`}
+      onClick={onClick}
+    >
+      <CardContent className="flex items-center gap-4 p-4">
+        <div
+          className={`rounded-lg p-2 ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted'}`}
+        >
+          {getServiceIcon(service.id)}
+        </div>
+        <div className="flex-1">
+          <h4 className="font-medium">{service.name}</h4>
+          <p className="text-sm text-muted-foreground">{service.description}</p>
+        </div>
+        {service.docsUrl && (
+          <Button
+            onClick={e => {
+              e.stopPropagation()
+              window.open(service.docsUrl, '_blank')
+            }}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <IconExternalLink className="h-4 w-4" />
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function AgentConfigPanel(): React.JSX.Element {
+  // View state - 'select' for service selection, 'configure' for configuration
+  const [view, setView] = useState<'select' | 'configure'>('select')
+  const [selectedService, setSelectedService] =
+    useState<AgentCLIService | null>(null)
+
   // Configuration state
   const [config, setConfig] = useState<AgentEnvironmentConfig>({
+    agentService: 'claude-code',
     anthropicAuthToken: '',
     anthropicBaseUrl: '',
     apiTimeoutMs: 30000,
@@ -61,7 +147,9 @@ export function AgentConfigPanel(): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isConfigured, setIsConfigured] = useState(false)
-  const [validationErrors, setValidationErrors] = useState<AgentConfigValidationError[]>([])
+  const [validationErrors, setValidationErrors] = useState<
+    AgentConfigValidationError[]
+  >([])
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [showToken, setShowToken] = useState(false)
   const [tokenInput, setTokenInput] = useState('')
@@ -92,14 +180,32 @@ export function AgentConfigPanel(): React.JSX.Element {
       )
       setEnvVars(vars)
 
-      // Check if configured
+      // Check if configured and set view accordingly
       const configuredResponse = await window.api.agentConfig.isConfigured({})
       setIsConfigured(configuredResponse.isConfigured)
+
+      // If already configured, show the configure view with the saved service
+      if (configuredResponse.isConfigured && loadedConfig.agentService) {
+        setSelectedService(loadedConfig.agentService)
+        setView('configure')
+      }
     } catch (error) {
       console.error('Failed to load agent config:', error)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleServiceSelect = (serviceId: AgentCLIService): void => {
+    setSelectedService(serviceId)
+    setConfig(prev => ({ ...prev, agentService: serviceId }))
+    setView('configure')
+  }
+
+  const handleBackToSelect = (): void => {
+    setView('select')
+    setValidationErrors([])
+    setSaveSuccess(false)
   }
 
   const validateAndSave = useCallback(async (): Promise<void> => {
@@ -108,10 +214,11 @@ export function AgentConfigPanel(): React.JSX.Element {
     setValidationErrors([])
 
     try {
-      // Build config with current values
       const updatedConfig: AgentEnvironmentConfig = {
         ...config,
-        anthropicAuthToken: isEditingToken ? tokenInput : config.anthropicAuthToken,
+        anthropicAuthToken: isEditingToken
+          ? tokenInput
+          : config.anthropicAuthToken,
         customEnvVars: envVars.reduce(
           (acc, { key, value }) => {
             if (key.trim()) {
@@ -123,7 +230,6 @@ export function AgentConfigPanel(): React.JSX.Element {
         ),
       }
 
-      // Validate
       const validationResponse = await window.api.agentConfig.validate({
         config: updatedConfig,
       })
@@ -133,32 +239,34 @@ export function AgentConfigPanel(): React.JSX.Element {
         return
       }
 
-      // Save
       await window.api.agentConfig.set({
         updates: {
+          agentService: config.agentService,
           anthropicAuthToken: isEditingToken ? tokenInput : undefined,
           anthropicBaseUrl: config.anthropicBaseUrl || undefined,
           apiTimeoutMs: config.apiTimeoutMs,
           pythonPath: config.pythonPath,
           customEnvVars: updatedConfig.customEnvVars,
+          googleApiKey: config.googleApiKey,
+          openaiApiKey: config.openaiApiKey,
+          customCommand: config.customCommand,
         },
       })
 
       setSaveSuccess(true)
       setIsEditingToken(false)
       setTokenInput(tokenInput ? '••••••••' : '')
-
-      // Refresh config
       await loadConfig()
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch (error) {
       console.error('Failed to save agent config:', error)
       setValidationErrors([
         {
           field: 'anthropicAuthToken',
-          message: error instanceof Error ? error.message : 'Failed to save configuration',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Failed to save configuration',
         },
       ])
     } finally {
@@ -168,7 +276,6 @@ export function AgentConfigPanel(): React.JSX.Element {
 
   const handleAddEnvVar = (): void => {
     if (!newEnvKey.trim()) return
-
     setEnvVars([...envVars, { key: newEnvKey.trim(), value: newEnvValue }])
     setNewEnvKey('')
     setNewEnvValue('')
@@ -188,8 +295,10 @@ export function AgentConfigPanel(): React.JSX.Element {
     setEnvVars(updated)
   }
 
-  const getFieldError = (field: keyof AgentEnvironmentConfig): string | undefined => {
-    return validationErrors.find((e) => e.field === field)?.message
+  const getFieldError = (
+    field: keyof AgentEnvironmentConfig
+  ): string | undefined => {
+    return validationErrors.find(e => e.field === field)?.message
   }
 
   if (isLoading) {
@@ -200,15 +309,54 @@ export function AgentConfigPanel(): React.JSX.Element {
     )
   }
 
-  return (
-    <div className="flex h-full flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+  // Service selection view
+  if (view === 'select') {
+    return (
+      <div className="flex h-full flex-col gap-4">
         <div>
           <h3 className="text-lg font-semibold">Agent Configuration</h3>
           <p className="text-sm text-muted-foreground">
-            Configure the coding agent execution environment
+            Select a coding agent CLI to configure
           </p>
+        </div>
+
+        <div className="flex-1 space-y-3 overflow-y-auto">
+          {AGENT_CLI_SERVICES.map(service => (
+            <ServiceCard
+              isSelected={selectedService === service.id}
+              key={service.id}
+              onClick={() => handleServiceSelect(service.id)}
+              service={service}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Get selected service info
+  const serviceInfo = AGENT_CLI_SERVICES.find(s => s.id === selectedService)
+
+  // Configuration view
+  return (
+    <div className="flex h-full flex-col gap-4">
+      {/* Header with back button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button onClick={handleBackToSelect} size="icon-sm" variant="ghost">
+            <IconChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-2">
+            {serviceInfo && getServiceIcon(serviceInfo.id)}
+            <div>
+              <h3 className="text-lg font-semibold">
+                {serviceInfo?.name} Configuration
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Configure your {serviceInfo?.name} environment
+              </p>
+            </div>
+          </div>
         </div>
         <Badge variant={isConfigured ? 'secondary' : 'outline'}>
           {isConfigured ? 'Configured' : 'Not Configured'}
@@ -240,246 +388,8 @@ export function AgentConfigPanel(): React.JSX.Element {
       )}
 
       <div className="flex-1 space-y-4 overflow-y-auto">
-        {/* Authentication Token */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Authentication</CardTitle>
-            <CardDescription>
-              Anthropic API token for Claude Code agents
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="auth-token">ANTHROPIC_AUTH_TOKEN</Label>
-              {isEditingToken ? (
-                <div className="flex gap-2">
-                  <Input
-                    id="auth-token"
-                    type={showToken ? 'text' : 'password'}
-                    value={tokenInput}
-                    onChange={(e) => setTokenInput(e.target.value)}
-                    placeholder="Enter your Anthropic API token"
-                    className={getFieldError('anthropicAuthToken') ? 'border-destructive' : ''}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowToken(!showToken)}
-                  >
-                    {showToken ? 'Hide' : 'Show'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsEditingToken(false)
-                      setTokenInput(config.anthropicAuthToken ? '••••••••' : '')
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-muted px-2 py-1 text-xs font-mono text-muted-foreground">
-                    {config.anthropicAuthToken
-                      ? maskToken(config.anthropicAuthToken)
-                      : 'Not configured'}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsEditingToken(true)
-                      setTokenInput('')
-                    }}
-                  >
-                    {config.anthropicAuthToken ? 'Update' : 'Add'}
-                  </Button>
-                </div>
-              )}
-              {getFieldError('anthropicAuthToken') && (
-                <p className="text-xs text-destructive">
-                  {getFieldError('anthropicAuthToken')}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* API Settings */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">API Settings</CardTitle>
-            <CardDescription>
-              Configure API endpoint and timeout settings
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="base-url">ANTHROPIC_BASE_URL (optional)</Label>
-              <Input
-                id="base-url"
-                type="url"
-                value={config.anthropicBaseUrl || ''}
-                onChange={(e) =>
-                  setConfig({ ...config, anthropicBaseUrl: e.target.value })
-                }
-                placeholder="https://api.anthropic.com"
-                className={getFieldError('anthropicBaseUrl') ? 'border-destructive' : ''}
-              />
-              {getFieldError('anthropicBaseUrl') && (
-                <p className="text-xs text-destructive">
-                  {getFieldError('anthropicBaseUrl')}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Leave empty to use the default Anthropic API endpoint
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="timeout">API_TIMEOUT_MS</Label>
-              <Input
-                id="timeout"
-                type="number"
-                min={1000}
-                step={1000}
-                value={config.apiTimeoutMs}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    apiTimeoutMs: Number.parseInt(e.target.value, 10) || 30000,
-                  })
-                }
-                className={getFieldError('apiTimeoutMs') ? 'border-destructive' : ''}
-              />
-              {getFieldError('apiTimeoutMs') && (
-                <p className="text-xs text-destructive">
-                  {getFieldError('apiTimeoutMs')}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Request timeout in milliseconds (default: 30000)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Python Configuration */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Python Configuration</CardTitle>
-            <CardDescription>
-              Path to Python executable for running agents
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="python-path">Python Path</Label>
-              <Input
-                id="python-path"
-                type="text"
-                value={config.pythonPath}
-                onChange={(e) =>
-                  setConfig({ ...config, pythonPath: e.target.value })
-                }
-                placeholder="python"
-                className={getFieldError('pythonPath') ? 'border-destructive' : ''}
-              />
-              {getFieldError('pythonPath') && (
-                <p className="text-xs text-destructive">
-                  {getFieldError('pythonPath')}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Path to Python 3.x executable (e.g., python, python3, /usr/bin/python3)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Custom Environment Variables */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Custom Environment Variables</CardTitle>
-            <CardDescription>
-              Additional environment variables to inject into agent processes
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Existing env vars */}
-            {envVars.length > 0 && (
-              <div className="space-y-2">
-                {envVars.map((envVar, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={envVar.key}
-                      onChange={(e) =>
-                        handleEnvVarChange(index, 'key', e.target.value)
-                      }
-                      placeholder="KEY"
-                      className="flex-1 font-mono text-xs"
-                    />
-                    <span className="text-muted-foreground">=</span>
-                    <Input
-                      value={envVar.value}
-                      onChange={(e) =>
-                        handleEnvVarChange(index, 'value', e.target.value)
-                      }
-                      placeholder="value"
-                      className="flex-1 font-mono text-xs"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => handleRemoveEnvVar(index)}
-                    >
-                      <IconTrash className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add new env var */}
-            <div className="flex items-center gap-2">
-              <Input
-                value={newEnvKey}
-                onChange={(e) => setNewEnvKey(e.target.value)}
-                placeholder="NEW_KEY"
-                className="flex-1 font-mono text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddEnvVar()
-                }}
-              />
-              <span className="text-muted-foreground">=</span>
-              <Input
-                value={newEnvValue}
-                onChange={(e) => setNewEnvValue(e.target.value)}
-                placeholder="value"
-                className="flex-1 font-mono text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddEnvVar()
-                }}
-              />
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onClick={handleAddEnvVar}
-                disabled={!newEnvKey.trim()}
-              >
-                <IconPlus className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {envVars.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No custom environment variables configured
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Service-specific configuration */}
+        {renderServiceConfig()}
       </div>
 
       {/* Footer with save button */}
@@ -490,7 +400,7 @@ export function AgentConfigPanel(): React.JSX.Element {
             Sensitive values are stored securely in your OS keychain
           </AlertDescription>
         </Alert>
-        <Button onClick={validateAndSave} disabled={isSaving}>
+        <Button disabled={isSaving} onClick={validateAndSave}>
           {isSaving ? (
             <>
               <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -503,4 +413,446 @@ export function AgentConfigPanel(): React.JSX.Element {
       </div>
     </div>
   )
+
+  function renderServiceConfig(): React.JSX.Element {
+    switch (selectedService) {
+      case 'claude-code':
+        return renderClaudeCodeConfig()
+      case 'google-jules':
+        return renderGoogleJulesConfig()
+      case 'opencode':
+        return renderOpenCodeConfig()
+      case 'aider':
+        return renderAiderConfig()
+      case 'custom':
+        return renderCustomConfig()
+      default:
+        return <div>Select a service to configure</div>
+    }
+  }
+
+  function renderClaudeCodeConfig(): React.JSX.Element {
+    return (
+      <>
+        {/* Authentication Token */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Authentication</CardTitle>
+            <CardDescription>
+              Anthropic API token for Claude Code
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="auth-token">ANTHROPIC_AUTH_TOKEN</Label>
+              {isEditingToken ? (
+                <div className="flex gap-2">
+                  <Input
+                    className={
+                      getFieldError('anthropicAuthToken')
+                        ? 'border-destructive'
+                        : ''
+                    }
+                    id="auth-token"
+                    onChange={e => setTokenInput(e.target.value)}
+                    placeholder="Enter your Anthropic API token"
+                    type={showToken ? 'text' : 'password'}
+                    value={tokenInput}
+                  />
+                  <Button
+                    onClick={() => setShowToken(!showToken)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {showToken ? 'Hide' : 'Show'}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsEditingToken(false)
+                      setTokenInput(config.anthropicAuthToken ? '••••••••' : '')
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded bg-muted px-2 py-1 text-xs font-mono text-muted-foreground">
+                    {config.anthropicAuthToken
+                      ? maskToken(config.anthropicAuthToken)
+                      : 'Not configured'}
+                  </code>
+                  <Button
+                    onClick={() => {
+                      setIsEditingToken(true)
+                      setTokenInput('')
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {config.anthropicAuthToken ? 'Update' : 'Add'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* API Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">API Settings</CardTitle>
+            <CardDescription>
+              Configure API endpoint and timeout
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="base-url">ANTHROPIC_BASE_URL (optional)</Label>
+              <Input
+                id="base-url"
+                onChange={e =>
+                  setConfig({ ...config, anthropicBaseUrl: e.target.value })
+                }
+                placeholder="https://api.anthropic.com"
+                type="url"
+                value={config.anthropicBaseUrl || ''}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to use the default Anthropic API endpoint
+              </p>
+            </div>
+            {renderTimeoutField()}
+          </CardContent>
+        </Card>
+
+        {renderPythonConfig()}
+        {renderEnvVarsConfig()}
+      </>
+    )
+  }
+
+  function renderGoogleJulesConfig(): React.JSX.Element {
+    return (
+      <>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Authentication</CardTitle>
+            <CardDescription>Google API key for Jules</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="google-api-key">GOOGLE_API_KEY</Label>
+              <Input
+                id="google-api-key"
+                onChange={e =>
+                  setConfig({ ...config, googleApiKey: e.target.value })
+                }
+                placeholder="Enter your Google API key"
+                type="password"
+                value={config.googleApiKey || ''}
+              />
+            </div>
+          </CardContent>
+        </Card>
+        {renderTimeoutCard()}
+        {renderPythonConfig()}
+        {renderEnvVarsConfig()}
+      </>
+    )
+  }
+
+  function renderOpenCodeConfig(): React.JSX.Element {
+    return (
+      <>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Authentication</CardTitle>
+            <CardDescription>
+              API key for OpenCode (supports multiple providers)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="openai-api-key">OPENAI_API_KEY</Label>
+              <Input
+                id="openai-api-key"
+                onChange={e =>
+                  setConfig({ ...config, openaiApiKey: e.target.value })
+                }
+                placeholder="Enter your OpenAI API key"
+                type="password"
+                value={config.openaiApiKey || ''}
+              />
+              <p className="text-xs text-muted-foreground">
+                OpenCode supports OpenAI, Anthropic, and other providers
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        {renderTimeoutCard()}
+        {renderPythonConfig()}
+        {renderEnvVarsConfig()}
+      </>
+    )
+  }
+
+  function renderAiderConfig(): React.JSX.Element {
+    return (
+      <>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Authentication</CardTitle>
+            <CardDescription>
+              API keys for Aider (supports multiple providers)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="aider-openai-key">OPENAI_API_KEY</Label>
+              <Input
+                id="aider-openai-key"
+                onChange={e =>
+                  setConfig({ ...config, openaiApiKey: e.target.value })
+                }
+                placeholder="Enter your OpenAI API key"
+                type="password"
+                value={config.openaiApiKey || ''}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aider-anthropic-key">
+                ANTHROPIC_API_KEY (optional)
+              </Label>
+              {isEditingToken ? (
+                <div className="flex gap-2">
+                  <Input
+                    id="aider-anthropic-key"
+                    onChange={e => setTokenInput(e.target.value)}
+                    placeholder="Enter your Anthropic API key"
+                    type={showToken ? 'text' : 'password'}
+                    value={tokenInput}
+                  />
+                  <Button
+                    onClick={() => setShowToken(!showToken)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {showToken ? 'Hide' : 'Show'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded bg-muted px-2 py-1 text-xs font-mono text-muted-foreground">
+                    {config.anthropicAuthToken
+                      ? maskToken(config.anthropicAuthToken)
+                      : 'Not configured'}
+                  </code>
+                  <Button
+                    onClick={() => setIsEditingToken(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {config.anthropicAuthToken ? 'Update' : 'Add'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        {renderTimeoutCard()}
+        {renderPythonConfig()}
+        {renderEnvVarsConfig()}
+      </>
+    )
+  }
+
+  function renderCustomConfig(): React.JSX.Element {
+    return (
+      <>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Custom Agent Command</CardTitle>
+            <CardDescription>
+              Specify the command to run your custom agent
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="custom-command">Command</Label>
+              <Input
+                id="custom-command"
+                onChange={e =>
+                  setConfig({ ...config, customCommand: e.target.value })
+                }
+                placeholder="e.g., my-agent --config ~/.my-agent.json"
+                type="text"
+                value={config.customCommand || ''}
+              />
+              <p className="text-xs text-muted-foreground">
+                The command that will be executed to start your agent
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        {renderTimeoutCard()}
+        {renderPythonConfig()}
+        {renderEnvVarsConfig()}
+      </>
+    )
+  }
+
+  function renderTimeoutField(): React.JSX.Element {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor="timeout">API_TIMEOUT_MS</Label>
+        <Input
+          id="timeout"
+          min={1000}
+          onChange={e =>
+            setConfig({
+              ...config,
+              apiTimeoutMs: Number.parseInt(e.target.value, 10) || 30000,
+            })
+          }
+          step={1000}
+          type="number"
+          value={config.apiTimeoutMs}
+        />
+        <p className="text-xs text-muted-foreground">
+          Request timeout in milliseconds (default: 30000)
+        </p>
+      </div>
+    )
+  }
+
+  function renderTimeoutCard(): React.JSX.Element {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">API Settings</CardTitle>
+          <CardDescription>Configure timeout settings</CardDescription>
+        </CardHeader>
+        <CardContent>{renderTimeoutField()}</CardContent>
+      </Card>
+    )
+  }
+
+  function renderPythonConfig(): React.JSX.Element {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Python Configuration</CardTitle>
+          <CardDescription>
+            Path to Python executable for running agents
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="python-path">Python Path</Label>
+            <Input
+              id="python-path"
+              onChange={e =>
+                setConfig({ ...config, pythonPath: e.target.value })
+              }
+              placeholder="python"
+              type="text"
+              value={config.pythonPath}
+            />
+            <p className="text-xs text-muted-foreground">
+              Path to Python 3.x executable (e.g., python, python3,
+              /usr/bin/python3)
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  function renderEnvVarsConfig(): React.JSX.Element {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">
+            Custom Environment Variables
+          </CardTitle>
+          <CardDescription>
+            Additional environment variables to inject into agent processes
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {envVars.length > 0 && (
+            <div className="space-y-2">
+              {envVars.map((envVar, index) => (
+                <div className="flex items-center gap-2" key={index}>
+                  <Input
+                    className="flex-1 font-mono text-xs"
+                    onChange={e =>
+                      handleEnvVarChange(index, 'key', e.target.value)
+                    }
+                    placeholder="KEY"
+                    value={envVar.key}
+                  />
+                  <span className="text-muted-foreground">=</span>
+                  <Input
+                    className="flex-1 font-mono text-xs"
+                    onChange={e =>
+                      handleEnvVarChange(index, 'value', e.target.value)
+                    }
+                    placeholder="value"
+                    value={envVar.value}
+                  />
+                  <Button
+                    onClick={() => handleRemoveEnvVar(index)}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <IconTrash className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Input
+              className="flex-1 font-mono text-xs"
+              onChange={e => setNewEnvKey(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleAddEnvVar()
+              }}
+              placeholder="NEW_KEY"
+              value={newEnvKey}
+            />
+            <span className="text-muted-foreground">=</span>
+            <Input
+              className="flex-1 font-mono text-xs"
+              onChange={e => setNewEnvValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleAddEnvVar()
+              }}
+              placeholder="value"
+              value={newEnvValue}
+            />
+            <Button
+              disabled={!newEnvKey.trim()}
+              onClick={handleAddEnvVar}
+              size="icon-sm"
+              variant="outline"
+            >
+              <IconPlus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {envVars.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No custom environment variables configured
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 }

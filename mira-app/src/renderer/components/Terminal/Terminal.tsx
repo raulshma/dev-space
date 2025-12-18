@@ -7,7 +7,10 @@
 
 import { TerminalTabs } from './TerminalTabs'
 import { TerminalPanes } from './TerminalPanes'
-import { useTerminalStore, useTerminalsByProject } from 'renderer/stores/terminal-store'
+import {
+  useTerminalStore,
+  useTerminalsByProject,
+} from 'renderer/stores/terminal-store'
 import type { ErrorContext } from 'shared/models'
 
 interface TerminalProps {

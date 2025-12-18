@@ -21,29 +21,34 @@ import {
  */
 const arbitraryValidDate: fc.Arbitrary<Date> = fc
   .integer({ min: 946684800000, max: 4102444800000 }) // 2000-01-01 to 2100-01-01 in ms
-  .map((ms) => new Date(ms))
+  .map(ms => new Date(ms))
 
 /**
  * Arbitrary generator for ConversationMessage
  * Generates valid messages with all possible field combinations
  */
-const arbitraryConversationMessage: fc.Arbitrary<ConversationMessage> = fc.record({
-  id: fc.uuid(),
-  role: fc.constantFrom('user', 'assistant', 'system') as fc.Arbitrary<'user' | 'assistant' | 'system'>,
-  content: fc.string(),
-  timestamp: arbitraryValidDate,
-  model: fc.option(fc.string(), { nil: undefined }),
-  metadata: fc.option(
-    fc.dictionary(fc.string(), fc.jsonValue()),
-    { nil: undefined }
-  ),
-})
+const arbitraryConversationMessage: fc.Arbitrary<ConversationMessage> =
+  fc.record({
+    id: fc.uuid(),
+    role: fc.constantFrom('user', 'assistant', 'system') as fc.Arbitrary<
+      'user' | 'assistant' | 'system'
+    >,
+    content: fc.string(),
+    timestamp: arbitraryValidDate,
+    model: fc.option(fc.string(), { nil: undefined }),
+    metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue()), {
+      nil: undefined,
+    }),
+  })
 
 /**
  * Helper function to compare two ConversationMessages for equality
  * Handles Date comparison and optional fields properly
  */
-function messagesAreEqual(a: ConversationMessage, b: ConversationMessage): boolean {
+function messagesAreEqual(
+  a: ConversationMessage,
+  b: ConversationMessage
+): boolean {
   // Compare required fields
   if (a.id !== b.id) return false
   if (a.role !== b.role) return false
@@ -70,7 +75,7 @@ describe('AI Types Property Tests', () => {
    */
   it('message serialization round-trip preserves all fields', () => {
     fc.assert(
-      fc.property(arbitraryConversationMessage, (message) => {
+      fc.property(arbitraryConversationMessage, message => {
         const serialized = serializeMessage(message)
         const deserialized = deserializeMessage(serialized)
 
@@ -90,7 +95,7 @@ describe('AI Types Property Tests', () => {
    */
   it('messages array serialization round-trip preserves all messages', () => {
     fc.assert(
-      fc.property(fc.array(arbitraryConversationMessage), (messages) => {
+      fc.property(fc.array(arbitraryConversationMessage), messages => {
         const serialized = serializeMessages(messages)
         const deserialized = deserializeMessages(serialized)
 
@@ -112,7 +117,7 @@ describe('AI Types Property Tests', () => {
    */
   it('serialized timestamp is valid ISO 8601 string', () => {
     fc.assert(
-      fc.property(arbitraryConversationMessage, (message) => {
+      fc.property(arbitraryConversationMessage, message => {
         const serialized = serializeMessage(message)
 
         // Verify timestamp is a string

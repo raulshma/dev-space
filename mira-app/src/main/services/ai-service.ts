@@ -22,7 +22,10 @@ import type {
   serializeMessage,
 } from 'shared/ai-types'
 import type { KeychainService } from './keychain-service'
-import type { ProviderRegistry, AIProviderAdapter } from './ai/provider-registry'
+import type {
+  ProviderRegistry,
+  AIProviderAdapter,
+} from './ai/provider-registry'
 import type { ModelRegistry } from './ai/model-registry'
 import type { RequestLogger } from './ai/request-logger'
 import { OpenRouterProvider } from './ai/openrouter-provider'
@@ -55,7 +58,6 @@ export class AIServiceError extends Error {
     this.name = 'AIServiceError'
   }
 }
-
 
 /**
  * Retry configuration for transient failures
@@ -114,7 +116,10 @@ export interface IAIService {
   streamText(params: StreamTextParams): AsyncIterable<StreamTextChunk>
   getConversation(projectId: string): ConversationMessage[]
   clearConversation(projectId: string): void
-  addMessageToConversation(projectId: string, message: ConversationMessage): void
+  addMessageToConversation(
+    projectId: string,
+    message: ConversationMessage
+  ): void
 }
 
 /**
@@ -210,7 +215,6 @@ export class AIService implements IAIService {
   getModelForAction(action: AIAction): AIModel | undefined {
     return this.modelRegistry.getModelForAction(action)
   }
-
 
   /**
    * Generate text using the AI model
@@ -340,7 +344,6 @@ export class AIService implements IAIService {
       throw aiError
     }
   }
-
 
   /**
    * Stream text generation
@@ -485,7 +488,6 @@ export class AIService implements IAIService {
     }
   }
 
-
   /**
    * Get conversation for a project
    *
@@ -512,7 +514,10 @@ export class AIService implements IAIService {
    * Used for preserving conversation context on model switch.
    * Requirements: 3.6
    */
-  addMessageToConversation(projectId: string, message: ConversationMessage): void {
+  addMessageToConversation(
+    projectId: string,
+    message: ConversationMessage
+  ): void {
     const context = this.getProjectContext(projectId)
     context.conversation.push(message)
   }
@@ -577,14 +582,11 @@ export class AIService implements IAIService {
       const aiError = this.classifyError(error)
 
       // Check if we should retry
-      if (
-        aiError.isRetryable &&
-        retryCount < this.retryConfig.maxRetries
-      ) {
+      if (aiError.isRetryable && retryCount < this.retryConfig.maxRetries) {
         // Calculate delay with exponential backoff
         const delay = Math.min(
           this.retryConfig.initialDelayMs *
-            Math.pow(this.retryConfig.backoffMultiplier, retryCount),
+            this.retryConfig.backoffMultiplier ** retryCount,
           this.retryConfig.maxDelayMs
         )
 
@@ -713,7 +715,7 @@ export class AIService implements IAIService {
   calculateRetryDelay(retryCount: number): number {
     return Math.min(
       this.retryConfig.initialDelayMs *
-        Math.pow(this.retryConfig.backoffMultiplier, retryCount),
+        this.retryConfig.backoffMultiplier ** retryCount,
       this.retryConfig.maxDelayMs
     )
   }

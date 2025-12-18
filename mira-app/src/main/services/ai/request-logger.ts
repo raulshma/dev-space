@@ -325,7 +325,9 @@ export function createResponseLog(options: {
     },
     latencyMs: options.latencyMs,
     finishReason: options.finishReason,
-    ...(options.modelVersion !== undefined && { modelVersion: options.modelVersion }),
+    ...(options.modelVersion !== undefined && {
+      modelVersion: options.modelVersion,
+    }),
   }
 }
 

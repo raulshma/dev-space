@@ -6,7 +6,12 @@
  */
 
 import { useEffect, useState } from 'react'
-import { IconX, IconAlertCircle, IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
+import {
+  IconX,
+  IconAlertCircle,
+  IconAlertTriangle,
+  IconInfoCircle,
+} from '@tabler/icons-react'
 import { useErrorStore } from 'renderer/stores/error-store'
 import {
   Alert,

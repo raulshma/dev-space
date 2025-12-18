@@ -13,7 +13,11 @@
  */
 
 import { EventEmitter } from 'node:events'
-import type { OutputLine, OutputStreamType, CreateOutputLineInput } from 'shared/ai-types'
+import type {
+  OutputLine,
+  OutputStreamType,
+  CreateOutputLineInput,
+} from 'shared/ai-types'
 import type { DatabaseService } from '../database'
 
 /**
@@ -166,7 +170,11 @@ export class OutputBuffer extends EventEmitter implements IOutputBuffer {
    * @param stream - The stream type (stdout or stderr)
    * @returns The created output line
    */
-  append(taskId: string, content: string, stream: OutputStreamType): OutputLine {
+  append(
+    taskId: string,
+    content: string,
+    stream: OutputStreamType
+  ): OutputLine {
     const buffer = this.getOrCreateBuffer(taskId)
     const timestamp = new Date()
 

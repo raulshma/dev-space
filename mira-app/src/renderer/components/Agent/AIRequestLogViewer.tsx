@@ -1,5 +1,11 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from 'renderer/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from 'renderer/components/ui/card'
 import { Input } from 'renderer/components/ui/input'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
@@ -18,7 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from 'renderer/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from 'renderer/components/ui/tabs'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from 'renderer/components/ui/tabs'
 import { Spinner } from 'renderer/components/ui/spinner'
 import {
   IconSearch,
@@ -32,7 +43,12 @@ import {
   IconCopy,
   IconExternalLink,
 } from '@tabler/icons-react'
-import type { AIRequestLog, AIAction, AIRequestStatus, AILogFilter } from 'shared/ai-types'
+import type {
+  AIRequestLog,
+  AIAction,
+  AIRequestStatus,
+  AILogFilter,
+} from 'shared/ai-types'
 import { useAIRequestLogs, useAIRequestLog } from 'renderer/hooks/use-ai'
 
 /**
@@ -44,7 +60,10 @@ import { useAIRequestLogs, useAIRequestLog } from 'renderer/hooks/use-ai'
  * Requirements: 4.5
  */
 
-const STATUS_CONFIG: Record<AIRequestStatus, { label: string; icon: React.ReactNode; className: string }> = {
+const STATUS_CONFIG: Record<
+  AIRequestStatus,
+  { label: string; icon: React.ReactNode; className: string }
+> = {
   pending: {
     label: 'Pending',
     icon: <IconClock className="h-3 w-3" />,
@@ -63,7 +82,7 @@ const STATUS_CONFIG: Record<AIRequestStatus, { label: string; icon: React.ReactN
 }
 
 const ACTION_LABELS: Record<AIAction, string> = {
-  'chat': 'Chat',
+  chat: 'Chat',
   'code-generation': 'Code Generation',
   'error-fix': 'Error Fix',
   'parameter-extraction': 'Parameter Extraction',
@@ -113,26 +132,27 @@ export function AIRequestLogViewer(): React.JSX.Element {
     if (!searchQuery.trim()) return logs
 
     const query = searchQuery.toLowerCase()
-    return logs.filter(log =>
-      log.modelId.toLowerCase().includes(query) ||
-      log.action.toLowerCase().includes(query) ||
-      log.input.messages.some(m => m.content.toLowerCase().includes(query)) ||
-      log.response?.output.toLowerCase().includes(query) ||
-      log.error?.message.toLowerCase().includes(query)
+    return logs.filter(
+      log =>
+        log.modelId.toLowerCase().includes(query) ||
+        log.action.toLowerCase().includes(query) ||
+        log.input.messages.some(m => m.content.toLowerCase().includes(query)) ||
+        log.response?.output.toLowerCase().includes(query) ||
+        log.error?.message.toLowerCase().includes(query)
     )
   }, [logs, searchQuery])
 
   const handleStatusFilter = useCallback((status: string) => {
     setFilter(prev => ({
       ...prev,
-      status: status === 'all' ? undefined : status as AIRequestStatus,
+      status: status === 'all' ? undefined : (status as AIRequestStatus),
     }))
   }, [])
 
   const handleActionFilter = useCallback((action: string) => {
     setFilter(prev => ({
       ...prev,
-      action: action === 'all' ? undefined : action as AIAction,
+      action: action === 'all' ? undefined : (action as AIAction),
     }))
   }, [])
 
@@ -163,8 +183,10 @@ export function AIRequestLogViewer(): React.JSX.Element {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <IconAlertCircle className="h-8 w-8 text-destructive" />
-        <p className="text-sm text-muted-foreground">Failed to load request logs</p>
-        <Button variant="outline" size="sm" onClick={handleRefresh}>
+        <p className="text-sm text-muted-foreground">
+          Failed to load request logs
+        </p>
+        <Button onClick={handleRefresh} size="sm" variant="outline">
           <IconRefresh className="mr-2 h-4 w-4" />
           Retry
         </Button>
@@ -188,19 +210,24 @@ export function AIRequestLogViewer(): React.JSX.Element {
         <div className="relative flex-1 min-w-[200px]">
           <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            className="pl-9"
+            onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search logs..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
           />
         </div>
 
         {/* Status Filter */}
-        <Select value={filter.status || 'all'} onValueChange={(value) => handleStatusFilter(value || 'all')}>
+        <Select
+          onValueChange={value => handleStatusFilter(value || 'all')}
+          value={filter.status || 'all'}
+        >
           <SelectTrigger className="w-[140px]">
             <IconFilter className="mr-2 h-4 w-4" />
             <SelectValue>
-              {filter.status ? STATUS_CONFIG[filter.status].label : 'All Status'}
+              {filter.status
+                ? STATUS_CONFIG[filter.status].label
+                : 'All Status'}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -212,7 +239,10 @@ export function AIRequestLogViewer(): React.JSX.Element {
         </Select>
 
         {/* Action Filter */}
-        <Select value={filter.action || 'all'} onValueChange={(value) => handleActionFilter(value || 'all')}>
+        <Select
+          onValueChange={value => handleActionFilter(value || 'all')}
+          value={filter.action || 'all'}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue>
               {filter.action ? ACTION_LABELS[filter.action] : 'All Actions'}
@@ -229,7 +259,7 @@ export function AIRequestLogViewer(): React.JSX.Element {
         </Select>
 
         {/* Refresh Button */}
-        <Button variant="outline" size="icon" onClick={handleRefresh}>
+        <Button onClick={handleRefresh} size="icon" variant="outline">
           <IconRefresh className="h-4 w-4" />
         </Button>
       </div>
@@ -238,7 +268,9 @@ export function AIRequestLogViewer(): React.JSX.Element {
       <ScrollArea className="flex-1">
         {filteredLogs.length === 0 ? (
           <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-            {searchQuery ? 'No logs match your search' : 'No request logs found'}
+            {searchQuery
+              ? 'No logs match your search'
+              : 'No request logs found'}
           </div>
         ) : (
           <div className="space-y-2">
@@ -261,8 +293,8 @@ export function AIRequestLogViewer(): React.JSX.Element {
       {/* Detail Dialog */}
       <LogDetailDialog
         logId={selectedLogId}
-        open={!!selectedLogId}
         onClose={handleCloseDetail}
+        open={!!selectedLogId}
       />
     </div>
   )
@@ -275,7 +307,8 @@ interface LogListItemProps {
 
 function LogListItem({ log, onClick }: LogListItemProps): React.JSX.Element {
   const statusConfig = STATUS_CONFIG[log.status]
-  const inputPreview = log.input.messages[log.input.messages.length - 1]?.content || ''
+  const inputPreview =
+    log.input.messages[log.input.messages.length - 1]?.content || ''
 
   return (
     <Card
@@ -284,7 +317,7 @@ function LogListItem({ log, onClick }: LogListItemProps): React.JSX.Element {
     >
       <CardContent className="flex items-center gap-4 p-3">
         {/* Status Badge */}
-        <Badge variant="secondary" className={statusConfig.className}>
+        <Badge className={statusConfig.className} variant="secondary">
           {statusConfig.icon}
           <span className="ml-1">{statusConfig.label}</span>
         </Badge>
@@ -293,7 +326,7 @@ function LogListItem({ log, onClick }: LogListItemProps): React.JSX.Element {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{log.modelId}</span>
-            <Badge variant="outline" className="text-xs">
+            <Badge className="text-xs" variant="outline">
               {ACTION_LABELS[log.action]}
             </Badge>
           </div>
@@ -304,9 +337,7 @@ function LogListItem({ log, onClick }: LogListItemProps): React.JSX.Element {
 
         {/* Metadata */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          {log.response && (
-            <span>{formatLatency(log.response.latencyMs)}</span>
-          )}
+          {log.response && <span>{formatLatency(log.response.latencyMs)}</span>}
           <span>{formatDate(log.timestamp)}</span>
           <IconChevronRight className="h-4 w-4" />
         </div>
@@ -321,7 +352,11 @@ interface LogDetailDialogProps {
   onClose: () => void
 }
 
-function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.JSX.Element {
+function LogDetailDialog({
+  logId,
+  open,
+  onClose,
+}: LogDetailDialogProps): React.JSX.Element {
   const { data: log, isLoading } = useAIRequestLog(logId)
 
   const handleCopyJson = useCallback(() => {
@@ -330,12 +365,14 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
   }, [log])
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog onOpenChange={onClose} open={open}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Request Details</DialogTitle>
           <DialogDescription>
-            {log ? `${log.modelId} - ${formatDate(log.timestamp)}` : 'Loading...'}
+            {log
+              ? `${log.modelId} - ${formatDate(log.timestamp)}`
+              : 'Loading...'}
           </DialogDescription>
         </DialogHeader>
 
@@ -347,7 +384,10 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
           <div className="flex-1 overflow-hidden">
             {/* Summary */}
             <div className="mb-4 flex flex-wrap gap-2">
-              <Badge variant="secondary" className={STATUS_CONFIG[log.status].className}>
+              <Badge
+                className={STATUS_CONFIG[log.status].className}
+                variant="secondary"
+              >
                 {STATUS_CONFIG[log.status].icon}
                 <span className="ml-1">{STATUS_CONFIG[log.status].label}</span>
               </Badge>
@@ -365,24 +405,24 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
             </div>
 
             {/* Tabs for Input/Output/Error */}
-            <Tabs defaultValue="input" className="flex-1">
+            <Tabs className="flex-1" defaultValue="input">
               <TabsList>
                 <TabsTrigger value="input">Input</TabsTrigger>
-                <TabsTrigger value="output" disabled={!log.response}>
+                <TabsTrigger disabled={!log.response} value="output">
                   Output
                 </TabsTrigger>
-                {log.error && (
-                  <TabsTrigger value="error">Error</TabsTrigger>
-                )}
+                {log.error && <TabsTrigger value="error">Error</TabsTrigger>}
                 <TabsTrigger value="metadata">Metadata</TabsTrigger>
               </TabsList>
 
               <ScrollArea className="h-[400px] mt-4">
-                <TabsContent value="input" className="m-0">
+                <TabsContent className="m-0" value="input">
                   <div className="space-y-4">
                     {log.input.systemPrompt && (
                       <div>
-                        <h4 className="text-sm font-medium mb-2">System Prompt</h4>
+                        <h4 className="text-sm font-medium mb-2">
+                          System Prompt
+                        </h4>
                         <pre className="rounded-lg bg-muted p-3 text-xs overflow-x-auto whitespace-pre-wrap">
                           {log.input.systemPrompt}
                         </pre>
@@ -392,9 +432,9 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                       <h4 className="text-sm font-medium mb-2">Messages</h4>
                       <div className="space-y-2">
                         {log.input.messages.map((msg, idx) => (
-                          <div key={idx} className="rounded-lg bg-muted p-3">
+                          <div className="rounded-lg bg-muted p-3" key={idx}>
                             <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className="text-xs">
+                              <Badge className="text-xs" variant="outline">
                                 {msg.role}
                               </Badge>
                             </div>
@@ -408,7 +448,7 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                   </div>
                 </TabsContent>
 
-                <TabsContent value="output" className="m-0">
+                <TabsContent className="m-0" value="output">
                   {log.response && (
                     <div className="space-y-4">
                       <div>
@@ -418,7 +458,9 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                         </pre>
                       </div>
                       <div>
-                        <h4 className="text-sm font-medium mb-2">Token Usage</h4>
+                        <h4 className="text-sm font-medium mb-2">
+                          Token Usage
+                        </h4>
                         <div className="grid grid-cols-3 gap-4">
                           <Card>
                             <CardContent className="p-3 text-center">
@@ -457,7 +499,7 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                 </TabsContent>
 
                 {log.error && (
-                  <TabsContent value="error" className="m-0">
+                  <TabsContent className="m-0" value="error">
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-medium mb-2">Error Type</h4>
@@ -471,21 +513,25 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                       </div>
                       {log.error.stack && (
                         <div>
-                          <h4 className="text-sm font-medium mb-2">Stack Trace</h4>
+                          <h4 className="text-sm font-medium mb-2">
+                            Stack Trace
+                          </h4>
                           <pre className="rounded-lg bg-muted p-3 text-xs overflow-x-auto whitespace-pre-wrap">
                             {log.error.stack}
                           </pre>
                         </div>
                       )}
                       <div>
-                        <h4 className="text-sm font-medium mb-2">Retry Count</h4>
+                        <h4 className="text-sm font-medium mb-2">
+                          Retry Count
+                        </h4>
                         <span className="text-sm">{log.error.retryCount}</span>
                       </div>
                     </div>
                   </TabsContent>
                 )}
 
-                <TabsContent value="metadata" className="m-0">
+                <TabsContent className="m-0" value="metadata">
                   <div className="space-y-4">
                     <div>
                       <h4 className="text-sm font-medium mb-2">Request ID</h4>
@@ -499,25 +545,37 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                     </div>
                     <div>
                       <h4 className="text-sm font-medium mb-2">Action</h4>
-                      <span className="text-sm">{ACTION_LABELS[log.action]}</span>
+                      <span className="text-sm">
+                        {ACTION_LABELS[log.action]}
+                      </span>
                     </div>
                     {log.metadata && (
                       <>
                         {log.metadata.temperature !== undefined && (
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Temperature</h4>
-                            <span className="text-sm">{log.metadata.temperature}</span>
+                            <h4 className="text-sm font-medium mb-2">
+                              Temperature
+                            </h4>
+                            <span className="text-sm">
+                              {log.metadata.temperature}
+                            </span>
                           </div>
                         )}
                         {log.metadata.maxTokens !== undefined && (
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Max Tokens</h4>
-                            <span className="text-sm">{log.metadata.maxTokens}</span>
+                            <h4 className="text-sm font-medium mb-2">
+                              Max Tokens
+                            </h4>
+                            <span className="text-sm">
+                              {log.metadata.maxTokens}
+                            </span>
                           </div>
                         )}
                         {log.metadata.projectId && (
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Project ID</h4>
+                            <h4 className="text-sm font-medium mb-2">
+                              Project ID
+                            </h4>
                             <code className="rounded bg-muted px-2 py-1 text-xs">
                               {log.metadata.projectId}
                             </code>
@@ -527,14 +585,22 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
                     )}
                     {log.response?.modelVersion && (
                       <div>
-                        <h4 className="text-sm font-medium mb-2">Model Version</h4>
-                        <span className="text-sm">{log.response.modelVersion}</span>
+                        <h4 className="text-sm font-medium mb-2">
+                          Model Version
+                        </h4>
+                        <span className="text-sm">
+                          {log.response.modelVersion}
+                        </span>
                       </div>
                     )}
                     {log.response?.finishReason && (
                       <div>
-                        <h4 className="text-sm font-medium mb-2">Finish Reason</h4>
-                        <Badge variant="outline">{log.response.finishReason}</Badge>
+                        <h4 className="text-sm font-medium mb-2">
+                          Finish Reason
+                        </h4>
+                        <Badge variant="outline">
+                          {log.response.finishReason}
+                        </Badge>
                       </div>
                     )}
                   </div>
@@ -544,7 +610,7 @@ function LogDetailDialog({ logId, open, onClose }: LogDetailDialogProps): React.
 
             {/* Actions */}
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={handleCopyJson}>
+              <Button onClick={handleCopyJson} size="sm" variant="outline">
                 <IconCopy className="mr-2 h-4 w-4" />
                 Copy JSON
               </Button>

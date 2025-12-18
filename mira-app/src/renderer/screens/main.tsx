@@ -62,7 +62,10 @@ export function MainScreen() {
             <ProjectDashboard />
           )}
           <CommandPalette />
-          <SettingsPanel isOpen={settingsPanelOpen} onClose={closeSettingsPanel} />
+          <SettingsPanel
+            isOpen={settingsPanelOpen}
+            onClose={closeSettingsPanel}
+          />
           <ErrorToast />
         </main>
       </QueryClientProvider>

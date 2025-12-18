@@ -203,7 +203,7 @@ export class TaskQueue extends EventEmitter implements ITaskQueue {
     const currentSet = new Set(this.queue)
 
     // Filter to only include tasks that are in the current queue
-    const newQueue = taskIds.filter((id) => currentSet.has(id))
+    const newQueue = taskIds.filter(id => currentSet.has(id))
 
     // Update the queue
     this.queue = newQueue
@@ -338,4 +338,3 @@ export class TaskQueue extends EventEmitter implements ITaskQueue {
     return this.moveTo(taskId, this.queue.length)
   }
 }
-

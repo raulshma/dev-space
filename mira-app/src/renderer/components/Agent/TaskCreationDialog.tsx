@@ -26,7 +26,12 @@ import { Label } from 'renderer/components/ui/label'
 import { Textarea } from 'renderer/components/ui/textarea'
 import { Alert, AlertDescription } from 'renderer/components/ui/alert'
 import { Badge } from 'renderer/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from 'renderer/components/ui/tabs'
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from 'renderer/components/ui/tabs'
 import {
   IconFolder,
   IconRocket,
@@ -194,7 +199,7 @@ Respond with JSON only:
 
       try {
         const parsed = JSON.parse(result.text)
-        setParameters((prev) => ({
+        setParameters(prev => ({
           ...prev,
           maxIterations: parsed.maxIterations || prev.maxIterations,
           testCount: parsed.testCount || prev.testCount,
@@ -229,7 +234,7 @@ Respond with JSON only:
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create Agent Task</DialogTitle>
@@ -241,10 +246,10 @@ Respond with JSON only:
         {/* Step indicator */}
         <div className="flex items-center justify-center gap-2 py-2">
           {(['details', 'parameters', 'review'] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center">
+            <div className="flex items-center" key={s}>
               <Badge
-                variant={step === s ? 'default' : 'outline'}
                 className="capitalize"
+                variant={step === s ? 'default' : 'outline'}
               >
                 {i + 1}. {s}
               </Badge>
@@ -270,40 +275,43 @@ Respond with JSON only:
               <Label htmlFor="description">Task Description</Label>
               <Textarea
                 id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={e => setDescription(e.target.value)}
                 placeholder="Describe what you want the agent to accomplish..."
                 rows={4}
+                value={description}
               />
               <p className="text-xs text-muted-foreground">
-                Be specific about the feature, bug fix, or task you want completed
+                Be specific about the feature, bug fix, or task you want
+                completed
               </p>
             </div>
 
             <div className="space-y-2">
               <Label>Agent Type</Label>
               <Tabs
+                onValueChange={v => setAgentType(v as AgentType)}
                 value={agentType}
-                onValueChange={(v) => setAgentType(v as AgentType)}
               >
                 <TabsList className="w-full">
-                  <TabsTrigger value="feature" className="flex-1">
+                  <TabsTrigger className="flex-1" value="feature">
                     <IconGitBranch className="mr-2 h-4 w-4" />
                     Feature Agent
                   </TabsTrigger>
-                  <TabsTrigger value="autonomous" className="flex-1">
+                  <TabsTrigger className="flex-1" value="autonomous">
                     <IconRocket className="mr-2 h-4 w-4" />
                     Autonomous Agent
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="feature" className="mt-2">
+                <TabsContent className="mt-2" value="feature">
                   <p className="text-xs text-muted-foreground">
-                    Implements features in an existing repository. Requires a valid git repository.
+                    Implements features in an existing repository. Requires a
+                    valid git repository.
                   </p>
                 </TabsContent>
-                <TabsContent value="autonomous" className="mt-2">
+                <TabsContent className="mt-2" value="autonomous">
                   <p className="text-xs text-muted-foreground">
-                    Creates new projects from scratch. Can work in any directory.
+                    Creates new projects from scratch. Can work in any
+                    directory.
                   </p>
                 </TabsContent>
               </Tabs>
@@ -313,13 +321,13 @@ Respond with JSON only:
               <Label htmlFor="directory">Target Directory</Label>
               <div className="flex gap-2">
                 <Input
-                  id="directory"
-                  value={targetDirectory}
-                  onChange={(e) => setTargetDirectory(e.target.value)}
-                  placeholder="/path/to/project"
                   className="flex-1"
+                  id="directory"
+                  onChange={e => setTargetDirectory(e.target.value)}
+                  placeholder="/path/to/project"
+                  value={targetDirectory}
                 />
-                <Button variant="outline" onClick={handleSelectDirectory}>
+                <Button onClick={handleSelectDirectory} variant="outline">
                   <IconFolder className="h-4 w-4" />
                 </Button>
               </div>
@@ -338,10 +346,10 @@ Respond with JSON only:
             <div className="flex items-center justify-between">
               <Label>Agent Parameters</Label>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGenerateParameters}
                 disabled={isGeneratingParams}
+                onClick={handleGenerateParameters}
+                size="sm"
+                variant="outline"
               >
                 {isGeneratingParams ? (
                   <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -357,11 +365,11 @@ Respond with JSON only:
                 <Label htmlFor="model">Model</Label>
                 <Input
                   id="model"
-                  value={parameters.model || ''}
-                  onChange={(e) =>
+                  onChange={e =>
                     setParameters({ ...parameters, model: e.target.value })
                   }
                   placeholder="claude-sonnet-4-20250514"
+                  value={parameters.model || ''}
                 />
               </div>
 
@@ -370,16 +378,17 @@ Respond with JSON only:
                   <Label htmlFor="max-iterations">Max Iterations</Label>
                   <Input
                     id="max-iterations"
-                    type="number"
-                    min={1}
                     max={100}
-                    value={parameters.maxIterations || 10}
-                    onChange={(e) =>
+                    min={1}
+                    onChange={e =>
                       setParameters({
                         ...parameters,
-                        maxIterations: Number.parseInt(e.target.value, 10) || 10,
+                        maxIterations:
+                          Number.parseInt(e.target.value, 10) || 10,
                       })
                     }
+                    type="number"
+                    value={parameters.maxIterations || 10}
                   />
                 </div>
 
@@ -387,16 +396,16 @@ Respond with JSON only:
                   <Label htmlFor="test-count">Test Count</Label>
                   <Input
                     id="test-count"
-                    type="number"
-                    min={0}
                     max={50}
-                    value={parameters.testCount || 5}
-                    onChange={(e) =>
+                    min={0}
+                    onChange={e =>
                       setParameters({
                         ...parameters,
                         testCount: Number.parseInt(e.target.value, 10) || 5,
                       })
                     }
+                    type="number"
+                    value={parameters.testCount || 5}
                   />
                 </div>
               </div>
@@ -405,11 +414,11 @@ Respond with JSON only:
                 <Label htmlFor="task-file">Task File (optional)</Label>
                 <Input
                   id="task-file"
-                  value={parameters.taskFile || ''}
-                  onChange={(e) =>
+                  onChange={e =>
                     setParameters({ ...parameters, taskFile: e.target.value })
                   }
                   placeholder="path/to/task.md"
+                  value={parameters.taskFile || ''}
                 />
                 <p className="text-xs text-muted-foreground">
                   Optional file containing detailed task instructions
@@ -424,49 +433,67 @@ Respond with JSON only:
           <div className="space-y-4">
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
               <div>
-                <Label className="text-xs text-muted-foreground">Description</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Description
+                </Label>
                 <p className="text-sm">{description}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Agent Type</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Agent Type
+                  </Label>
                   <p className="text-sm capitalize">{agentType}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Model</Label>
-                  <p className="text-sm font-mono text-xs">{parameters.model}</p>
+                  <p className="text-sm font-mono text-xs">
+                    {parameters.model}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <Label className="text-xs text-muted-foreground">Target Directory</Label>
-                <p className="text-sm font-mono text-xs truncate">{targetDirectory}</p>
+                <Label className="text-xs text-muted-foreground">
+                  Target Directory
+                </Label>
+                <p className="text-sm font-mono text-xs truncate">
+                  {targetDirectory}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Max Iterations</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Max Iterations
+                  </Label>
                   <p className="text-sm">{parameters.maxIterations}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Test Count</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Test Count
+                  </Label>
                   <p className="text-sm">{parameters.testCount}</p>
                 </div>
               </div>
 
               {parameters.taskFile && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Task File</Label>
-                  <p className="text-sm font-mono text-xs">{parameters.taskFile}</p>
+                  <Label className="text-xs text-muted-foreground">
+                    Task File
+                  </Label>
+                  <p className="text-sm font-mono text-xs">
+                    {parameters.taskFile}
+                  </p>
                 </div>
               )}
             </div>
 
             <Alert>
               <AlertDescription className="text-xs">
-                The task will be added to the backlog with "pending" status. You can
-                start it from the task list when ready.
+                The task will be added to the backlog with "pending" status. You
+                can start it from the task list when ready.
               </AlertDescription>
             </Alert>
           </div>
@@ -474,16 +501,13 @@ Respond with JSON only:
 
         <DialogFooter>
           {step !== 'details' && (
-            <Button variant="outline" onClick={handlePreviousStep}>
+            <Button onClick={handlePreviousStep} variant="outline">
               Back
             </Button>
           )}
 
           {step === 'review' ? (
-            <Button
-              onClick={handleCreateTask}
-              disabled={createTask.isPending}
-            >
+            <Button disabled={createTask.isPending} onClick={handleCreateTask}>
               {createTask.isPending ? (
                 <>
                   <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -494,7 +518,7 @@ Respond with JSON only:
               )}
             </Button>
           ) : (
-            <Button onClick={handleNextStep} disabled={isValidating}>
+            <Button disabled={isValidating} onClick={handleNextStep}>
               {isValidating ? (
                 <>
                   <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -87,6 +87,14 @@ makeAppWithSingleInstanceLock(async () => {
   db.initialize()
   db.migrate()
 
+  // Initialize keychain service (loads persisted API keys)
+  try {
+    await keychainService.initialize()
+    console.log('Keychain service initialized successfully')
+  } catch (error) {
+    console.warn('Failed to initialize keychain service:', error)
+  }
+
   // Initialize services that depend on database
   modelRegistry.initialize()
   requestLogger.initialize()

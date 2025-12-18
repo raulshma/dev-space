@@ -9,7 +9,11 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as fc from 'fast-check'
-import { ProcessManager, buildAgentEnvironment, type ProcessStatus } from './process-manager'
+import {
+  ProcessManager,
+  buildAgentEnvironment,
+  type ProcessStatus,
+} from './process-manager'
 
 /**
  * JavaScript reserved property names that should not be used as object keys
@@ -38,7 +42,9 @@ const RESERVED_JS_PROPERTIES = new Set([
  */
 const arbitraryEnvKey: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 50 })
-  .filter((s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s) && !RESERVED_JS_PROPERTIES.has(s))
+  .filter(
+    s => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s) && !RESERVED_JS_PROPERTIES.has(s)
+  )
 
 /**
  * Arbitrary generator for environment variable values
@@ -49,18 +55,15 @@ const arbitraryEnvValue: fc.Arbitrary<string> = fc.string({ maxLength: 200 })
 /**
  * Arbitrary generator for custom environment variables dictionary
  */
-const arbitraryCustomEnvVars: fc.Arbitrary<Record<string, string>> = fc.dictionary(
-  arbitraryEnvKey,
-  arbitraryEnvValue,
-  { minKeys: 0, maxKeys: 10 }
-)
+const arbitraryCustomEnvVars: fc.Arbitrary<Record<string, string>> =
+  fc.dictionary(arbitraryEnvKey, arbitraryEnvValue, { minKeys: 0, maxKeys: 10 })
 
 /**
  * Arbitrary generator for valid auth tokens (non-empty strings)
  */
 const arbitraryAuthToken: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 100 })
-  .filter((s) => s.trim().length > 0)
+  .filter(s => s.trim().length > 0)
 
 /**
  * Arbitrary generator for valid URLs
@@ -74,7 +77,10 @@ const arbitraryValidUrl: fc.Arbitrary<string> = fc.constantFrom(
 /**
  * Arbitrary generator for positive timeout values
  */
-const arbitraryPositiveTimeout: fc.Arbitrary<number> = fc.integer({ min: 1, max: 300000 })
+const arbitraryPositiveTimeout: fc.Arbitrary<number> = fc.integer({
+  min: 1,
+  max: 300000,
+})
 
 /**
  * Arbitrary generator for valid python paths
@@ -119,100 +125,128 @@ describe('Process Manager Property Tests', () => {
   describe('Property 7: Environment Variable Injection', () => {
     it('all custom environment variables are present in the built environment', () => {
       fc.assert(
-        fc.property(arbitraryBaseEnv, arbitraryAgentConfig, (baseEnv, agentConfig) => {
-          const result = buildAgentEnvironment(baseEnv, agentConfig)
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
 
-          // Check that all custom env vars are present with correct values
-          for (const [key, value] of Object.entries(agentConfig.customEnvVars)) {
-            if (result[key] !== value) {
-              return false
+            // Check that all custom env vars are present with correct values
+            for (const [key, value] of Object.entries(
+              agentConfig.customEnvVars
+            )) {
+              if (result[key] !== value) {
+                return false
+              }
             }
-          }
 
-          return true
-        }),
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('ANTHROPIC_AUTH_TOKEN is always present with correct value', () => {
       fc.assert(
-        fc.property(arbitraryBaseEnv, arbitraryAgentConfig, (baseEnv, agentConfig) => {
-          const result = buildAgentEnvironment(baseEnv, agentConfig)
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
 
-          // ANTHROPIC_AUTH_TOKEN must be present and match
-          return result.ANTHROPIC_AUTH_TOKEN === agentConfig.anthropicAuthToken
-        }),
+            // ANTHROPIC_AUTH_TOKEN must be present and match
+            return (
+              result.ANTHROPIC_AUTH_TOKEN === agentConfig.anthropicAuthToken
+            )
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('API_TIMEOUT_MS is always present with correct value', () => {
       fc.assert(
-        fc.property(arbitraryBaseEnv, arbitraryAgentConfig, (baseEnv, agentConfig) => {
-          const result = buildAgentEnvironment(baseEnv, agentConfig)
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
 
-          // API_TIMEOUT_MS must be present and match (as string)
-          return result.API_TIMEOUT_MS === agentConfig.apiTimeoutMs.toString()
-        }),
+            // API_TIMEOUT_MS must be present and match (as string)
+            return result.API_TIMEOUT_MS === agentConfig.apiTimeoutMs.toString()
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('PYTHON_PATH is always present with correct value', () => {
       fc.assert(
-        fc.property(arbitraryBaseEnv, arbitraryAgentConfig, (baseEnv, agentConfig) => {
-          const result = buildAgentEnvironment(baseEnv, agentConfig)
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
 
-          // PYTHON_PATH must be present and match
-          return result.PYTHON_PATH === agentConfig.pythonPath
-        }),
+            // PYTHON_PATH must be present and match
+            return result.PYTHON_PATH === agentConfig.pythonPath
+          }
+        ),
         { numRuns: 100 }
       )
     })
 
     it('ANTHROPIC_BASE_URL is present when configured', () => {
       fc.assert(
-        fc.property(arbitraryBaseEnv, arbitraryAgentConfig, (baseEnv, agentConfig) => {
-          const result = buildAgentEnvironment(baseEnv, agentConfig)
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
 
-          // If base URL is configured, it must be present
-          if (agentConfig.anthropicBaseUrl) {
-            return result.ANTHROPIC_BASE_URL === agentConfig.anthropicBaseUrl
+            // If base URL is configured, it must be present
+            if (agentConfig.anthropicBaseUrl) {
+              return result.ANTHROPIC_BASE_URL === agentConfig.anthropicBaseUrl
+            }
+
+            // If not configured, it should not be present
+            return result.ANTHROPIC_BASE_URL === undefined
           }
-
-          // If not configured, it should not be present
-          return result.ANTHROPIC_BASE_URL === undefined
-        }),
+        ),
         { numRuns: 100 }
       )
     })
 
     it('base environment variables are preserved unless overridden', () => {
       fc.assert(
-        fc.property(arbitraryBaseEnv, arbitraryAgentConfig, (baseEnv, agentConfig) => {
-          const result = buildAgentEnvironment(baseEnv, agentConfig)
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
 
-          // Reserved keys that agent config will override
-          const reservedKeys = new Set([
-            'ANTHROPIC_AUTH_TOKEN',
-            'ANTHROPIC_BASE_URL',
-            'API_TIMEOUT_MS',
-            'PYTHON_PATH',
-            ...Object.keys(agentConfig.customEnvVars),
-          ])
+            // Reserved keys that agent config will override
+            const reservedKeys = new Set([
+              'ANTHROPIC_AUTH_TOKEN',
+              'ANTHROPIC_BASE_URL',
+              'API_TIMEOUT_MS',
+              'PYTHON_PATH',
+              ...Object.keys(agentConfig.customEnvVars),
+            ])
 
-          // Check that non-reserved base env vars are preserved
-          for (const [key, value] of Object.entries(baseEnv)) {
-            if (!reservedKeys.has(key)) {
-              if (result[key] !== value) {
-                return false
+            // Check that non-reserved base env vars are preserved
+            for (const [key, value] of Object.entries(baseEnv)) {
+              if (!reservedKeys.has(key)) {
+                if (result[key] !== value) {
+                  return false
+                }
               }
             }
-          }
 
-          return true
-        }),
+            return true
+          }
+        ),
         { numRuns: 100 }
       )
     })
@@ -227,9 +261,12 @@ describe('Process Manager Property Tests', () => {
           (key, baseValue, customValue, agentConfig) => {
             // Skip reserved keys
             if (
-              ['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'API_TIMEOUT_MS', 'PYTHON_PATH'].includes(
-                key
-              )
+              [
+                'ANTHROPIC_AUTH_TOKEN',
+                'ANTHROPIC_BASE_URL',
+                'API_TIMEOUT_MS',
+                'PYTHON_PATH',
+              ].includes(key)
             ) {
               return true
             }
@@ -237,7 +274,10 @@ describe('Process Manager Property Tests', () => {
             const baseEnv = { [key]: baseValue }
             const configWithCustom = {
               ...agentConfig,
-              customEnvVars: { ...agentConfig.customEnvVars, [key]: customValue },
+              customEnvVars: {
+                ...agentConfig.customEnvVars,
+                [key]: customValue,
+              },
             }
 
             const result = buildAgentEnvironment(baseEnv, configWithCustom)
@@ -274,10 +314,26 @@ describe('Process Manager Property Tests', () => {
      * Arbitrary generator for valid state transitions
      */
     const arbitraryStateTransition = fc.constantFrom(
-      { from: 'running' as ProcessStatus, action: 'pause', expected: 'paused' as ProcessStatus },
-      { from: 'paused' as ProcessStatus, action: 'resume', expected: 'running' as ProcessStatus },
-      { from: 'running' as ProcessStatus, action: 'stop', expected: 'stopped' as ProcessStatus },
-      { from: 'paused' as ProcessStatus, action: 'stop', expected: 'stopped' as ProcessStatus }
+      {
+        from: 'running' as ProcessStatus,
+        action: 'pause',
+        expected: 'paused' as ProcessStatus,
+      },
+      {
+        from: 'paused' as ProcessStatus,
+        action: 'resume',
+        expected: 'running' as ProcessStatus,
+      },
+      {
+        from: 'running' as ProcessStatus,
+        action: 'stop',
+        expected: 'stopped' as ProcessStatus,
+      },
+      {
+        from: 'paused' as ProcessStatus,
+        action: 'stop',
+        expected: 'stopped' as ProcessStatus,
+      }
     )
 
     /**
@@ -287,7 +343,7 @@ describe('Process Manager Property Tests', () => {
      */
     it('state transitions follow valid state machine rules', () => {
       fc.assert(
-        fc.property(arbitraryStateTransition, (transition) => {
+        fc.property(arbitraryStateTransition, transition => {
           // Verify the state machine rules are correct
           // running -> pause -> paused
           // paused -> resume -> running
@@ -318,7 +374,7 @@ describe('Process Manager Property Tests', () => {
      */
     it('stopped processes cannot transition to other states', () => {
       fc.assert(
-        fc.property(fc.constantFrom('pause', 'resume'), (action) => {
+        fc.property(fc.constantFrom('pause', 'resume'), action => {
           // A stopped process should not be able to pause or resume
           // This is a logical property - once stopped, the process is done
           const invalidTransitions = [
@@ -328,7 +384,7 @@ describe('Process Manager Property Tests', () => {
 
           // Verify that these transitions are not in our valid state machine
           const isInvalid = invalidTransitions.some(
-            (t) => t.from === 'stopped' && t.action === action
+            t => t.from === 'stopped' && t.action === action
           )
 
           return isInvalid

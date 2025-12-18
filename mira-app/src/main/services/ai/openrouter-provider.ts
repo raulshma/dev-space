@@ -22,21 +22,26 @@ interface OpenRouterModelResponse {
 interface OpenRouterModel {
   id: string
   name: string
+  created: number
   description?: string
   context_length: number
   pricing: {
     prompt: string
     completion: string
+    request?: string
+    image?: string
   }
   top_provider?: {
     context_length?: number
     max_completion_tokens?: number
+    is_moderated?: boolean
   }
   architecture?: {
     modality?: string
     tokenizer?: string
     instruct_type?: string
   }
+  supported_generation_methods?: string[]
 }
 
 /**
@@ -76,7 +81,9 @@ export class OpenRouterProvider implements AIProviderAdapter {
    */
   createChatModel(modelId: string): LanguageModel {
     if (!this.client) {
-      throw new Error('OpenRouter provider not initialized. Call initialize() first.')
+      throw new Error(
+        'OpenRouter provider not initialized. Call initialize() first.'
+      )
     }
 
     return this.client.chat(modelId)
@@ -90,7 +97,9 @@ export class OpenRouterProvider implements AIProviderAdapter {
    */
   async fetchModels(): Promise<AIModel[]> {
     if (!this.apiKey) {
-      throw new Error('OpenRouter provider not initialized. Call initialize() first.')
+      throw new Error(
+        'OpenRouter provider not initialized. Call initialize() first.'
+      )
     }
 
     const baseUrl = this.baseUrl || 'https://openrouter.ai/api/v1'
@@ -102,7 +111,9 @@ export class OpenRouterProvider implements AIProviderAdapter {
     })
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Failed to fetch models: ${response.status} ${response.statusText}`
+      )
     }
 
     const data: OpenRouterModelResponse = await response.json()
@@ -125,18 +136,40 @@ export class OpenRouterProvider implements AIProviderAdapter {
    * @returns Transformed AIModel array
    */
   private transformModels(models: OpenRouterModel[]): AIModel[] {
-    return models.map((model) => ({
-      id: model.id,
-      name: model.name,
-      provider: this.extractProvider(model.id),
-      contextLength: model.context_length,
-      pricing: {
-        prompt: this.parsePrice(model.pricing.prompt),
-        completion: this.parsePrice(model.pricing.completion),
-      },
-      capabilities: this.extractCapabilities(model),
-      isConfigured: true, // Always true for OpenRouter since we have the API key
-    }))
+    return models.map(model => {
+      const promptPrice = this.parsePrice(model.pricing.prompt)
+      const completionPrice = this.parsePrice(model.pricing.completion)
+      const isFree = promptPrice === 0 && completionPrice === 0
+
+      return {
+        id: model.id,
+        name: model.name,
+        provider: this.extractProvider(model.id),
+        contextLength: model.context_length,
+        pricing: {
+          prompt: promptPrice,
+          completion: completionPrice,
+          request: model.pricing.request
+            ? this.parsePrice(model.pricing.request)
+            : undefined,
+          image: model.pricing.image
+            ? this.parsePrice(model.pricing.image)
+            : undefined,
+        },
+        capabilities: this.extractCapabilities(model),
+        isConfigured: true, // Always true for OpenRouter since we have the API key
+        description: model.description,
+        isFree,
+        maxCompletionTokens: model.top_provider?.max_completion_tokens,
+        supportedMethods: model.supported_generation_methods,
+        created: model.created,
+        architecture: {
+          modality: model.architecture?.modality || 'text->text',
+          tokenizer: model.architecture?.tokenizer,
+          instructType: model.architecture?.instruct_type,
+        },
+      }
+    })
   }
 
   /**

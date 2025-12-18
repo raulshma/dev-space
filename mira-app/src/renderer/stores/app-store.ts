@@ -23,14 +23,18 @@ export interface AppState {
   toggleAgentPanel: () => void
   setAgentPanelCollapsed: (collapsed: boolean) => void
   toggleZenMode: () => void
-  hydrateWorkspaceState: (state: Partial<Pick<
-    AppState,
-    | 'sidebarCollapsed'
-    | 'agentPanelCollapsed'
-    | 'zenMode'
-    | 'previousSidebarState'
-    | 'previousAgentPanelState'
-  >>) => void
+  hydrateWorkspaceState: (
+    state: Partial<
+      Pick<
+        AppState,
+        | 'sidebarCollapsed'
+        | 'agentPanelCollapsed'
+        | 'zenMode'
+        | 'previousSidebarState'
+        | 'previousAgentPanelState'
+      >
+    >
+  ) => void
   setActiveProject: (id: string | null) => void
   setActiveTerminal: (id: string | null) => void
   openCommandPalette: () => void

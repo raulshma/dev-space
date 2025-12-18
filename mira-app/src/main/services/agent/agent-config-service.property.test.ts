@@ -38,7 +38,7 @@ const arbitraryWhitespaceString: fc.Arbitrary<string> = fc.constantFrom(
  */
 const arbitraryValidString: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 100 })
-  .filter((s) => s.trim().length > 0)
+  .filter(s => s.trim().length > 0)
 
 /**
  * Arbitrary generator for valid URLs
@@ -64,75 +64,117 @@ const arbitraryInvalidUrl: fc.Arbitrary<string> = fc.constantFrom(
 /**
  * Arbitrary generator for positive timeout values
  */
-const arbitraryPositiveTimeout: fc.Arbitrary<number> = fc.integer({ min: 1, max: 300000 })
+const arbitraryPositiveTimeout: fc.Arbitrary<number> = fc.integer({
+  min: 1,
+  max: 300000,
+})
 
 /**
  * Arbitrary generator for non-positive timeout values
  */
-const arbitraryNonPositiveTimeout: fc.Arbitrary<number> = fc.integer({ min: -100000, max: 0 })
+const arbitraryNonPositiveTimeout: fc.Arbitrary<number> = fc.integer({
+  min: -100000,
+  max: 0,
+})
 
 /**
  * Arbitrary generator for custom environment variables
  */
-const arbitraryCustomEnvVars: fc.Arbitrary<Record<string, string>> = fc.dictionary(
-  fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.trim().length > 0),
-  fc.string({ maxLength: 200 })
+const arbitraryCustomEnvVars: fc.Arbitrary<Record<string, string>> =
+  fc.dictionary(
+    fc.string({ minLength: 1, maxLength: 50 }).filter(s => s.trim().length > 0),
+    fc.string({ maxLength: 200 })
+  )
+
+/**
+ * Arbitrary generator for agent service types
+ */
+const arbitraryAgentService = fc.constantFrom(
+  'claude-code' as const,
+  'opencode' as const,
+  'google-jules' as const,
+  'aider' as const,
+  'custom' as const
 )
 
 /**
  * Arbitrary generator for valid AgentEnvironmentConfig
  */
 const arbitraryValidConfig: fc.Arbitrary<AgentEnvironmentConfig> = fc.record({
+  agentService: arbitraryAgentService,
   anthropicAuthToken: arbitraryValidString,
   anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
   apiTimeoutMs: arbitraryPositiveTimeout,
   pythonPath: arbitraryValidString,
   customEnvVars: arbitraryCustomEnvVars,
+  googleApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+  openaiApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+  customCommand: fc.option(arbitraryValidString, { nil: undefined }),
 })
 
 /**
- * Arbitrary generator for config with empty/whitespace auth token
+ * Arbitrary generator for config with empty/whitespace auth token (for claude-code)
  */
-const arbitraryConfigWithEmptyAuthToken: fc.Arbitrary<AgentEnvironmentConfig> = fc.record({
-  anthropicAuthToken: arbitraryWhitespaceString,
-  anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
-  apiTimeoutMs: arbitraryPositiveTimeout,
-  pythonPath: arbitraryValidString,
-  customEnvVars: arbitraryCustomEnvVars,
-})
+const arbitraryConfigWithEmptyAuthToken: fc.Arbitrary<AgentEnvironmentConfig> =
+  fc.record({
+    agentService: fc.constant('claude-code' as const),
+    anthropicAuthToken: arbitraryWhitespaceString,
+    anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
+    apiTimeoutMs: arbitraryPositiveTimeout,
+    pythonPath: arbitraryValidString,
+    customEnvVars: arbitraryCustomEnvVars,
+    googleApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    openaiApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    customCommand: fc.option(arbitraryValidString, { nil: undefined }),
+  })
 
 /**
  * Arbitrary generator for config with empty/whitespace python path
  */
-const arbitraryConfigWithEmptyPythonPath: fc.Arbitrary<AgentEnvironmentConfig> = fc.record({
-  anthropicAuthToken: arbitraryValidString,
-  anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
-  apiTimeoutMs: arbitraryPositiveTimeout,
-  pythonPath: arbitraryWhitespaceString,
-  customEnvVars: arbitraryCustomEnvVars,
-})
+const arbitraryConfigWithEmptyPythonPath: fc.Arbitrary<AgentEnvironmentConfig> =
+  fc.record({
+    agentService: arbitraryAgentService,
+    anthropicAuthToken: arbitraryValidString,
+    anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
+    apiTimeoutMs: arbitraryPositiveTimeout,
+    pythonPath: arbitraryWhitespaceString,
+    customEnvVars: arbitraryCustomEnvVars,
+    googleApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    openaiApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    customCommand: fc.option(arbitraryValidString, { nil: undefined }),
+  })
 
 /**
  * Arbitrary generator for config with non-positive timeout
  */
-const arbitraryConfigWithInvalidTimeout: fc.Arbitrary<AgentEnvironmentConfig> = fc.record({
-  anthropicAuthToken: arbitraryValidString,
-  anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
-  apiTimeoutMs: arbitraryNonPositiveTimeout,
-  pythonPath: arbitraryValidString,
-  customEnvVars: arbitraryCustomEnvVars,
-})
+const arbitraryConfigWithInvalidTimeout: fc.Arbitrary<AgentEnvironmentConfig> =
+  fc.record({
+    agentService: arbitraryAgentService,
+    anthropicAuthToken: arbitraryValidString,
+    anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
+    apiTimeoutMs: arbitraryNonPositiveTimeout,
+    pythonPath: arbitraryValidString,
+    customEnvVars: arbitraryCustomEnvVars,
+    googleApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    openaiApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    customCommand: fc.option(arbitraryValidString, { nil: undefined }),
+  })
 
 /**
  * Arbitrary generator for config with invalid base URL
  */
-const arbitraryConfigWithInvalidBaseUrl: fc.Arbitrary<AgentEnvironmentConfig> = fc.record({
-  anthropicAuthToken: arbitraryValidString,
-  anthropicBaseUrl: arbitraryInvalidUrl,
-  apiTimeoutMs: arbitraryPositiveTimeout,
-  pythonPath: arbitraryValidString,
-  customEnvVars: arbitraryCustomEnvVars,
-})
+const arbitraryConfigWithInvalidBaseUrl: fc.Arbitrary<AgentEnvironmentConfig> =
+  fc.record({
+    agentService: arbitraryAgentService,
+    anthropicAuthToken: arbitraryValidString,
+    anthropicBaseUrl: arbitraryInvalidUrl,
+    apiTimeoutMs: arbitraryPositiveTimeout,
+    pythonPath: arbitraryValidString,
+    customEnvVars: arbitraryCustomEnvVars,
+    googleApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    openaiApiKey: fc.option(arbitraryValidString, { nil: undefined }),
+    customCommand: fc.option(arbitraryValidString, { nil: undefined }),
+  })
 
 describe('Agent Config Service Property Tests', () => {
   let database: DatabaseService
@@ -179,7 +221,7 @@ describe('Agent Config Service Property Tests', () => {
    */
   it('validation fails for empty or whitespace-only auth token', () => {
     fc.assert(
-      fc.property(arbitraryConfigWithEmptyAuthToken, (config) => {
+      fc.property(arbitraryConfigWithEmptyAuthToken, config => {
         const result = configService.validateConfig(config)
 
         // Validation should fail
@@ -189,11 +231,14 @@ describe('Agent Config Service Property Tests', () => {
         if (result.errors.length === 0) return false
 
         // Should have an error for anthropicAuthToken field
-        const authTokenError = result.errors.find((e) => e.field === 'anthropicAuthToken')
+        const authTokenError = result.errors.find(
+          e => e.field === 'anthropicAuthToken'
+        )
         if (!authTokenError) return false
 
         // Error message should indicate token is required
-        if (!authTokenError.message.toLowerCase().includes('required')) return false
+        if (!authTokenError.message.toLowerCase().includes('required'))
+          return false
 
         return true
       }),
@@ -210,7 +255,7 @@ describe('Agent Config Service Property Tests', () => {
    */
   it('validation fails for empty or whitespace-only python path', () => {
     fc.assert(
-      fc.property(arbitraryConfigWithEmptyPythonPath, (config) => {
+      fc.property(arbitraryConfigWithEmptyPythonPath, config => {
         const result = configService.validateConfig(config)
 
         // Validation should fail
@@ -220,11 +265,14 @@ describe('Agent Config Service Property Tests', () => {
         if (result.errors.length === 0) return false
 
         // Should have an error for pythonPath field
-        const pythonPathError = result.errors.find((e) => e.field === 'pythonPath')
+        const pythonPathError = result.errors.find(
+          e => e.field === 'pythonPath'
+        )
         if (!pythonPathError) return false
 
         // Error message should indicate path is required
-        if (!pythonPathError.message.toLowerCase().includes('required')) return false
+        if (!pythonPathError.message.toLowerCase().includes('required'))
+          return false
 
         return true
       }),
@@ -241,7 +289,7 @@ describe('Agent Config Service Property Tests', () => {
    */
   it('validation fails for non-positive API timeout', () => {
     fc.assert(
-      fc.property(arbitraryConfigWithInvalidTimeout, (config) => {
+      fc.property(arbitraryConfigWithInvalidTimeout, config => {
         const result = configService.validateConfig(config)
 
         // Validation should fail
@@ -251,11 +299,12 @@ describe('Agent Config Service Property Tests', () => {
         if (result.errors.length === 0) return false
 
         // Should have an error for apiTimeoutMs field
-        const timeoutError = result.errors.find((e) => e.field === 'apiTimeoutMs')
+        const timeoutError = result.errors.find(e => e.field === 'apiTimeoutMs')
         if (!timeoutError) return false
 
         // Error message should indicate timeout must be positive
-        if (!timeoutError.message.toLowerCase().includes('positive')) return false
+        if (!timeoutError.message.toLowerCase().includes('positive'))
+          return false
 
         return true
       }),
@@ -272,7 +321,7 @@ describe('Agent Config Service Property Tests', () => {
    */
   it('validation fails for invalid base URL', () => {
     fc.assert(
-      fc.property(arbitraryConfigWithInvalidBaseUrl, (config) => {
+      fc.property(arbitraryConfigWithInvalidBaseUrl, config => {
         const result = configService.validateConfig(config)
 
         // Validation should fail
@@ -282,7 +331,7 @@ describe('Agent Config Service Property Tests', () => {
         if (result.errors.length === 0) return false
 
         // Should have an error for anthropicBaseUrl field
-        const urlError = result.errors.find((e) => e.field === 'anthropicBaseUrl')
+        const urlError = result.errors.find(e => e.field === 'anthropicBaseUrl')
         if (!urlError) return false
 
         // Error message should indicate URL is invalid
@@ -302,7 +351,7 @@ describe('Agent Config Service Property Tests', () => {
    */
   it('validation passes for valid configuration', () => {
     fc.assert(
-      fc.property(arbitraryValidConfig, (config) => {
+      fc.property(arbitraryValidConfig, config => {
         const result = configService.validateConfig(config)
 
         // Validation should pass
@@ -332,6 +381,7 @@ describe('Agent Config Service Property Tests', () => {
         arbitraryNonPositiveTimeout,
         (authToken, pythonPath, timeout) => {
           const config: AgentEnvironmentConfig = {
+            agentService: 'claude-code',
             anthropicAuthToken: authToken,
             anthropicBaseUrl: undefined,
             apiTimeoutMs: timeout,
@@ -345,11 +395,18 @@ describe('Agent Config Service Property Tests', () => {
           if (result.isValid) return false
 
           // Should have errors for all three invalid fields
-          const hasAuthTokenError = result.errors.some((e) => e.field === 'anthropicAuthToken')
-          const hasPythonPathError = result.errors.some((e) => e.field === 'pythonPath')
-          const hasTimeoutError = result.errors.some((e) => e.field === 'apiTimeoutMs')
+          const hasAuthTokenError = result.errors.some(
+            e => e.field === 'anthropicAuthToken'
+          )
+          const hasPythonPathError = result.errors.some(
+            e => e.field === 'pythonPath'
+          )
+          const hasTimeoutError = result.errors.some(
+            e => e.field === 'apiTimeoutMs'
+          )
 
-          if (!hasAuthTokenError || !hasPythonPathError || !hasTimeoutError) return false
+          if (!hasAuthTokenError || !hasPythonPathError || !hasTimeoutError)
+            return false
 
           return true
         }

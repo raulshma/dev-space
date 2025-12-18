@@ -9,14 +9,22 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import * as fc from 'fast-check'
-import { AgentExecutorService, AgentExecutorError, AgentExecutorErrorCode } from './agent-executor-service'
+import {
+  AgentExecutorService,
+  AgentExecutorError,
+  AgentExecutorErrorCode,
+} from './agent-executor-service'
 import { ProcessManager } from './agent/process-manager'
 import { TaskQueue } from './agent/task-queue'
 import { OutputBuffer } from './agent/output-buffer'
 import { AgentConfigService } from './agent/agent-config-service'
 import { GitService } from './git-service'
 import { DatabaseService } from './database'
-import type { CreateAgentTaskInput, TaskStatus, AgentType } from 'shared/ai-types'
+import type {
+  CreateAgentTaskInput,
+  TaskStatus,
+  AgentType,
+} from 'shared/ai-types'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
@@ -35,21 +43,24 @@ vi.mock('node:fs', async () => {
  */
 const arbitraryDescription: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 200 })
-  .filter((s) => s.trim().length > 0)
-  .map((s) => s.trim())
+  .filter(s => s.trim().length > 0)
+  .map(s => s.trim())
 
 /**
  * Arbitrary generator for agent types
  */
-const arbitraryAgentType: fc.Arbitrary<AgentType> = fc.constantFrom('autonomous', 'feature')
+const arbitraryAgentType: fc.Arbitrary<AgentType> = fc.constantFrom(
+  'autonomous',
+  'feature'
+)
 
 /**
  * Arbitrary generator for valid directory paths
  */
 const arbitraryDirectory: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 100 })
-  .filter((s) => s.trim().length > 0 && !s.includes('\0'))
-  .map((s) => `/test/path/${s.trim().replace(/[<>:"|?*]/g, '_')}`)
+  .filter(s => s.trim().length > 0 && !s.includes('\0'))
+  .map(s => `/test/path/${s.trim().replace(/[<>:"|?*]/g, '_')}`)
 
 /**
  * Arbitrary generator for task creation input
@@ -88,7 +99,10 @@ const arbitraryTaskStatus: fc.Arbitrary<TaskStatus> = fc.constantFrom(
 function createMockServices() {
   // Create a temporary database
   const tempDir = os.tmpdir()
-  const dbPath = path.join(tempDir, `test-db-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+  const dbPath = path.join(
+    tempDir,
+    `test-db-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
+  )
   const db = new DatabaseService(dbPath)
   db.initialize()
 
@@ -136,7 +150,7 @@ describe('Agent Executor Service Property Tests', () => {
   describe('Property 9: Task Creation Adds to Backlog', () => {
     it('creating a task adds it to the backlog with pending status', async () => {
       await fc.assert(
-        fc.asyncProperty(arbitraryCreateTaskInput, async (input) => {
+        fc.asyncProperty(arbitraryCreateTaskInput, async input => {
           const services = createMockServices()
 
           try {
@@ -157,7 +171,9 @@ describe('Agent Executor Service Property Tests', () => {
             )
 
             // Get initial backlog size
-            const initialPendingTasks = services.db.getAgentTasks({ status: 'pending' })
+            const initialPendingTasks = services.db.getAgentTasks({
+              status: 'pending',
+            })
             const initialSize = initialPendingTasks.length
 
             // Create task
@@ -170,7 +186,9 @@ describe('Agent Executor Service Property Tests', () => {
             expect(task.targetDirectory).toBe(input.targetDirectory)
 
             // Verify backlog size increased by 1
-            const finalPendingTasks = services.db.getAgentTasks({ status: 'pending' })
+            const finalPendingTasks = services.db.getAgentTasks({
+              status: 'pending',
+            })
             expect(finalPendingTasks.length).toBe(initialSize + 1)
 
             // Verify task can be retrieved
@@ -199,89 +217,105 @@ describe('Agent Executor Service Property Tests', () => {
   describe('Property 10: Feature Agent Repository Validation', () => {
     it('feature agent task creation fails for non-repository directories', async () => {
       await fc.assert(
-        fc.asyncProperty(arbitraryDescription, arbitraryDirectory, async (description, targetDir) => {
-          const services = createMockServices()
-
-          try {
-            // Mock fs.existsSync to return true for directory but false for .git
-            vi.mocked(fs.existsSync).mockReturnValue(true)
-
-            // Mock gitService.isGitRepo to return false (not a git repo)
-            vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(false)
-
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService,
-              '/test/agents'
-            )
-
-            const input: CreateAgentTaskInput = {
-              description,
-              agentType: 'feature',
-              targetDirectory: targetDir,
-            }
-
-            // Attempt to create feature agent task should fail
-            await expect(executor.createTask(input)).rejects.toThrow(AgentExecutorError)
+        fc.asyncProperty(
+          arbitraryDescription,
+          arbitraryDirectory,
+          async (description, targetDir) => {
+            const services = createMockServices()
 
             try {
-              await executor.createTask(input)
-            } catch (error) {
-              expect(error).toBeInstanceOf(AgentExecutorError)
-              expect((error as AgentExecutorError).code).toBe(AgentExecutorErrorCode.NOT_A_REPOSITORY)
-            }
+              // Mock fs.existsSync to return true for directory but false for .git
+              vi.mocked(fs.existsSync).mockReturnValue(true)
 
-            return true
-          } finally {
-            services.cleanup()
+              // Mock gitService.isGitRepo to return false (not a git repo)
+              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                false
+              )
+
+              const executor = new AgentExecutorService(
+                services.db,
+                services.processManager,
+                services.taskQueue,
+                services.outputBuffer,
+                services.configService,
+                services.gitService,
+                '/test/agents'
+              )
+
+              const input: CreateAgentTaskInput = {
+                description,
+                agentType: 'feature',
+                targetDirectory: targetDir,
+              }
+
+              // Attempt to create feature agent task should fail
+              await expect(executor.createTask(input)).rejects.toThrow(
+                AgentExecutorError
+              )
+
+              try {
+                await executor.createTask(input)
+              } catch (error) {
+                expect(error).toBeInstanceOf(AgentExecutorError)
+                expect((error as AgentExecutorError).code).toBe(
+                  AgentExecutorErrorCode.NOT_A_REPOSITORY
+                )
+              }
+
+              return true
+            } finally {
+              services.cleanup()
+            }
           }
-        }),
+        ),
         { numRuns: 100 }
       )
     })
 
     it('autonomous agent task creation succeeds for non-repository directories', async () => {
       await fc.assert(
-        fc.asyncProperty(arbitraryDescription, arbitraryDirectory, async (description, targetDir) => {
-          const services = createMockServices()
+        fc.asyncProperty(
+          arbitraryDescription,
+          arbitraryDirectory,
+          async (description, targetDir) => {
+            const services = createMockServices()
 
-          try {
-            // Mock fs.existsSync to return true
-            vi.mocked(fs.existsSync).mockReturnValue(true)
+            try {
+              // Mock fs.existsSync to return true
+              vi.mocked(fs.existsSync).mockReturnValue(true)
 
-            // Mock gitService.isGitRepo to return false (not a git repo)
-            vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(false)
+              // Mock gitService.isGitRepo to return false (not a git repo)
+              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                false
+              )
 
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService,
-              '/test/agents'
-            )
+              const executor = new AgentExecutorService(
+                services.db,
+                services.processManager,
+                services.taskQueue,
+                services.outputBuffer,
+                services.configService,
+                services.gitService,
+                '/test/agents'
+              )
 
-            const input: CreateAgentTaskInput = {
-              description,
-              agentType: 'autonomous',
-              targetDirectory: targetDir,
+              const input: CreateAgentTaskInput = {
+                description,
+                agentType: 'autonomous',
+                targetDirectory: targetDir,
+              }
+
+              // Autonomous agent should succeed even without git repo
+              const task = await executor.createTask(input)
+              expect(task.status).toBe('pending')
+              expect(task.agentType).toBe('autonomous')
+
+              return true
+            } finally {
+              services.cleanup()
             }
-
-            // Autonomous agent should succeed even without git repo
-            const task = await executor.createTask(input)
-            expect(task.status).toBe('pending')
-            expect(task.agentType).toBe('autonomous')
-
-            return true
-          } finally {
-            services.cleanup()
           }
-        }),
+        ),
         { numRuns: 100 }
       )
     })
@@ -335,11 +369,14 @@ describe('Agent Executor Service Property Tests', () => {
               // Manually set the task to fromStatus (bypassing normal flow for testing)
               services.db.updateAgentTask(task.id, { status: fromStatus })
 
-              const isValidTransition = validTransitions[fromStatus]?.includes(toStatus) ?? false
+              const isValidTransition =
+                validTransitions[fromStatus]?.includes(toStatus) ?? false
 
               if (isValidTransition) {
                 // Valid transition should succeed
-                const updatedTask = await executor.updateTask(task.id, { status: toStatus })
+                const updatedTask = await executor.updateTask(task.id, {
+                  status: toStatus,
+                })
                 expect(updatedTask.status).toBe(toStatus)
               } else if (fromStatus !== toStatus) {
                 // Invalid transition should throw
@@ -360,7 +397,7 @@ describe('Agent Executor Service Property Tests', () => {
 
     it('task starts in pending state', async () => {
       await fc.assert(
-        fc.asyncProperty(arbitraryCreateTaskInput, async (input) => {
+        fc.asyncProperty(arbitraryCreateTaskInput, async input => {
           const services = createMockServices()
 
           try {
@@ -400,7 +437,7 @@ describe('Agent Executor Service Property Tests', () => {
   describe('Property 14: Correct Agent Script Selection', () => {
     it('autonomous agent uses autonomous_agent.py script', () => {
       fc.assert(
-        fc.property(fc.constant('autonomous' as const), (agentType) => {
+        fc.property(fc.constant('autonomous' as const), agentType => {
           const services = createMockServices()
 
           try {
@@ -429,7 +466,7 @@ describe('Agent Executor Service Property Tests', () => {
 
     it('feature agent uses feature_agent.py script', () => {
       fc.assert(
-        fc.property(fc.constant('feature' as const), (agentType) => {
+        fc.property(fc.constant('feature' as const), agentType => {
           const services = createMockServices()
 
           try {
@@ -458,7 +495,7 @@ describe('Agent Executor Service Property Tests', () => {
 
     it('agent type determines correct script path', () => {
       fc.assert(
-        fc.property(arbitraryAgentType, (agentType) => {
+        fc.property(arbitraryAgentType, agentType => {
           const services = createMockServices()
 
           try {
@@ -477,10 +514,13 @@ describe('Agent Executor Service Property Tests', () => {
             const normalizedPath = scriptPath.replace(/\\/g, '/')
 
             if (agentType === 'autonomous') {
-              return normalizedPath.includes('autonomous-coding/autonomous_agent.py')
-            } else {
-              return normalizedPath.includes('feature-coding-agent/feature_agent.py')
+              return normalizedPath.includes(
+                'autonomous-coding/autonomous_agent.py'
+              )
             }
+            return normalizedPath.includes(
+              'feature-coding-agent/feature_agent.py'
+            )
           } finally {
             services.cleanup()
           }
@@ -500,7 +540,7 @@ describe('Agent Executor Service Property Tests', () => {
   describe('Property 18: Task Completion Status Updates', () => {
     it('exit code 0 results in completed status', async () => {
       await fc.assert(
-        fc.asyncProperty(arbitraryCreateTaskInput, async (input) => {
+        fc.asyncProperty(arbitraryCreateTaskInput, async input => {
           const services = createMockServices()
 
           try {
@@ -602,9 +642,18 @@ describe('Agent Executor Service Property Tests', () => {
         fc.asyncProperty(
           arbitraryDescription,
           arbitraryDirectory,
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 0, maxLength: 5 }),
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 0, maxLength: 5 }),
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 0, maxLength: 5 }),
+          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+            minLength: 0,
+            maxLength: 5,
+          }),
+          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+            minLength: 0,
+            maxLength: 5,
+          }),
+          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+            minLength: 0,
+            maxLength: 5,
+          }),
           async (description, targetDir, created, modified, deleted) => {
             const services = createMockServices()
 
@@ -635,7 +684,10 @@ describe('Agent Executor Service Property Tests', () => {
                 created,
                 modified,
                 deleted,
-                gitDiff: created.length > 0 || modified.length > 0 ? 'diff content' : undefined,
+                gitDiff:
+                  created.length > 0 || modified.length > 0
+                    ? 'diff content'
+                    : undefined,
               }
 
               services.db.updateAgentTask(task.id, {
@@ -649,9 +701,15 @@ describe('Agent Executor Service Property Tests', () => {
 
               // Verify file changes structure
               expect(completedTask?.fileChanges).toBeDefined()
-              expect(Array.isArray(completedTask?.fileChanges?.created)).toBe(true)
-              expect(Array.isArray(completedTask?.fileChanges?.modified)).toBe(true)
-              expect(Array.isArray(completedTask?.fileChanges?.deleted)).toBe(true)
+              expect(Array.isArray(completedTask?.fileChanges?.created)).toBe(
+                true
+              )
+              expect(Array.isArray(completedTask?.fileChanges?.modified)).toBe(
+                true
+              )
+              expect(Array.isArray(completedTask?.fileChanges?.deleted)).toBe(
+                true
+              )
 
               // Verify arrays contain expected values
               expect(completedTask?.fileChanges?.created).toEqual(created)
@@ -672,7 +730,10 @@ describe('Agent Executor Service Property Tests', () => {
       await fc.assert(
         fc.asyncProperty(
           arbitraryCreateTaskInput,
-          fc.array(fc.string({ minLength: 1, maxLength: 100 }), { minLength: 1, maxLength: 10 }),
+          fc.array(fc.string({ minLength: 1, maxLength: 100 }), {
+            minLength: 1,
+            maxLength: 10,
+          }),
           async (input, filePaths) => {
             const services = createMockServices()
 
@@ -689,8 +750,11 @@ describe('Agent Executor Service Property Tests', () => {
               // Create file changes with the generated paths
               const fileChanges = {
                 created: filePaths.slice(0, Math.ceil(filePaths.length / 3)),
-                modified: filePaths.slice(Math.ceil(filePaths.length / 3), Math.ceil(2 * filePaths.length / 3)),
-                deleted: filePaths.slice(Math.ceil(2 * filePaths.length / 3)),
+                modified: filePaths.slice(
+                  Math.ceil(filePaths.length / 3),
+                  Math.ceil((2 * filePaths.length) / 3)
+                ),
+                deleted: filePaths.slice(Math.ceil((2 * filePaths.length) / 3)),
               }
 
               services.db.updateAgentTask(task.id, {

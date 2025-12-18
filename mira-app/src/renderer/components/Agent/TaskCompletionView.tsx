@@ -10,11 +10,22 @@
  */
 
 import { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'renderer/components/ui/card'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from 'renderer/components/ui/card'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from 'renderer/components/ui/tabs'
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from 'renderer/components/ui/tabs'
 import {
   Collapsible,
   CollapsibleContent,
@@ -36,7 +47,12 @@ import {
   IconExternalLink,
 } from '@tabler/icons-react'
 import { useTask, useTaskOutput } from 'renderer/stores/agent-task-store'
-import type { AgentTask, TaskStatus, FileChangeSummary, OutputLine } from 'shared/ai-types'
+import type {
+  AgentTask,
+  TaskStatus,
+  FileChangeSummary,
+  OutputLine,
+} from 'shared/ai-types'
 
 interface TaskCompletionViewProps {
   taskId: string
@@ -46,7 +62,12 @@ interface TaskCompletionViewProps {
 
 const STATUS_CONFIG: Record<
   Extract<TaskStatus, 'completed' | 'failed' | 'stopped'>,
-  { label: string; description: string; icon: React.ReactNode; variant: 'default' | 'destructive' | 'secondary' }
+  {
+    label: string
+    description: string
+    icon: React.ReactNode
+    variant: 'default' | 'destructive' | 'secondary'
+  }
 > = {
   completed: {
     label: 'Completed Successfully',
@@ -97,12 +118,12 @@ function FileChangeList({
   const [isOpen, setIsOpen] = useState(files.length > 0)
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible onOpenChange={setIsOpen} open={isOpen}>
       <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md p-2 hover:bg-muted/50">
         <div className="flex items-center gap-2">
           {icon}
           <span className="text-sm font-medium">{title}</span>
-          <Badge variant="outline" className="text-xs">
+          <Badge className="text-xs" variant="outline">
             {files.length}
           </Badge>
         </div>
@@ -119,8 +140,8 @@ function FileChangeList({
           ) : (
             files.map((file, index) => (
               <div
-                key={index}
                 className="flex items-center gap-2 rounded-md px-2 py-1 text-xs font-mono hover:bg-muted/50"
+                key={index}
               >
                 <span className="truncate">{file}</span>
               </div>
@@ -159,7 +180,7 @@ function GitDiffViewer({ diff }: { diff: string }): React.JSX.Element {
     }
 
     return (
-      <div key={index} className={`px-2 py-0.5 ${className}`}>
+      <div className={`px-2 py-0.5 ${className}`} key={index}>
         {line || ' '}
       </div>
     )
@@ -171,7 +192,7 @@ function GitDiffViewer({ diff }: { diff: string }): React.JSX.Element {
     <div className="rounded-md border bg-muted/30">
       <div className="flex items-center justify-between border-b px-3 py-2">
         <span className="text-xs font-medium">Git Diff</span>
-        <Button variant="ghost" size="sm" onClick={handleCopy}>
+        <Button onClick={handleCopy} size="sm" variant="ghost">
           <IconCopy className="mr-2 h-3 w-3" />
           {copied ? 'Copied!' : 'Copy'}
         </Button>
@@ -185,15 +206,21 @@ function GitDiffViewer({ diff }: { diff: string }): React.JSX.Element {
   )
 }
 
-function OutputSummary({ output }: { output: OutputLine[] }): React.JSX.Element {
+function OutputSummary({
+  output,
+}: {
+  output: OutputLine[]
+}): React.JSX.Element {
   // Get last 20 lines for summary
   const lastLines = output.slice(-20)
 
   return (
     <div className="rounded-md border bg-muted/30">
       <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="text-xs font-medium">Output Summary (last 20 lines)</span>
-        <Badge variant="outline" className="text-xs">
+        <span className="text-xs font-medium">
+          Output Summary (last 20 lines)
+        </span>
+        <Badge className="text-xs" variant="outline">
           {output.length} total lines
         </Badge>
       </div>
@@ -201,10 +228,10 @@ function OutputSummary({ output }: { output: OutputLine[] }): React.JSX.Element 
         <div className="p-3 font-mono text-xs space-y-1">
           {lastLines.map((line, index) => (
             <div
-              key={index}
               className={`whitespace-pre-wrap break-all ${
                 line.stream === 'stderr' ? 'text-destructive' : ''
               }`}
+              key={index}
             >
               {line.content}
             </div>
@@ -245,7 +272,8 @@ export function TaskCompletionView({
     )
   }
 
-  const statusConfig = STATUS_CONFIG[task.status as 'completed' | 'failed' | 'stopped']
+  const statusConfig =
+    STATUS_CONFIG[task.status as 'completed' | 'failed' | 'stopped']
   const duration =
     task.startedAt && task.completedAt
       ? formatDuration(task.startedAt, task.completedAt)
@@ -350,7 +378,9 @@ export function TaskCompletionView({
       {task.error && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-destructive">Error Details</CardTitle>
+            <CardTitle className="text-sm text-destructive">
+              Error Details
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <pre className="text-xs text-destructive whitespace-pre-wrap font-mono bg-destructive/10 rounded-md p-3">
@@ -362,13 +392,13 @@ export function TaskCompletionView({
 
       {/* File changes and output tabs */}
       <Card className="flex-1 flex flex-col min-h-0">
-        <Tabs defaultValue="changes" className="flex-1 flex flex-col">
+        <Tabs className="flex-1 flex flex-col" defaultValue="changes">
           <CardHeader className="pb-0">
             <TabsList>
               <TabsTrigger value="changes">
                 File Changes
                 {totalChanges > 0 && (
-                  <Badge variant="secondary" className="ml-2">
+                  <Badge className="ml-2" variant="secondary">
                     {totalChanges}
                   </Badge>
                 )}
@@ -379,32 +409,32 @@ export function TaskCompletionView({
           </CardHeader>
 
           <CardContent className="flex-1 min-h-0 pt-4">
-            <TabsContent value="changes" className="h-full mt-0">
+            <TabsContent className="h-full mt-0" value="changes">
               <ScrollArea className="h-full">
                 <div className="space-y-2">
                   <FileChangeList
-                    title="Created Files"
+                    emptyMessage="No files created"
                     files={fileChanges.created}
                     icon={<IconFilePlus className="h-4 w-4 text-green-500" />}
-                    emptyMessage="No files created"
+                    title="Created Files"
                   />
                   <FileChangeList
-                    title="Modified Files"
+                    emptyMessage="No files modified"
                     files={fileChanges.modified}
                     icon={<IconFileCode className="h-4 w-4 text-blue-500" />}
-                    emptyMessage="No files modified"
+                    title="Modified Files"
                   />
                   <FileChangeList
-                    title="Deleted Files"
+                    emptyMessage="No files deleted"
                     files={fileChanges.deleted}
                     icon={<IconFileX className="h-4 w-4 text-red-500" />}
-                    emptyMessage="No files deleted"
+                    title="Deleted Files"
                   />
                 </div>
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="diff" className="h-full mt-0">
+            <TabsContent className="h-full mt-0" value="diff">
               {fileChanges.gitDiff ? (
                 <GitDiffViewer diff={fileChanges.gitDiff} />
               ) : (
@@ -416,11 +446,11 @@ export function TaskCompletionView({
               )}
             </TabsContent>
 
-            <TabsContent value="output" className="h-full mt-0">
+            <TabsContent className="h-full mt-0" value="output">
               <OutputSummary output={output} />
               {onViewOutput && (
                 <div className="mt-4 flex justify-center">
-                  <Button variant="outline" onClick={onViewOutput}>
+                  <Button onClick={onViewOutput} variant="outline">
                     <IconExternalLink className="mr-2 h-4 w-4" />
                     View Full Output
                   </Button>

@@ -7,7 +7,11 @@
 
 import { describe, it, beforeEach, afterEach } from 'vitest'
 import * as fc from 'fast-check'
-import { RequestLogger, createResponseLog, createErrorLog } from './request-logger'
+import {
+  RequestLogger,
+  createResponseLog,
+  createErrorLog,
+} from './request-logger'
 import { DatabaseService } from '../database'
 import type {
   AIAction,
@@ -36,25 +40,32 @@ const arbitraryAIAction: fc.Arbitrary<AIAction> = fc.constantFrom(
  */
 const arbitraryTimestampString: fc.Arbitrary<string> = fc
   .integer({ min: 946684800000, max: 4102444800000 }) // 2000-01-01 to 2100-01-01 in ms
-  .map((ms) => new Date(ms).toISOString())
+  .map(ms => new Date(ms).toISOString())
 
 /**
  * Arbitrary generator for valid serialized messages
  */
 const arbitrarySerializedMessage: fc.Arbitrary<SerializedMessage> = fc.record({
   id: fc.uuid(),
-  role: fc.constantFrom('user', 'assistant', 'system') as fc.Arbitrary<'user' | 'assistant' | 'system'>,
+  role: fc.constantFrom('user', 'assistant', 'system') as fc.Arbitrary<
+    'user' | 'assistant' | 'system'
+  >,
   content: fc.string(),
   timestamp: arbitraryTimestampString,
   model: fc.option(fc.string(), { nil: undefined }),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue()), { nil: undefined }),
+  metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue()), {
+    nil: undefined,
+  }),
 })
 
 /**
  * Arbitrary generator for AI request input
  */
 const arbitraryAIRequestInput: fc.Arbitrary<AIRequestInput> = fc.record({
-  messages: fc.array(arbitrarySerializedMessage, { minLength: 1, maxLength: 10 }),
+  messages: fc.array(arbitrarySerializedMessage, {
+    minLength: 1,
+    maxLength: 10,
+  }),
   systemPrompt: fc.option(fc.string(), { nil: undefined }),
 })
 
@@ -62,7 +73,9 @@ const arbitraryAIRequestInput: fc.Arbitrary<AIRequestInput> = fc.record({
  * Arbitrary generator for AI request metadata
  */
 const arbitraryAIRequestMetadata: fc.Arbitrary<AIRequestMetadata> = fc.record({
-  temperature: fc.option(fc.float({ min: 0, max: 2, noNaN: true }), { nil: undefined }),
+  temperature: fc.option(fc.float({ min: 0, max: 2, noNaN: true }), {
+    nil: undefined,
+  }),
   maxTokens: fc.option(fc.integer({ min: 1, max: 100000 }), { nil: undefined }),
   projectId: fc.option(fc.uuid(), { nil: undefined }),
 })
@@ -70,18 +83,20 @@ const arbitraryAIRequestMetadata: fc.Arbitrary<AIRequestMetadata> = fc.record({
 /**
  * Arbitrary generator for model IDs
  */
-const arbitraryModelId: fc.Arbitrary<string> = fc.string({ minLength: 1, maxLength: 100 })
+const arbitraryModelId: fc.Arbitrary<string> = fc
+  .string({ minLength: 1, maxLength: 100 })
   .filter(s => s.trim().length > 0)
 
 /**
  * Arbitrary generator for CreateAIRequestLogInput
  */
-const arbitraryCreateAIRequestLogInput: fc.Arbitrary<CreateAIRequestLogInput> = fc.record({
-  modelId: arbitraryModelId,
-  action: arbitraryAIAction,
-  input: arbitraryAIRequestInput,
-  metadata: fc.option(arbitraryAIRequestMetadata, { nil: undefined }),
-})
+const arbitraryCreateAIRequestLogInput: fc.Arbitrary<CreateAIRequestLogInput> =
+  fc.record({
+    modelId: arbitraryModelId,
+    action: arbitraryAIAction,
+    input: arbitraryAIRequestInput,
+    metadata: fc.option(arbitraryAIRequestMetadata, { nil: undefined }),
+  })
 
 /**
  * Arbitrary generator for response log data
@@ -91,7 +106,12 @@ const arbitraryResponseData = fc.record({
   promptTokens: fc.integer({ min: 0, max: 100000 }),
   completionTokens: fc.integer({ min: 0, max: 100000 }),
   latencyMs: fc.integer({ min: 0, max: 1000000 }),
-  finishReason: fc.constantFrom('stop', 'length', 'content_filter', 'tool_calls'),
+  finishReason: fc.constantFrom(
+    'stop',
+    'length',
+    'content_filter',
+    'tool_calls'
+  ),
   modelVersion: fc.option(fc.string(), { nil: undefined }),
 })
 
@@ -112,7 +132,10 @@ describe('Request Logger Property Tests', () => {
 
   beforeEach(() => {
     // Create a temporary database for testing
-    tempDbPath = path.join(os.tmpdir(), `mira-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+    tempDbPath = path.join(
+      os.tmpdir(),
+      `mira-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
+    )
     database = new DatabaseService(tempDbPath)
     database.initialize()
 
@@ -160,7 +183,10 @@ describe('Request Logger Property Tests', () => {
           if (!log) return false
 
           // Verify timestamp is present and valid
-          if (!(log.timestamp instanceof Date) || Number.isNaN(log.timestamp.getTime())) {
+          if (
+            !(log.timestamp instanceof Date) ||
+            Number.isNaN(log.timestamp.getTime())
+          ) {
             return false
           }
 
@@ -170,7 +196,11 @@ describe('Request Logger Property Tests', () => {
           }
 
           // Verify input content is present
-          if (!log.input || !log.input.messages || log.input.messages.length === 0) {
+          if (
+            !log.input ||
+            !log.input.messages ||
+            log.input.messages.length === 0
+          ) {
             return false
           }
 
@@ -239,7 +269,10 @@ describe('Request Logger Property Tests', () => {
           if (!log) return false
 
           // Verify timestamp is present and valid
-          if (!(log.timestamp instanceof Date) || Number.isNaN(log.timestamp.getTime())) {
+          if (
+            !(log.timestamp instanceof Date) ||
+            Number.isNaN(log.timestamp.getTime())
+          ) {
             return false
           }
 
@@ -249,7 +282,11 @@ describe('Request Logger Property Tests', () => {
           }
 
           // Verify input content is present
-          if (!log.input || !log.input.messages || log.input.messages.length === 0) {
+          if (
+            !log.input ||
+            !log.input.messages ||
+            log.input.messages.length === 0
+          ) {
             return false
           }
 
@@ -289,43 +326,42 @@ describe('Request Logger Property Tests', () => {
    */
   it('request logs preserve metadata when provided', () => {
     fc.assert(
-      fc.property(
-        arbitraryCreateAIRequestLogInput,
-        (requestInput) => {
-          // Log the request
-          const logId = logger.logRequest(requestInput)
+      fc.property(arbitraryCreateAIRequestLogInput, requestInput => {
+        // Log the request
+        const logId = logger.logRequest(requestInput)
 
-          // Retrieve the log
-          const log = logger.getLog(logId)
+        // Retrieve the log
+        const log = logger.getLog(logId)
 
-          if (!log) return false
+        if (!log) return false
 
-          // If metadata was provided, verify it's preserved
-          if (requestInput.metadata) {
-            if (!log.metadata) return false
+        // If metadata was provided, verify it's preserved
+        if (requestInput.metadata) {
+          if (!log.metadata) return false
 
-            if (requestInput.metadata.temperature !== undefined) {
-              if (log.metadata.temperature !== requestInput.metadata.temperature) {
-                return false
-              }
-            }
-
-            if (requestInput.metadata.maxTokens !== undefined) {
-              if (log.metadata.maxTokens !== requestInput.metadata.maxTokens) {
-                return false
-              }
-            }
-
-            if (requestInput.metadata.projectId !== undefined) {
-              if (log.metadata.projectId !== requestInput.metadata.projectId) {
-                return false
-              }
+          if (requestInput.metadata.temperature !== undefined) {
+            if (
+              log.metadata.temperature !== requestInput.metadata.temperature
+            ) {
+              return false
             }
           }
 
-          return true
+          if (requestInput.metadata.maxTokens !== undefined) {
+            if (log.metadata.maxTokens !== requestInput.metadata.maxTokens) {
+              return false
+            }
+          }
+
+          if (requestInput.metadata.projectId !== undefined) {
+            if (log.metadata.projectId !== requestInput.metadata.projectId) {
+              return false
+            }
+          }
         }
-      ),
+
+        return true
+      }),
       { numRuns: 100 }
     )
   })
@@ -338,7 +374,10 @@ describe('Request Logger Log Retention Property Tests', () => {
 
   beforeEach(() => {
     // Create a temporary database for testing
-    tempDbPath = path.join(os.tmpdir(), `mira-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)
+    tempDbPath = path.join(
+      os.tmpdir(),
+      `mira-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
+    )
     database = new DatabaseService(tempDbPath)
     database.initialize()
 
@@ -371,7 +410,10 @@ describe('Request Logger Log Retention Property Tests', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 1, max: 365 }), // retention days
-        fc.array(arbitraryCreateAIRequestLogInput, { minLength: 1, maxLength: 20 }),
+        fc.array(arbitraryCreateAIRequestLogInput, {
+          minLength: 1,
+          maxLength: 20,
+        }),
         (retentionDays, requestInputs) => {
           // Create logs
           const logIds: string[] = []
@@ -416,8 +458,11 @@ describe('Request Logger Log Retention Property Tests', () => {
   it('large retention period preserves recent logs', () => {
     fc.assert(
       fc.property(
-        fc.array(arbitraryCreateAIRequestLogInput, { minLength: 1, maxLength: 20 }),
-        (requestInputs) => {
+        fc.array(arbitraryCreateAIRequestLogInput, {
+          minLength: 1,
+          maxLength: 20,
+        }),
+        requestInputs => {
           // Create logs (they will have current timestamp)
           const logIds: string[] = []
           for (const input of requestInputs) {
@@ -454,8 +499,11 @@ describe('Request Logger Log Retention Property Tests', () => {
   it('cleanup returns correct count of deleted logs', () => {
     fc.assert(
       fc.property(
-        fc.array(arbitraryCreateAIRequestLogInput, { minLength: 1, maxLength: 20 }),
-        (requestInputs) => {
+        fc.array(arbitraryCreateAIRequestLogInput, {
+          minLength: 1,
+          maxLength: 20,
+        }),
+        requestInputs => {
           // Create logs (they will have current timestamp)
           const logIds: string[] = []
           for (const input of requestInputs) {

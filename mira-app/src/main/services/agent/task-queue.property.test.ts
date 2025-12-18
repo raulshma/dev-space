@@ -17,15 +17,15 @@ import { TaskQueue } from './task-queue'
  */
 const arbitraryTaskId: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 50 })
-  .filter((s) => s.trim().length > 0)
-  .map((s) => s.trim())
+  .filter(s => s.trim().length > 0)
+  .map(s => s.trim())
 
 /**
  * Arbitrary generator for arrays of unique task IDs
  */
 const arbitraryUniqueTaskIds: fc.Arbitrary<string[]> = fc
   .array(arbitraryTaskId, { minLength: 0, maxLength: 20 })
-  .map((ids) => [...new Set(ids)]) // Ensure uniqueness
+  .map(ids => [...new Set(ids)]) // Ensure uniqueness
 
 /**
  * Arbitrary generator for queue operations
@@ -36,7 +36,9 @@ type QueueOperation =
   | { type: 'setCurrentTask'; taskId: string | undefined }
   | { type: 'clearCurrentTask' }
 
-const arbitraryQueueOperation = (taskIds: string[]): fc.Arbitrary<QueueOperation> => {
+const arbitraryQueueOperation = (
+  taskIds: string[]
+): fc.Arbitrary<QueueOperation> => {
   if (taskIds.length === 0) {
     return fc.constantFrom<QueueOperation>(
       { type: 'dequeue' },
@@ -75,7 +77,7 @@ describe('Task Queue Property Tests', () => {
   describe('Property 13: Sequential Task Execution', () => {
     it('at most one task can be marked as currently processing at any time', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue all tasks
@@ -118,7 +120,7 @@ describe('Task Queue Property Tests', () => {
 
     it('getCurrentTaskId returns undefined when no task is processing', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue tasks
@@ -164,7 +166,7 @@ describe('Task Queue Property Tests', () => {
 
     it('setting current task to undefined clears processing state', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue and set a current task
@@ -213,7 +215,8 @@ describe('Task Queue Property Tests', () => {
 
               // Randomly change state
               if (taskIds.length > 0 && Math.random() > 0.5) {
-                const randomTask = taskIds[Math.floor(Math.random() * taskIds.length)]
+                const randomTask =
+                  taskIds[Math.floor(Math.random() * taskIds.length)]
                 queue.setCurrentTask(randomTask)
               } else {
                 queue.setCurrentTask(undefined)
@@ -234,33 +237,37 @@ describe('Task Queue Property Tests', () => {
   describe('Queue Invariants', () => {
     it('enqueue increases queue size by exactly 1', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, arbitraryTaskId, (initialTasks, newTask) => {
-          const queue = new TaskQueue()
+        fc.property(
+          arbitraryUniqueTaskIds,
+          arbitraryTaskId,
+          (initialTasks, newTask) => {
+            const queue = new TaskQueue()
 
-          // Enqueue initial tasks
-          for (const taskId of initialTasks) {
-            queue.enqueue(taskId)
+            // Enqueue initial tasks
+            for (const taskId of initialTasks) {
+              queue.enqueue(taskId)
+            }
+
+            const sizeBefore = queue.size()
+
+            // Skip if newTask is already in queue
+            if (queue.contains(newTask)) {
+              return true
+            }
+
+            queue.enqueue(newTask)
+            const sizeAfter = queue.size()
+
+            return sizeAfter === sizeBefore + 1
           }
-
-          const sizeBefore = queue.size()
-
-          // Skip if newTask is already in queue
-          if (queue.contains(newTask)) {
-            return true
-          }
-
-          queue.enqueue(newTask)
-          const sizeAfter = queue.size()
-
-          return sizeAfter === sizeBefore + 1
-        }),
+        ),
         { numRuns: 100 }
       )
     })
 
     it('dequeue decreases queue size by exactly 1 when queue is non-empty', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue tasks
@@ -286,7 +293,7 @@ describe('Task Queue Property Tests', () => {
 
     it('dequeue returns tasks in FIFO order', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue all tasks
@@ -311,7 +318,7 @@ describe('Task Queue Property Tests', () => {
 
     it('peek returns the same task as dequeue would without removing it', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue tasks
@@ -362,7 +369,7 @@ describe('Task Queue Property Tests', () => {
 
     it('after remove, task is no longer in queue', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue tasks
@@ -418,7 +425,7 @@ describe('Task Queue Property Tests', () => {
 
     it('clear removes all tasks from queue', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue tasks
@@ -436,7 +443,7 @@ describe('Task Queue Property Tests', () => {
 
     it('getQueue returns a copy, not the internal array', () => {
       fc.assert(
-        fc.property(arbitraryUniqueTaskIds, (taskIds) => {
+        fc.property(arbitraryUniqueTaskIds, taskIds => {
           const queue = new TaskQueue()
 
           // Enqueue tasks
@@ -460,4 +467,3 @@ describe('Task Queue Property Tests', () => {
     })
   })
 })
-

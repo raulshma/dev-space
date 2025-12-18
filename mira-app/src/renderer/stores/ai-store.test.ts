@@ -183,7 +183,9 @@ describe('AIStore', () => {
       updateLastMessage('project-1', 'Updated content')
 
       const conversations = useAIStore.getState().conversations
-      expect(conversations.get('project-1')?.[0].content).toBe('Updated content')
+      expect(conversations.get('project-1')?.[0].content).toBe(
+        'Updated content'
+      )
     })
 
     it('should clear conversation', () => {
@@ -277,6 +279,7 @@ describe('AIStore', () => {
       const { setAgentConfig } = useAIStore.getState()
 
       const config = {
+        agentService: 'claude-code' as const,
         anthropicAuthToken: 'test-token',
         apiTimeoutMs: 30000,
         pythonPath: '/usr/bin/python',

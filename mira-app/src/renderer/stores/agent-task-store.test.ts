@@ -135,7 +135,9 @@ describe('AgentTaskStore', () => {
       const { setTasksError } = useAgentTaskStore.getState()
 
       setTasksError('Failed to load tasks')
-      expect(useAgentTaskStore.getState().tasksError).toBe('Failed to load tasks')
+      expect(useAgentTaskStore.getState().tasksError).toBe(
+        'Failed to load tasks'
+      )
     })
 
     it('should reorder tasks and update priorities', () => {
@@ -285,8 +287,8 @@ describe('AgentTaskStore', () => {
 
       const pendingTasks = getTasksByStatus('pending')
       expect(pendingTasks).toHaveLength(2)
-      expect(pendingTasks.map((t) => t.id)).toContain('task-1')
-      expect(pendingTasks.map((t) => t.id)).toContain('task-3')
+      expect(pendingTasks.map(t => t.id)).toContain('task-1')
+      expect(pendingTasks.map(t => t.id)).toContain('task-3')
     })
 
     it('should get pending tasks', () => {

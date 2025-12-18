@@ -2,20 +2,34 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { KeychainService } from 'main/services/keychain-service'
 import type { AIProvider } from 'shared/models'
 
-// Mock electron's safeStorage
+// Mock electron's safeStorage and app
 vi.mock('electron', () => ({
   safeStorage: {
     isEncryptionAvailable: () => true,
     encryptString: (text: string) => Buffer.from(text, 'utf-8'),
     decryptString: (buffer: Buffer) => buffer.toString('utf-8'),
   },
+  app: {
+    getPath: () => '/tmp/mira-test',
+  },
+}))
+
+// Mock fs module
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(() => false),
+  readFileSync: vi.fn(() => '{}'),
+  writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  mkdirSync: vi.fn(),
+  unlinkSync: vi.fn(),
 }))
 
 describe('KeychainService', () => {
   let service: KeychainService
 
-  beforeEach(() => {
+  beforeEach(async () => {
     service = new KeychainService()
+    await service.initialize()
   })
 
   describe('API Key Operations', () => {
@@ -166,7 +180,7 @@ describe('KeychainService', () => {
       await service.setApiKey('anthropic', 'key2')
       await service.setSecret('service', 'account', 'secret')
 
-      service.clearAll()
+      await service.clearAll()
 
       expect(await service.getApiKey('openai')).toBeNull()
       expect(await service.getApiKey('anthropic')).toBeNull()

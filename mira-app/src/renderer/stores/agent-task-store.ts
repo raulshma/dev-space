@@ -93,7 +93,7 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
   subscribedTaskIds: new Set(),
 
   // Task management actions
-  setTasks: (tasks) =>
+  setTasks: tasks =>
     set(() => {
       const taskMap = new Map<string, AgentTask>()
       const order: string[] = []
@@ -118,8 +118,8 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
       }
     }),
 
-  addTask: (task) =>
-    set((state) => {
+  addTask: task =>
+    set(state => {
       const newTasks = new Map(state.tasks)
       newTasks.set(task.id, task)
 
@@ -144,7 +144,7 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
     }),
 
   updateTask: (taskId, updates) =>
-    set((state) => {
+    set(state => {
       const task = state.tasks.get(taskId)
       if (!task) return state
 
@@ -169,12 +169,12 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
       }
     }),
 
-  removeTask: (taskId) =>
-    set((state) => {
+  removeTask: taskId =>
+    set(state => {
       const newTasks = new Map(state.tasks)
       newTasks.delete(taskId)
 
-      const newOrder = state.taskOrder.filter((id) => id !== taskId)
+      const newOrder = state.taskOrder.filter(id => id !== taskId)
 
       const newOutputBuffers = new Map(state.outputBuffers)
       newOutputBuffers.delete(taskId)
@@ -194,20 +194,20 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
       }
     }),
 
-  setTasksLoading: (loading) =>
+  setTasksLoading: loading =>
     set({
       isLoadingTasks: loading,
     }),
 
-  setTasksError: (error) =>
+  setTasksError: error =>
     set({
       tasksError: error,
     }),
 
-  reorderTasks: (taskIds) =>
-    set((state) => {
+  reorderTasks: taskIds =>
+    set(state => {
       // Validate all taskIds exist
-      const validIds = taskIds.filter((id) => state.tasks.has(id))
+      const validIds = taskIds.filter(id => state.tasks.has(id))
       if (validIds.length !== taskIds.length) {
         return state
       }
@@ -233,19 +233,19 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
     }),
 
   // Current/Selected task actions
-  setCurrentTask: (taskId) =>
+  setCurrentTask: taskId =>
     set({
       currentTaskId: taskId,
     }),
 
-  setSelectedTask: (taskId) =>
+  setSelectedTask: taskId =>
     set({
       selectedTaskId: taskId,
     }),
 
   // Output buffer actions
   appendOutput: (taskId, line) =>
-    set((state) => {
+    set(state => {
       const newBuffers = new Map(state.outputBuffers)
       const existing = newBuffers.get(taskId) || []
       newBuffers.set(taskId, [...existing, line])
@@ -253,52 +253,55 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
     }),
 
   setOutput: (taskId, lines) =>
-    set((state) => {
+    set(state => {
       const newBuffers = new Map(state.outputBuffers)
       newBuffers.set(taskId, lines)
       return { outputBuffers: newBuffers }
     }),
 
-  clearOutput: (taskId) =>
-    set((state) => {
+  clearOutput: taskId =>
+    set(state => {
       const newBuffers = new Map(state.outputBuffers)
       newBuffers.delete(taskId)
       return { outputBuffers: newBuffers }
     }),
 
-  setAutoScroll: (enabled) =>
+  setAutoScroll: enabled =>
     set({
       isAutoScrollEnabled: enabled,
     }),
 
   // Subscription actions
-  addSubscription: (taskId) =>
-    set((state) => {
+  addSubscription: taskId =>
+    set(state => {
       const newSubscriptions = new Set(state.subscribedTaskIds)
       newSubscriptions.add(taskId)
       return { subscribedTaskIds: newSubscriptions }
     }),
 
-  removeSubscription: (taskId) =>
-    set((state) => {
+  removeSubscription: taskId =>
+    set(state => {
       const newSubscriptions = new Set(state.subscribedTaskIds)
       newSubscriptions.delete(taskId)
       return { subscribedTaskIds: newSubscriptions }
     }),
 
   // Selectors
-  getTask: (taskId) => {
+  getTask: taskId => {
     return get().tasks.get(taskId)
   },
 
-  getTasksByStatus: (status) => {
+  getTasksByStatus: status => {
     const state = get()
     return state.taskOrder
-      .map((id) => state.tasks.get(id))
-      .filter((task): task is AgentTask => task !== undefined && task.status === status)
+      .map(id => state.tasks.get(id))
+      .filter(
+        (task): task is AgentTask =>
+          task !== undefined && task.status === status
+      )
   },
 
-  getTaskOutput: (taskId) => {
+  getTaskOutput: taskId => {
     return get().outputBuffers.get(taskId) || []
   },
 
@@ -326,9 +329,9 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
  */
 export const useTaskList = (): AgentTask[] => {
   return useAgentTaskStore(
-    useShallow((state) =>
+    useShallow(state =>
       state.taskOrder
-        .map((id) => state.tasks.get(id))
+        .map(id => state.tasks.get(id))
         .filter((task): task is AgentTask => task !== undefined)
     )
   )
@@ -338,7 +341,7 @@ export const useTaskList = (): AgentTask[] => {
  * Hook to get a specific task by ID
  */
 export const useTask = (taskId: string | null): AgentTask | undefined => {
-  return useAgentTaskStore((state) =>
+  return useAgentTaskStore(state =>
     taskId ? state.tasks.get(taskId) : undefined
   )
 }
@@ -347,7 +350,7 @@ export const useTask = (taskId: string | null): AgentTask | undefined => {
  * Hook to get the currently running task
  */
 export const useCurrentTask = (): AgentTask | undefined => {
-  return useAgentTaskStore((state) =>
+  return useAgentTaskStore(state =>
     state.currentTaskId ? state.tasks.get(state.currentTaskId) : undefined
   )
 }
@@ -356,7 +359,7 @@ export const useCurrentTask = (): AgentTask | undefined => {
  * Hook to get the selected task
  */
 export const useSelectedTask = (): AgentTask | undefined => {
-  return useAgentTaskStore((state) =>
+  return useAgentTaskStore(state =>
     state.selectedTaskId ? state.tasks.get(state.selectedTaskId) : undefined
   )
 }
@@ -366,7 +369,7 @@ export const useSelectedTask = (): AgentTask | undefined => {
  */
 export const useTaskOutput = (taskId: string): OutputLine[] => {
   return useAgentTaskStore(
-    useShallow((state) => state.outputBuffers.get(taskId) || [])
+    useShallow(state => state.outputBuffers.get(taskId) || [])
   )
 }
 
@@ -375,9 +378,9 @@ export const useTaskOutput = (taskId: string): OutputLine[] => {
  */
 export const useTasksByStatus = (status: TaskStatus): AgentTask[] => {
   return useAgentTaskStore(
-    useShallow((state) =>
+    useShallow(state =>
       state.taskOrder
-        .map((id) => state.tasks.get(id))
+        .map(id => state.tasks.get(id))
         .filter(
           (task): task is AgentTask =>
             task !== undefined && task.status === status
@@ -390,19 +393,19 @@ export const useTasksByStatus = (status: TaskStatus): AgentTask[] => {
  * Hook to check if tasks are loading
  */
 export const useTasksLoading = (): boolean => {
-  return useAgentTaskStore((state) => state.isLoadingTasks)
+  return useAgentTaskStore(state => state.isLoadingTasks)
 }
 
 /**
  * Hook to get auto-scroll state
  */
 export const useAutoScroll = (): boolean => {
-  return useAgentTaskStore((state) => state.isAutoScrollEnabled)
+  return useAgentTaskStore(state => state.isAutoScrollEnabled)
 }
 
 /**
  * Hook to check if subscribed to a task's output
  */
 export const useIsSubscribed = (taskId: string): boolean => {
-  return useAgentTaskStore((state) => state.subscribedTaskIds.has(taskId))
+  return useAgentTaskStore(state => state.subscribedTaskIds.has(taskId))
 }

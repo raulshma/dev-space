@@ -137,7 +137,7 @@ export function CommandPalette(): React.JSX.Element {
   }, [])
 
   return (
-    <CommandDialog open={isOpen} onOpenChange={closeCommandPalette}>
+    <CommandDialog onOpenChange={closeCommandPalette} open={isOpen}>
       <CommandInput placeholder="Search projects, commands, and actions..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>

@@ -67,7 +67,11 @@ interface TaskBacklogListProps {
 
 const STATUS_CONFIG: Record<
   TaskStatus,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }
+  {
+    label: string
+    variant: 'default' | 'secondary' | 'destructive' | 'outline'
+    icon: React.ReactNode
+  }
 > = {
   pending: {
     label: 'Pending',
@@ -134,7 +138,9 @@ export function TaskBacklogList({
   const deleteTask = useDeleteAgentTask()
   const reorderTasks = useReorderTasks()
 
-  const [deleteConfirmTask, setDeleteConfirmTask] = useState<AgentTask | null>(null)
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState<AgentTask | null>(
+    null
+  )
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
 
   const handleTaskClick = useCallback(
@@ -202,14 +208,11 @@ export function TaskBacklogList({
   )
 
   // Drag and drop handlers
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, taskId: string) => {
-      setDraggedTaskId(taskId)
-      e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData('text/plain', taskId)
-    },
-    []
-  )
+  const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', taskId)
+  }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -227,7 +230,7 @@ export function TaskBacklogList({
       }
 
       // Reorder tasks
-      const currentOrder = tasks.map((t) => t.id)
+      const currentOrder = tasks.map(t => t.id)
       const sourceIndex = currentOrder.indexOf(sourceTaskId)
       const targetIndex = currentOrder.indexOf(targetTaskId)
 
@@ -282,23 +285,23 @@ export function TaskBacklogList({
   return (
     <>
       <div className="space-y-2">
-        {tasks.map((task) => {
+        {tasks.map(task => {
           const statusConfig = STATUS_CONFIG[task.status]
           const isSelected = selectedTaskId === task.id
           const isDragging = draggedTaskId === task.id
 
           return (
             <Card
-              key={task.id}
               className={`cursor-pointer transition-all ${
                 isSelected ? 'ring-2 ring-primary' : ''
               } ${isDragging ? 'opacity-50' : ''}`}
               draggable={canEdit(task)}
-              onDragStart={(e) => handleDragStart(e, task.id)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, task.id)}
-              onDragEnd={handleDragEnd}
+              key={task.id}
               onClick={() => handleTaskClick(task)}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDragStart={e => handleDragStart(e, task.id)}
+              onDrop={e => handleDrop(e, task.id)}
             >
               <CardContent className="p-3">
                 <div className="flex items-start gap-3">
@@ -321,7 +324,7 @@ export function TaskBacklogList({
                   {/* Task info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={statusConfig.variant} className="gap-1">
+                      <Badge className="gap-1" variant={statusConfig.variant}>
                         {statusConfig.icon}
                         {statusConfig.label}
                       </Badge>
@@ -346,52 +349,52 @@ export function TaskBacklogList({
                     {/* Quick action buttons */}
                     {canStart(task) && (
                       <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
+                        disabled={startTask.isPending}
+                        onClick={e => {
                           e.stopPropagation()
                           handleStartTask(task.id)
                         }}
-                        disabled={startTask.isPending}
+                        size="icon-sm"
+                        variant="ghost"
                       >
                         <IconPlayerPlay className="h-4 w-4" />
                       </Button>
                     )}
                     {canPause(task) && (
                       <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
+                        disabled={pauseTask.isPending}
+                        onClick={e => {
                           e.stopPropagation()
                           handlePauseTask(task.id)
                         }}
-                        disabled={pauseTask.isPending}
+                        size="icon-sm"
+                        variant="ghost"
                       >
                         <IconPlayerPause className="h-4 w-4" />
                       </Button>
                     )}
                     {canResume(task) && (
                       <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
+                        disabled={resumeTask.isPending}
+                        onClick={e => {
                           e.stopPropagation()
                           handleResumeTask(task.id)
                         }}
-                        disabled={resumeTask.isPending}
+                        size="icon-sm"
+                        variant="ghost"
                       >
                         <IconPlayerPlay className="h-4 w-4" />
                       </Button>
                     )}
                     {canStop(task) && (
                       <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
+                        disabled={stopTask.isPending}
+                        onClick={e => {
                           e.stopPropagation()
                           handleStopTask(task.id)
                         }}
-                        disabled={stopTask.isPending}
+                        size="icon-sm"
+                        variant="ghost"
                       >
                         <IconPlayerStop className="h-4 w-4" />
                       </Button>
@@ -401,14 +404,14 @@ export function TaskBacklogList({
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-7 w-7"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={e => e.stopPropagation()}
                       >
                         <IconDotsVertical className="h-4 w-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {canEdit(task) && (
                           <DropdownMenuItem
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation()
                               onEditTask?.(task)
                             }}
@@ -419,7 +422,7 @@ export function TaskBacklogList({
                         )}
                         {canStart(task) && (
                           <DropdownMenuItem
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation()
                               handleStartTask(task.id)
                             }}
@@ -433,7 +436,7 @@ export function TaskBacklogList({
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation()
                                 setDeleteConfirmTask(task)
                               }}
@@ -455,14 +458,15 @@ export function TaskBacklogList({
 
       {/* Delete confirmation dialog */}
       <AlertDialog
+        onOpenChange={open => !open && setDeleteConfirmTask(null)}
         open={!!deleteConfirmTask}
-        onOpenChange={(open) => !open && setDeleteConfirmTask(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Task</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this task? This action cannot be undone.
+              Are you sure you want to delete this task? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

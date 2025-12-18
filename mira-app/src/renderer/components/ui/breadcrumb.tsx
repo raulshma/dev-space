@@ -1,39 +1,39 @@
-import * as React from "react"
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
+import type * as React from 'react'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 
-import { cn } from "renderer/lib/utils"
-import { IconChevronRight, IconDots } from "@tabler/icons-react"
+import { cn } from 'renderer/lib/utils'
+import { IconChevronRight, IconDots } from '@tabler/icons-react'
 
-function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
+function Breadcrumb({ className, ...props }: React.ComponentProps<'nav'>) {
   return (
     <nav
       aria-label="breadcrumb"
-      data-slot="breadcrumb"
       className={cn(className)}
+      data-slot="breadcrumb"
       {...props}
     />
   )
 }
 
-function BreadcrumbList({ className, ...props }: React.ComponentProps<"ol">) {
+function BreadcrumbList({ className, ...props }: React.ComponentProps<'ol'>) {
   return (
     <ol
-      data-slot="breadcrumb-list"
       className={cn(
-        "text-muted-foreground gap-1.5 text-xs/relaxed flex flex-wrap items-center break-words",
+        'text-muted-foreground gap-1.5 text-xs/relaxed flex flex-wrap items-center break-words',
         className
       )}
+      data-slot="breadcrumb-list"
       {...props}
     />
   )
 }
 
-function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
+function BreadcrumbItem({ className, ...props }: React.ComponentProps<'li'>) {
   return (
     <li
+      className={cn('gap-1 inline-flex items-center', className)}
       data-slot="breadcrumb-item"
-      className={cn("gap-1 inline-flex items-center", className)}
       {...props}
     />
   )
@@ -43,30 +43,30 @@ function BreadcrumbLink({
   className,
   render,
   ...props
-}: useRender.ComponentProps<"a">) {
+}: useRender.ComponentProps<'a'>) {
   return useRender({
-    defaultTagName: "a",
-    props: mergeProps<"a">(
+    defaultTagName: 'a',
+    props: mergeProps<'a'>(
       {
-        className: cn("hover:text-foreground transition-colors", className),
+        className: cn('hover:text-foreground transition-colors', className),
       },
       props
     ),
     render,
     state: {
-      slot: "breadcrumb-link",
+      slot: 'breadcrumb-link',
     },
   })
 }
 
-function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
+function BreadcrumbPage({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
+      aria-current="page"
+      aria-disabled="true"
+      className={cn('text-foreground font-normal', className)}
       data-slot="breadcrumb-page"
       role="link"
-      aria-disabled="true"
-      aria-current="page"
-      className={cn("text-foreground font-normal", className)}
       {...props}
     />
   )
@@ -76,19 +76,16 @@ function BreadcrumbSeparator({
   children,
   className,
   ...props
-}: React.ComponentProps<"li">) {
+}: React.ComponentProps<'li'>) {
   return (
     <li
+      aria-hidden="true"
+      className={cn('[&>svg]:size-3.5', className)}
       data-slot="breadcrumb-separator"
       role="presentation"
-      aria-hidden="true"
-      className={cn("[&>svg]:size-3.5", className)}
       {...props}
     >
-      {children ?? (
-        <IconChevronRight
-        />
-      )}
+      {children ?? <IconChevronRight />}
     </li>
   )
 }
@@ -96,20 +93,19 @@ function BreadcrumbSeparator({
 function BreadcrumbEllipsis({
   className,
   ...props
-}: React.ComponentProps<"span">) {
+}: React.ComponentProps<'span'>) {
   return (
     <span
-      data-slot="breadcrumb-ellipsis"
-      role="presentation"
       aria-hidden="true"
       className={cn(
-        "size-4 [&>svg]:size-3.5 flex items-center justify-center",
+        'size-4 [&>svg]:size-3.5 flex items-center justify-center',
         className
       )}
+      data-slot="breadcrumb-ellipsis"
+      role="presentation"
       {...props}
     >
-      <IconDots
-      />
+      <IconDots />
       <span className="sr-only">More</span>
     </span>
   )

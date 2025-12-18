@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'renderer/components/ui/card'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from 'renderer/components/ui/card'
 import { Input } from 'renderer/components/ui/input'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import { Alert, AlertDescription } from 'renderer/components/ui/alert'
-import { IconInfoCircle, IconCircleCheck, IconCircleX, IconAlertTriangle } from '@tabler/icons-react'
+import {
+  IconInfoCircle,
+  IconCircleCheck,
+  IconCircleX,
+  IconAlertTriangle,
+} from '@tabler/icons-react'
 import type { AIProvider } from 'shared/models'
 
 /**
@@ -28,7 +39,8 @@ const PROVIDERS: ProviderConfig[] = [
   {
     provider: 'openrouter',
     name: 'OpenRouter',
-    description: 'Unified access to multiple AI models (GPT-4, Claude, Gemini, and more)',
+    description:
+      'Unified access to multiple AI models (GPT-4, Claude, Gemini, and more)',
     isPrimary: true,
   },
   {
@@ -123,7 +135,9 @@ export function ApiKeyManager(): React.JSX.Element {
 
             status[provider.provider] = {
               hasKey: true,
-              maskedKey: keyResponse.key ? maskApiKey(keyResponse.key) : undefined,
+              maskedKey: keyResponse.key
+                ? maskApiKey(keyResponse.key)
+                : undefined,
               status: 'configured',
             }
           } else {
@@ -136,7 +150,8 @@ export function ApiKeyManager(): React.JSX.Element {
           status[provider.provider] = {
             hasKey: false,
             status: 'error',
-            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            errorMessage:
+              error instanceof Error ? error.message : 'Unknown error',
           }
         }
       }
@@ -171,8 +186,11 @@ export function ApiKeyManager(): React.JSX.Element {
   }
 
   const handleDeleteKey = async (provider: AIProvider): Promise<void> => {
-    const providerName = PROVIDERS.find(p => p.provider === provider)?.name || provider
-    if (!confirm(`Are you sure you want to delete the ${providerName} API key?`)) {
+    const providerName =
+      PROVIDERS.find(p => p.provider === provider)?.name || provider
+    if (
+      !confirm(`Are you sure you want to delete the ${providerName} API key?`)
+    ) {
       return
     }
 
@@ -214,16 +232,15 @@ export function ApiKeyManager(): React.JSX.Element {
     switch (status) {
       case 'configured':
         return (
-          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
+          <Badge
+            className="bg-green-500/10 text-green-600 dark:text-green-400"
+            variant="secondary"
+          >
             Configured
           </Badge>
         )
       case 'error':
-        return (
-          <Badge variant="destructive">
-            Error
-          </Badge>
-        )
+        return <Badge variant="destructive">Error</Badge>
       default:
         return null
     }
@@ -232,7 +249,9 @@ export function ApiKeyManager(): React.JSX.Element {
   if (initialLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading configuration...</div>
+        <div className="text-sm text-muted-foreground">
+          Loading configuration...
+        </div>
       </div>
     )
   }
@@ -245,9 +264,7 @@ export function ApiKeyManager(): React.JSX.Element {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold">
-          API Key Management
-        </h3>
+        <h3 className="text-lg font-semibold">API Key Management</h3>
         <p className="text-sm text-muted-foreground">
           Configure API keys for AI providers. Keys are stored securely in your
           OS keychain.
@@ -274,9 +291,16 @@ export function ApiKeyManager(): React.JSX.Element {
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <CardTitle className="text-base">{primaryProvider.name}</CardTitle>
-                  <Badge variant="outline" className="text-xs">Recommended</Badge>
-                  {getStatusBadge(providerStatus[primaryProvider.provider]?.status || 'not_configured')}
+                  <CardTitle className="text-base">
+                    {primaryProvider.name}
+                  </CardTitle>
+                  <Badge className="text-xs" variant="outline">
+                    Recommended
+                  </Badge>
+                  {getStatusBadge(
+                    providerStatus[primaryProvider.provider]?.status ||
+                      'not_configured'
+                  )}
                 </div>
                 <CardDescription>{primaryProvider.description}</CardDescription>
               </CardHeader>
@@ -289,16 +313,23 @@ export function ApiKeyManager(): React.JSX.Element {
 
           {/* Other Providers */}
           <div className="pt-4">
-            <h4 className="mb-3 text-sm font-medium text-muted-foreground">Other Providers</h4>
+            <h4 className="mb-3 text-sm font-medium text-muted-foreground">
+              Other Providers
+            </h4>
             <div className="space-y-3">
               {otherProviders.map(config => (
                 <Card key={config.provider}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-base">{config.name}</CardTitle>
-                      {getStatusBadge(providerStatus[config.provider]?.status || 'not_configured')}
+                      {getStatusBadge(
+                        providerStatus[config.provider]?.status ||
+                          'not_configured'
+                      )}
                     </div>
-                    <CardDescription className="text-xs">{config.description}</CardDescription>
+                    <CardDescription className="text-xs">
+                      {config.description}
+                    </CardDescription>
                   </CardHeader>
 
                   <CardContent className="pt-0">
@@ -315,9 +346,8 @@ export function ApiKeyManager(): React.JSX.Element {
       <Alert className="mt-6">
         <IconInfoCircle className="h-4 w-4" />
         <AlertDescription>
-          API keys are stored securely in your operating system&apos;s
-          keychain and are never sent anywhere except to the respective AI
-          provider.
+          API keys are stored securely in your operating system&apos;s keychain
+          and are never sent anywhere except to the respective AI provider.
         </AlertDescription>
       </Alert>
     </div>
@@ -331,25 +361,25 @@ export function ApiKeyManager(): React.JSX.Element {
       return (
         <div className="space-y-3">
           <Input
+            autoFocus
             onChange={e => setKeyInput(e.target.value)}
             placeholder={`Enter ${config.name} API key`}
             type="password"
             value={keyInput}
-            autoFocus
           />
           <div className="flex gap-2">
             <Button
-              size="sm"
               disabled={loading}
               onClick={() => handleSaveKey(config.provider)}
+              size="sm"
             >
               {loading ? 'Saving...' : 'Save'}
             </Button>
             <Button
-              variant="outline"
-              size="sm"
               disabled={loading}
               onClick={handleCancelEdit}
+              size="sm"
+              variant="outline"
             >
               Cancel
             </Button>
@@ -365,21 +395,21 @@ export function ApiKeyManager(): React.JSX.Element {
             {statusInfo.maskedKey || '••••••••••••'}
           </code>
           <Button
-            variant="link"
-            size="sm"
             className="h-auto p-0"
             disabled={loading}
             onClick={() => handleEditClick(config.provider)}
+            size="sm"
+            variant="link"
           >
             Update
           </Button>
           <span className="text-muted-foreground">•</span>
           <Button
-            variant="link"
-            size="sm"
             className="h-auto p-0 text-destructive"
             disabled={loading}
             onClick={() => handleDeleteKey(config.provider)}
+            size="sm"
+            variant="link"
           >
             Delete
           </Button>
@@ -392,10 +422,10 @@ export function ApiKeyManager(): React.JSX.Element {
         <div className="space-y-2">
           <p className="text-xs text-destructive">{statusInfo.errorMessage}</p>
           <Button
-            variant="outline"
-            size="sm"
             disabled={loading}
             onClick={() => handleEditClick(config.provider)}
+            size="sm"
+            variant="outline"
           >
             Try Again
           </Button>
@@ -405,10 +435,10 @@ export function ApiKeyManager(): React.JSX.Element {
 
     return (
       <Button
-        variant={config.isPrimary ? 'default' : 'outline'}
-        size="sm"
         disabled={loading}
         onClick={() => handleEditClick(config.provider)}
+        size="sm"
+        variant={config.isPrimary ? 'default' : 'outline'}
       >
         Add API Key
       </Button>

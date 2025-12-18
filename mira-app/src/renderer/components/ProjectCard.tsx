@@ -50,11 +50,11 @@ export function ProjectCard({
       {/* Delete button - shown on hover */}
       {onDelete && (
         <Button
-          variant="ghost"
-          size="icon"
           className="absolute top-2 right-2 h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={handleDelete}
+          size="icon"
           title="Remove project from dashboard"
+          variant="ghost"
         >
           <IconTrash size={16} />
         </Button>
@@ -63,11 +63,9 @@ export function ProjectCard({
       <CardHeader className="pb-3">
         {/* Project Name and Missing Indicator */}
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold truncate">
-            {project.name}
-          </h3>
+          <h3 className="text-lg font-semibold truncate">{project.name}</h3>
           {project.isMissing && (
-            <Badge variant="destructive" className="shrink-0">
+            <Badge className="shrink-0" variant="destructive">
               Missing
             </Badge>
           )}
@@ -86,7 +84,9 @@ export function ProjectCard({
         {/* Git Telemetry */}
         <div>
           {project.isMissing ? (
-            <span className="text-xs text-muted-foreground">Path not found</span>
+            <span className="text-xs text-muted-foreground">
+              Path not found
+            </span>
           ) : gitLoading ? (
             <span className="text-xs text-muted-foreground">
               Loading git status...
@@ -128,8 +128,10 @@ export function ProjectCard({
             {project.tags.map(tag => (
               <Badge
                 key={tag.id}
-                variant={tag.category === 'tech_stack' ? 'default' : 'secondary'}
                 style={tag.color ? { backgroundColor: tag.color } : undefined}
+                variant={
+                  tag.category === 'tech_stack' ? 'default' : 'secondary'
+                }
               >
                 {tag.name}
               </Badge>

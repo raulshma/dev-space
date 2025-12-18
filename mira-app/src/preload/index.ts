@@ -375,9 +375,7 @@ const api = {
       request: AIGenerateTextRequest
     ): Promise<AIGenerateTextResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AI_GENERATE_TEXT, request),
-    streamText: (
-      request: AIStreamTextRequest
-    ): Promise<AIStreamTextResponse> =>
+    streamText: (request: AIStreamTextRequest): Promise<AIStreamTextResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AI_STREAM_TEXT, request),
     onStreamChunk: (
       callback: (data: AIStreamTextChunkData) => void

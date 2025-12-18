@@ -59,7 +59,10 @@ function App(): React.JSX.Element {
           <ProjectDashboard />
         )}
         <CommandPalette />
-        <SettingsPanel isOpen={settingsPanelOpen} onClose={closeSettingsPanel} />
+        <SettingsPanel
+          isOpen={settingsPanelOpen}
+          onClose={closeSettingsPanel}
+        />
         <ErrorToast />
       </QueryClientProvider>
     </ErrorBoundary>

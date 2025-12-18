@@ -868,7 +868,7 @@ export class IPCHandlers {
         try {
           const focusedWindow = BrowserWindow.getFocusedWindow()
           const result = await dialog.showOpenDialog(
-            focusedWindow ?? undefined as unknown as BrowserWindow,
+            focusedWindow ?? (undefined as unknown as BrowserWindow),
             {
               title: request.title ?? 'Select Directory',
               defaultPath: request.defaultPath,
@@ -897,7 +897,10 @@ export class IPCHandlers {
       async (_event, request: AIGenerateTextRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const result = await this.aiService.generateText({
             projectId: request.projectId,
@@ -923,7 +926,10 @@ export class IPCHandlers {
       async (event, request: AIStreamTextRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
 
           // Start streaming in background
@@ -949,7 +955,8 @@ export class IPCHandlers {
                 })
               }
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Unknown error'
+              const message =
+                error instanceof Error ? error.message : 'Unknown error'
               sender.send(IPC_CHANNELS.AI_STREAM_TEXT_CHUNK, {
                 streamId,
                 text: '',
@@ -972,7 +979,10 @@ export class IPCHandlers {
       async (_event, _request: AIGetModelsRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const models = await this.aiService.getAvailableModels()
           return { models }
@@ -988,7 +998,10 @@ export class IPCHandlers {
       async (_event, request: AISetDefaultModelRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.aiService.setDefaultModel(request.modelId)
           return { success: true }
@@ -1004,7 +1017,10 @@ export class IPCHandlers {
       async (_event, request: AISetActionModelRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.aiService.setActionModel(request.action, request.modelId)
           return { success: true }
@@ -1020,7 +1036,10 @@ export class IPCHandlers {
       async (_event, request: AIGetConversationRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const messages = this.aiService.getConversation(request.projectId)
           return { messages }
@@ -1036,7 +1055,10 @@ export class IPCHandlers {
       async (_event, request: AIClearConversationRequest) => {
         try {
           if (!this.aiService) {
-            return { error: 'AI service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'AI service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           this.aiService.clearConversation(request.projectId)
           return { success: true }
@@ -1052,7 +1074,10 @@ export class IPCHandlers {
       async (_event, request: AIGetRequestLogsRequest) => {
         try {
           if (!this.requestLogger) {
-            return { error: 'Request logger not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Request logger not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const logs = this.requestLogger.getLogs(request.filter)
           return { logs }
@@ -1068,7 +1093,10 @@ export class IPCHandlers {
       async (_event, request: AIGetRequestLogRequest) => {
         try {
           if (!this.requestLogger) {
-            return { error: 'Request logger not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Request logger not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const log = this.requestLogger.getLog(request.logId)
           return { log }
@@ -1090,7 +1118,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskCreateRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const task = await this.agentExecutorService.createTask({
             description: request.description,
@@ -1112,7 +1143,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskGetRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const task = this.agentExecutorService.getTask(request.taskId)
           return { task: task ?? null }
@@ -1128,7 +1162,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskListRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const tasks = this.agentExecutorService.getTasks(request.filter)
           return { tasks }
@@ -1144,7 +1181,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskUpdateRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const task = await this.agentExecutorService.updateTask(
             request.taskId,
@@ -1163,7 +1203,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskDeleteRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.agentExecutorService.deleteTask(request.taskId)
           return { success: true }
@@ -1179,7 +1222,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskStartRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.agentExecutorService.startTask(request.taskId)
           return { success: true }
@@ -1195,7 +1241,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskPauseRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.agentExecutorService.pauseTask(request.taskId)
           return { success: true }
@@ -1211,7 +1260,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskResumeRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.agentExecutorService.resumeTask(request.taskId)
           return { success: true }
@@ -1227,7 +1279,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskStopRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.agentExecutorService.stopTask(request.taskId)
           return { success: true }
@@ -1243,7 +1298,10 @@ export class IPCHandlers {
       async (_event, request: AgentTaskGetOutputRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const output = this.agentExecutorService.getTaskOutput(request.taskId)
           return { output }
@@ -1259,7 +1317,10 @@ export class IPCHandlers {
       async (event, request: AgentTaskGetOutputRequest) => {
         try {
           if (!this.agentExecutorService) {
-            return { error: 'Agent executor service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
 
           const sender = event.sender
@@ -1268,7 +1329,7 @@ export class IPCHandlers {
           // Subscribe to output updates
           const unsubscribe = this.agentExecutorService.subscribeToOutput(
             taskId,
-            (line) => {
+            line => {
               sender.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
                 taskId,
                 line,
@@ -1299,7 +1360,10 @@ export class IPCHandlers {
       async (_event, _request: AgentConfigGetRequest) => {
         try {
           if (!this.agentConfigService) {
-            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent config service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const config = await this.agentConfigService.getConfig()
           return { config }
@@ -1315,7 +1379,10 @@ export class IPCHandlers {
       async (_event, request: AgentConfigSetRequest) => {
         try {
           if (!this.agentConfigService) {
-            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent config service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           await this.agentConfigService.setConfig(request.updates)
           return { success: true }
@@ -1331,7 +1398,10 @@ export class IPCHandlers {
       async (_event, request: AgentConfigValidateRequest) => {
         try {
           if (!this.agentConfigService) {
-            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent config service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const result = this.agentConfigService.validateConfig(request.config)
           return { result }
@@ -1347,7 +1417,10 @@ export class IPCHandlers {
       async (_event, _request: AgentConfigIsConfiguredRequest) => {
         try {
           if (!this.agentConfigService) {
-            return { error: 'Agent config service not initialized', code: 'SERVICE_NOT_INITIALIZED' }
+            return {
+              error: 'Agent config service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
           }
           const isConfigured = await this.agentConfigService.isConfigured()
           return { isConfigured }

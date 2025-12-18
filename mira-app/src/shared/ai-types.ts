@@ -42,12 +42,21 @@ export interface SerializedMessage {
 /**
  * Supported AI provider types
  */
-export type AIProvider = 'openrouter' | 'openai' | 'anthropic' | 'google' | 'local'
+export type AIProvider =
+  | 'openrouter'
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'local'
 
 /**
  * Action types that can have different model configurations
  */
-export type AIAction = 'chat' | 'code-generation' | 'error-fix' | 'parameter-extraction'
+export type AIAction =
+  | 'chat'
+  | 'code-generation'
+  | 'error-fix'
+  | 'parameter-extraction'
 
 /**
  * Represents an AI model available through a provider
@@ -60,9 +69,21 @@ export interface AIModel {
   pricing: {
     prompt: number
     completion: number
+    request?: number
+    image?: number
   }
   capabilities: string[]
   isConfigured: boolean
+  description?: string
+  isFree?: boolean
+  maxCompletionTokens?: number
+  supportedMethods?: string[]
+  created: number
+  architecture: {
+    modality: string
+    tokenizer?: string
+    instructType?: string
+  }
 }
 
 // ============================================================================
@@ -147,7 +168,9 @@ export function serializeMessage(msg: ConversationMessage): SerializedMessage {
  * @param json - The serialized message to deserialize
  * @returns A ConversationMessage with proper Date timestamp
  */
-export function deserializeMessage(json: SerializedMessage): ConversationMessage {
+export function deserializeMessage(
+  json: SerializedMessage
+): ConversationMessage {
   return {
     id: json.id,
     role: json.role,
@@ -275,7 +298,14 @@ export type AgentType = 'autonomous' | 'feature'
 /**
  * Status of an agent task
  */
-export type TaskStatus = 'pending' | 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
+export type TaskStatus =
+  | 'pending'
+  | 'queued'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'stopped'
 
 /**
  * Parameters for agent execution
@@ -398,9 +428,21 @@ export interface CachedModel {
   pricing: {
     prompt: number
     completion: number
+    request?: number
+    image?: number
   }
   capabilities: string[]
   cachedAt: Date
+  description?: string
+  isFree?: boolean
+  maxCompletionTokens?: number
+  supportedMethods?: string[]
+  created: number
+  architecture: {
+    modality: string
+    tokenizer?: string
+    instructType?: string
+  }
 }
 
 /**
@@ -414,8 +456,20 @@ export interface CacheModelInput {
   pricing: {
     prompt: number
     completion: number
+    request?: number
+    image?: number
   }
   capabilities: string[]
+  description?: string
+  isFree?: boolean
+  maxCompletionTokens?: number
+  supportedMethods?: string[]
+  created: number
+  architecture: {
+    modality: string
+    tokenizer?: string
+    instructType?: string
+  }
 }
 
 // ============================================================================
@@ -436,10 +490,68 @@ export interface AISetting {
 // ============================================================================
 
 /**
+ * Supported agent CLI services
+ */
+export type AgentCLIService =
+  | 'claude-code'
+  | 'opencode'
+  | 'google-jules'
+  | 'aider'
+  | 'custom'
+
+/**
+ * Metadata for an agent CLI service
+ */
+export interface AgentCLIServiceInfo {
+  id: AgentCLIService
+  name: string
+  description: string
+  icon?: string
+  docsUrl?: string
+}
+
+/**
+ * Available agent CLI services
+ */
+export const AGENT_CLI_SERVICES: AgentCLIServiceInfo[] = [
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    description: "Anthropic's Claude-powered coding assistant CLI",
+    docsUrl: 'https://docs.anthropic.com/claude-code',
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    description: 'Open-source AI coding assistant with multiple model support',
+    docsUrl: 'https://github.com/opencode-ai/opencode',
+  },
+  {
+    id: 'google-jules',
+    name: 'Google Jules',
+    description: "Google's AI coding assistant powered by Gemini",
+    docsUrl: 'https://developers.google.com/jules',
+  },
+  {
+    id: 'aider',
+    name: 'Aider',
+    description: 'AI pair programming in your terminal',
+    docsUrl: 'https://aider.chat',
+  },
+  {
+    id: 'custom',
+    name: 'Custom Agent',
+    description: 'Configure a custom agent CLI with your own settings',
+  },
+]
+
+/**
  * Configuration for coding agent execution environment.
  * Contains authentication tokens, API settings, and custom environment variables.
  */
 export interface AgentEnvironmentConfig {
+  /** Selected agent CLI service */
+  agentService: AgentCLIService
   /** Anthropic authentication token for Claude Code agents */
   anthropicAuthToken: string
   /** Optional custom base URL for Anthropic API */
@@ -450,6 +562,12 @@ export interface AgentEnvironmentConfig {
   pythonPath: string
   /** Custom environment variables to inject into agent process */
   customEnvVars: Record<string, string>
+  /** Google API key for Jules */
+  googleApiKey?: string
+  /** OpenAI API key for OpenCode */
+  openaiApiKey?: string
+  /** Custom command for custom agent */
+  customCommand?: string
 }
 
 /**
@@ -477,9 +595,13 @@ export interface AgentConfigValidationError {
  * All fields are optional to allow partial updates.
  */
 export interface UpdateAgentConfigInput {
+  agentService?: AgentCLIService
   anthropicAuthToken?: string
   anthropicBaseUrl?: string
   apiTimeoutMs?: number
   pythonPath?: string
   customEnvVars?: Record<string, string>
+  googleApiKey?: string
+  openaiApiKey?: string
+  customCommand?: string
 }

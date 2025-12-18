@@ -7,7 +7,12 @@
  * Requirements: 3.1, 3.2, 3.4, 3.5
  */
 
-import type { AIModel, AIAction, CachedModel, CacheModelInput } from 'shared/ai-types'
+import type {
+  AIModel,
+  AIAction,
+  CachedModel,
+  CacheModelInput,
+} from 'shared/ai-types'
 import type { DatabaseService } from '../database'
 import type { AIProviderAdapter } from './provider-registry'
 
@@ -139,7 +144,10 @@ export class ModelRegistry implements IModelRegistry {
         this.usingFallback = false
         return freshModels
       } catch (error) {
-        console.warn('Failed to fetch models from provider, falling back to cache:', error)
+        console.warn(
+          'Failed to fetch models from provider, falling back to cache:',
+          error
+        )
         // Fall through to use cached models
       }
     }
@@ -208,7 +216,10 @@ export class ModelRegistry implements IModelRegistry {
    */
   setActionModel(action: AIAction, modelId: string): void {
     this.actionModels.set(action, modelId)
-    this.database.setAISetting(`${SETTINGS_KEYS.ACTION_MODEL_PREFIX}${action}`, modelId)
+    this.database.setAISetting(
+      `${SETTINGS_KEYS.ACTION_MODEL_PREFIX}${action}`,
+      modelId
+    )
   }
 
   /**
@@ -264,6 +275,12 @@ export class ModelRegistry implements IModelRegistry {
       contextLength: model.contextLength,
       pricing: model.pricing,
       capabilities: model.capabilities,
+      description: model.description,
+      isFree: model.isFree,
+      maxCompletionTokens: model.maxCompletionTokens,
+      supportedMethods: model.supportedMethods,
+      created: model.created,
+      architecture: model.architecture,
     }))
 
     // Clear old cache and insert new models
@@ -292,6 +309,12 @@ export class ModelRegistry implements IModelRegistry {
       pricing: cached.pricing,
       capabilities: cached.capabilities,
       isConfigured: true,
+      description: cached.description,
+      isFree: cached.isFree,
+      maxCompletionTokens: cached.maxCompletionTokens,
+      supportedMethods: cached.supportedMethods,
+      created: cached.created,
+      architecture: cached.architecture,
     }))
 
     for (const model of models) {
@@ -313,9 +336,16 @@ export class ModelRegistry implements IModelRegistry {
     }
 
     // Load action-specific models
-    const actions: AIAction[] = ['chat', 'code-generation', 'error-fix', 'parameter-extraction']
+    const actions: AIAction[] = [
+      'chat',
+      'code-generation',
+      'error-fix',
+      'parameter-extraction',
+    ]
     for (const action of actions) {
-      const modelId = this.database.getAISetting(`${SETTINGS_KEYS.ACTION_MODEL_PREFIX}${action}`)
+      const modelId = this.database.getAISetting(
+        `${SETTINGS_KEYS.ACTION_MODEL_PREFIX}${action}`
+      )
       if (modelId) {
         this.actionModels.set(action, modelId)
       }

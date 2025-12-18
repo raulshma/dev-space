@@ -120,7 +120,7 @@ export function useAIConversation(projectId: string | null) {
       if (!projectId) return []
       const response = await window.api.ai.getConversation({ projectId })
       // Convert serialized timestamps back to Date objects
-      const messages = response.messages.map((msg) => ({
+      const messages = response.messages.map(msg => ({
         ...msg,
         timestamp:
           msg.timestamp instanceof Date
@@ -275,7 +275,7 @@ export function useStreamText() {
       startStreaming(streamId)
 
       // Set up chunk listener
-      const cleanup = window.api.ai.onStreamChunk((data) => {
+      const cleanup = window.api.ai.onStreamChunk(data => {
         if (data.streamId !== streamId) return
 
         if (data.error) {
@@ -353,7 +353,7 @@ export function useAIRequestLogs(filter?: AILogFilter) {
       try {
         const response = await window.api.ai.getRequestLogs({ filter })
         // Convert timestamps
-        const logs = response.logs.map((log) => ({
+        const logs = response.logs.map(log => ({
           ...log,
           timestamp:
             log.timestamp instanceof Date

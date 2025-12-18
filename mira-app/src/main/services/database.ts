@@ -116,6 +116,12 @@ interface ModelCacheRow {
   pricing_json: string
   capabilities_json: string
   cached_at: number
+  description: string | null
+  is_free: number
+  max_completion_tokens: number | null
+  supported_methods_json: string | null
+  created: number
+  architecture_json: string | null
 }
 
 // AI Settings row interface
@@ -152,6 +158,9 @@ export class DatabaseService {
 
     // Create schema
     this.createSchema()
+
+    // Apply migrations
+    this.migrate()
 
     // Seed default commands if none exist
     this.seedDefaultCommands()
@@ -328,7 +337,13 @@ export class DatabaseService {
         context_length INTEGER,
         pricing_json TEXT,
         capabilities_json TEXT,
-        cached_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
+        cached_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        description TEXT,
+        is_free INTEGER DEFAULT 0,
+        max_completion_tokens INTEGER,
+        supported_methods_json TEXT,
+        created INTEGER,
+        architecture_json TEXT
       )
     `)
 
@@ -348,19 +363,72 @@ export class DatabaseService {
   migrate(): void {
     if (!this.db) throw new Error('Database not initialized')
 
-    // Get current schema version (for future use)
-    // const versionRow = this.db
-    //   .prepare('SELECT value FROM settings WHERE key = ?')
-    //   .get('schema_version') as { value: string } | undefined
-    // const currentVersion = versionRow ? parseInt(versionRow.value, 10) : 0
+    // Get current schema version
+    const versionRow = this.db
+      .prepare('SELECT value FROM settings WHERE key = ?')
+      .get('schema_version') as { value: string } | undefined
+    const currentVersion = versionRow
+      ? Number.parseInt(versionRow.value, 10)
+      : 0
 
-    // Apply migrations based on version
-    // Future migrations will be added here
+    // Migration 1: Add new columns to model_cache table
+    if (currentVersion < 2) {
+      try {
+        // Check if columns already exist
+        const tableInfo = this.db
+          .prepare('PRAGMA table_info(model_cache)')
+          .all() as Array<{ name: string }>
+        const columnNames = tableInfo.map(col => col.name)
+
+        // Add missing columns
+        if (!columnNames.includes('description')) {
+          this.db.exec('ALTER TABLE model_cache ADD COLUMN description TEXT')
+        }
+        if (!columnNames.includes('is_free')) {
+          this.db.exec(
+            'ALTER TABLE model_cache ADD COLUMN is_free INTEGER DEFAULT 0'
+          )
+        }
+        if (!columnNames.includes('max_completion_tokens')) {
+          this.db.exec(
+            'ALTER TABLE model_cache ADD COLUMN max_completion_tokens INTEGER'
+          )
+        }
+        if (!columnNames.includes('supported_methods_json')) {
+          this.db.exec(
+            'ALTER TABLE model_cache ADD COLUMN supported_methods_json TEXT'
+          )
+        }
+      } catch (error) {
+        console.error('Migration 1 failed:', error)
+      }
+    }
+
+    // Migration 2: Add created and architecture_json to model_cache table
+    if (currentVersion < 3) {
+      try {
+        const tableInfo = this.db
+          .prepare('PRAGMA table_info(model_cache)')
+          .all() as Array<{ name: string }>
+        const columnNames = tableInfo.map(col => col.name)
+
+        if (!columnNames.includes('created')) {
+          this.db.exec('ALTER TABLE model_cache ADD COLUMN created INTEGER')
+        }
+        if (!columnNames.includes('architecture_json')) {
+          this.db.exec(
+            'ALTER TABLE model_cache ADD COLUMN architecture_json TEXT'
+          )
+        }
+      } catch (error) {
+        console.error('Migration 2 failed:', error)
+      }
+    }
 
     // Set schema version
     this.db
       .prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-      .run('schema_version', '1')
+      .run('schema_version', '3')
   }
 
   /**
@@ -1307,7 +1375,9 @@ export class DatabaseService {
       processId: row.process_id ?? undefined,
       exitCode: row.exit_code ?? undefined,
       error: row.error ?? undefined,
-      fileChanges: row.file_changes_json ? JSON.parse(row.file_changes_json) : undefined,
+      fileChanges: row.file_changes_json
+        ? JSON.parse(row.file_changes_json)
+        : undefined,
     }
   }
 
@@ -1373,7 +1443,9 @@ export class DatabaseService {
   getTaskOutputCount(taskId: string): number {
     const db = this.getDb()
 
-    const stmt = db.prepare('SELECT COUNT(*) as count FROM agent_task_output WHERE task_id = ?')
+    const stmt = db.prepare(
+      'SELECT COUNT(*) as count FROM agent_task_output WHERE task_id = ?'
+    )
     const result = stmt.get(taskId) as { count: number }
 
     return result.count
@@ -1402,8 +1474,12 @@ export class DatabaseService {
     const now = Date.now()
 
     const stmt = db.prepare(`
-      INSERT OR REPLACE INTO model_cache (id, name, provider, context_length, pricing_json, capabilities_json, cached_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO model_cache (
+        id, name, provider, context_length, pricing_json, capabilities_json, cached_at,
+        description, is_free, max_completion_tokens, supported_methods_json,
+        created, architecture_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     stmt.run(
@@ -1413,7 +1489,13 @@ export class DatabaseService {
       data.contextLength,
       JSON.stringify(data.pricing),
       JSON.stringify(data.capabilities),
-      now
+      now,
+      data.description || null,
+      data.isFree ? 1 : 0,
+      data.maxCompletionTokens || null,
+      data.supportedMethods ? JSON.stringify(data.supportedMethods) : null,
+      data.created,
+      JSON.stringify(data.architecture)
     )
 
     return {
@@ -1424,6 +1506,12 @@ export class DatabaseService {
       pricing: data.pricing,
       capabilities: data.capabilities,
       cachedAt: new Date(now),
+      description: data.description,
+      isFree: data.isFree,
+      maxCompletionTokens: data.maxCompletionTokens,
+      supportedMethods: data.supportedMethods,
+      created: data.created,
+      architecture: data.architecture,
     }
   }
 
@@ -1436,8 +1524,12 @@ export class DatabaseService {
     const now = Date.now()
 
     const stmt = db.prepare(`
-      INSERT OR REPLACE INTO model_cache (id, name, provider, context_length, pricing_json, capabilities_json, cached_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO model_cache (
+        id, name, provider, context_length, pricing_json, capabilities_json, cached_at,
+        description, is_free, max_completion_tokens, supported_methods_json,
+        created, architecture_json
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     const insertMany = db.transaction((models: CacheModelInput[]) => {
@@ -1449,7 +1541,15 @@ export class DatabaseService {
           model.contextLength,
           JSON.stringify(model.pricing),
           JSON.stringify(model.capabilities),
-          now
+          now,
+          model.description || null,
+          model.isFree ? 1 : 0,
+          model.maxCompletionTokens || null,
+          model.supportedMethods
+            ? JSON.stringify(model.supportedMethods)
+            : null,
+          model.created,
+          JSON.stringify(model.architecture)
         )
       }
     })
@@ -1474,6 +1574,16 @@ export class DatabaseService {
       pricing: JSON.parse(row.pricing_json),
       capabilities: JSON.parse(row.capabilities_json),
       cachedAt: new Date(row.cached_at),
+      description: row.description || undefined,
+      isFree: row.is_free === 1,
+      maxCompletionTokens: row.max_completion_tokens || undefined,
+      supportedMethods: row.supported_methods_json
+        ? JSON.parse(row.supported_methods_json)
+        : undefined,
+      created: row.created,
+      architecture: row.architecture_json
+        ? JSON.parse(row.architecture_json)
+        : { modality: 'text->text' },
     }))
   }
 
@@ -1496,6 +1606,16 @@ export class DatabaseService {
       pricing: JSON.parse(row.pricing_json),
       capabilities: JSON.parse(row.capabilities_json),
       cachedAt: new Date(row.cached_at),
+      description: row.description || undefined,
+      isFree: row.is_free === 1,
+      maxCompletionTokens: row.max_completion_tokens || undefined,
+      supportedMethods: row.supported_methods_json
+        ? JSON.parse(row.supported_methods_json)
+        : undefined,
+      created: row.created,
+      architecture: row.architecture_json
+        ? JSON.parse(row.architecture_json)
+        : { modality: 'text->text' },
     }
   }
 

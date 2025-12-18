@@ -19,7 +19,12 @@ import {
   IconSparkles,
 } from '@tabler/icons-react'
 import { Sheet, SheetContent } from 'renderer/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from 'renderer/components/ui/tabs'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from 'renderer/components/ui/tabs'
 import { ShortcutEditor } from './ShortcutEditor'
 import { BlueprintManager } from './BlueprintManager'
 import { GeneralSettings } from './GeneralSettings'
@@ -39,130 +44,140 @@ export function SettingsPanel({
   isOpen,
 }: SettingsPanelProps): React.JSX.Element {
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="right" className="!w-[900px] !max-w-[900px] p-0 overflow-hidden">
+    <Sheet onOpenChange={onClose} open={isOpen}>
+      <SheetContent
+        className="w-[900px]! min-w-[70vw]! p-0 overflow-hidden"
+        side="right"
+      >
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="px-6 py-4 border-b shrink-0 bg-background relative z-10">
             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
           </div>
 
-          <Tabs defaultValue="general" orientation="vertical" className="flex-1 overflow-hidden min-h-0">
+          <Tabs
+            className="flex-1 overflow-hidden min-h-0"
+            defaultValue="general"
+            orientation="vertical"
+          >
             <div className="flex flex-1 overflow-hidden relative">
               {/* Sidebar with tabs */}
               <aside className="w-56 shrink-0 border-r bg-muted/30 overflow-y-auto min-h-0">
                 <TabsList className="flex flex-col h-auto w-full bg-transparent p-2 gap-1 items-stretch justify-start">
-                {/* General Section */}
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  General
-                </div>
-                <TabsTrigger
-                  value="general"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconSettings className="h-4 w-4" />
-                  Appearance
-                </TabsTrigger>
-                <TabsTrigger
-                  value="terminal"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconTerminal2 className="h-4 w-4" />
-                  Terminal
-                </TabsTrigger>
-                <TabsTrigger
-                  value="shortcuts"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconKeyboard className="h-4 w-4" />
-                  Keyboard Shortcuts
-                </TabsTrigger>
+                  {/* General Section */}
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    General
+                  </div>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="general"
+                  >
+                    <IconSettings className="h-4 w-4" />
+                    Appearance
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="terminal"
+                  >
+                    <IconTerminal2 className="h-4 w-4" />
+                    Terminal
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="shortcuts"
+                  >
+                    <IconKeyboard className="h-4 w-4" />
+                    Keyboard Shortcuts
+                  </TabsTrigger>
 
-                {/* AI Section */}
-                <div className="px-2 py-1.5 mt-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  AI & Agents
-                </div>
-                <TabsTrigger
-                  value="ai-settings"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconSparkles className="h-4 w-4" />
-                  AI Settings
-                </TabsTrigger>
-                <TabsTrigger
-                  value="api-keys"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconKey className="h-4 w-4" />
-                  API Keys
-                </TabsTrigger>
-                <TabsTrigger
-                  value="ai-models"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconCpu className="h-4 w-4" />
-                  AI Models
-                </TabsTrigger>
-                <TabsTrigger
-                  value="agent-config"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconRobot className="h-4 w-4" />
-                  Agent Configuration
-                </TabsTrigger>
+                  {/* AI Section */}
+                  <div className="px-2 py-1.5 mt-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    AI & Agents
+                  </div>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="ai-settings"
+                  >
+                    <IconSparkles className="h-4 w-4" />
+                    AI Settings
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="api-keys"
+                  >
+                    <IconKey className="h-4 w-4" />
+                    API Keys
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="ai-models"
+                  >
+                    <IconCpu className="h-4 w-4" />
+                    AI Models
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="agent-config"
+                  >
+                    <IconRobot className="h-4 w-4" />
+                    Agent Configuration
+                  </TabsTrigger>
 
-                {/* Tools Section */}
-                <div className="px-2 py-1.5 mt-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Tools
-                </div>
-                <TabsTrigger
-                  value="blueprints"
-                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
-                >
-                  <IconPackage className="h-4 w-4" />
-                  Blueprints
-                </TabsTrigger>
+                  {/* Tools Section */}
+                  <div className="px-2 py-1.5 mt-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Tools
+                  </div>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="blueprints"
+                  >
+                    <IconPackage className="h-4 w-4" />
+                    Blueprints
+                  </TabsTrigger>
                 </TabsList>
               </aside>
 
               {/* Main content area */}
               <div className="flex-1 overflow-y-auto min-h-0">
-              <TabsContent value="general" className="m-0 p-6 h-full">
-                <GeneralSettings />
-              </TabsContent>
+                <TabsContent className="m-0 p-6 h-full" value="general">
+                  <GeneralSettings />
+                </TabsContent>
 
-              <TabsContent value="terminal" className="m-0 p-6 h-full">
-                <TerminalSettings />
-              </TabsContent>
+                <TabsContent className="m-0 p-6 h-full" value="terminal">
+                  <TerminalSettings />
+                </TabsContent>
 
-              <TabsContent value="shortcuts" className="m-0 p-6">
-                <ShortcutEditor />
-              </TabsContent>
+                <TabsContent className="m-0 p-6" value="shortcuts">
+                  <ShortcutEditor />
+                </TabsContent>
 
-              <TabsContent value="ai-settings" className="m-0 p-6 h-full">
-                <AISettings />
-              </TabsContent>
+                <TabsContent className="m-0 p-6 h-full" value="ai-settings">
+                  <AISettings />
+                </TabsContent>
 
-              <TabsContent value="api-keys" className="m-0 p-6 h-full">
-                <ApiKeyManager />
-              </TabsContent>
+                <TabsContent className="m-0 p-6 h-full" value="api-keys">
+                  <ApiKeyManager />
+                </TabsContent>
 
-              <TabsContent value="ai-models" className="m-0 p-6 h-full">
-                <div className="space-y-4">
-                  <div>
-                    <h2 className="text-lg font-semibold">AI Model Configuration</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Select and configure AI models from OpenRouter for different actions
-                    </p>
+                <TabsContent className="m-0 p-6 h-full" value="ai-models">
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-lg font-semibold">
+                        AI Model Configuration
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Select and configure AI models from OpenRouter for
+                        different actions
+                      </p>
+                    </div>
+                    <ModelSelector showActionModels />
                   </div>
-                  <ModelSelector showActionModels />
-                </div>
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="agent-config" className="m-0 p-6 h-full">
-                <AgentConfigPanel />
-              </TabsContent>
+                <TabsContent className="m-0 p-6 h-full" value="agent-config">
+                  <AgentConfigPanel />
+                </TabsContent>
 
-                <TabsContent value="blueprints" className="m-0 p-6 h-full">
+                <TabsContent className="m-0 p-6 h-full" value="blueprints">
                   <BlueprintManager />
                 </TabsContent>
               </div>

@@ -9,7 +9,12 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import * as fc from 'fast-check'
-import { AIService, AIErrorCode, AIServiceError, type RetryConfig } from './ai-service'
+import {
+  AIService,
+  AIErrorCode,
+  AIServiceError,
+  type RetryConfig,
+} from './ai-service'
 import { ProviderRegistry } from './ai/provider-registry'
 import { ModelRegistry } from './ai/model-registry'
 import { RequestLogger } from './ai/request-logger'
@@ -38,21 +43,32 @@ const mockDatabaseService = {
 }
 
 // Arbitrary generators for property tests
-const arbitraryRole = fc.constantFrom('user', 'assistant', 'system') as fc.Arbitrary<'user' | 'assistant' | 'system'>
+const arbitraryRole = fc.constantFrom(
+  'user',
+  'assistant',
+  'system'
+) as fc.Arbitrary<'user' | 'assistant' | 'system'>
 
-const arbitraryConversationMessage: fc.Arbitrary<ConversationMessage> = fc.record({
-  id: fc.string({ minLength: 1, maxLength: 50 }),
-  role: arbitraryRole,
-  content: fc.string({ minLength: 0, maxLength: 1000 }),
-  timestamp: fc.date(),
-  model: fc.option(fc.string({ minLength: 1, maxLength: 50 }), { nil: undefined }),
-  metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue()), { nil: undefined }),
+const arbitraryConversationMessage: fc.Arbitrary<ConversationMessage> =
+  fc.record({
+    id: fc.string({ minLength: 1, maxLength: 50 }),
+    role: arbitraryRole,
+    content: fc.string({ minLength: 0, maxLength: 1000 }),
+    timestamp: fc.date(),
+    model: fc.option(fc.string({ minLength: 1, maxLength: 50 }), {
+      nil: undefined,
+    }),
+    metadata: fc.option(fc.dictionary(fc.string(), fc.jsonValue()), {
+      nil: undefined,
+    }),
+  })
+
+const arbitraryConversation = fc.array(arbitraryConversationMessage, {
+  minLength: 0,
+  maxLength: 20,
 })
 
-const arbitraryConversation = fc.array(arbitraryConversationMessage, { minLength: 0, maxLength: 20 })
-
 const arbitraryProjectId = fc.string({ minLength: 1, maxLength: 50 })
-
 
 describe('AI Service Property Tests', () => {
   let providerRegistry: ProviderRegistry
@@ -92,10 +108,16 @@ describe('AI Service Property Tests', () => {
           (projectId, messages) => {
             // Create fresh service for each test iteration
             const freshProviderRegistry = new ProviderRegistry()
-            const freshModelRegistry = new ModelRegistry(mockDatabaseService as any, null)
-            const freshRequestLogger = new RequestLogger(mockDatabaseService as any, {
-              enablePeriodicCleanup: false,
-            })
+            const freshModelRegistry = new ModelRegistry(
+              mockDatabaseService as any,
+              null
+            )
+            const freshRequestLogger = new RequestLogger(
+              mockDatabaseService as any,
+              {
+                enablePeriodicCleanup: false,
+              }
+            )
             const freshService = new AIService(
               freshProviderRegistry,
               freshModelRegistry,
@@ -130,7 +152,9 @@ describe('AI Service Property Tests', () => {
               expect(conversationAfter[i].id).toBe(messages[i].id)
               expect(conversationAfter[i].role).toBe(messages[i].role)
               expect(conversationAfter[i].content).toBe(messages[i].content)
-              expect(conversationAfter[i].timestamp.getTime()).toBe(messages[i].timestamp.getTime())
+              expect(conversationAfter[i].timestamp.getTime()).toBe(
+                messages[i].timestamp.getTime()
+              )
             }
 
             return true
@@ -149,10 +173,16 @@ describe('AI Service Property Tests', () => {
           (projectId, messages, switchCount) => {
             // Create fresh service for each test iteration
             const freshProviderRegistry = new ProviderRegistry()
-            const freshModelRegistry = new ModelRegistry(mockDatabaseService as any, null)
-            const freshRequestLogger = new RequestLogger(mockDatabaseService as any, {
-              enablePeriodicCleanup: false,
-            })
+            const freshModelRegistry = new ModelRegistry(
+              mockDatabaseService as any,
+              null
+            )
+            const freshRequestLogger = new RequestLogger(
+              mockDatabaseService as any,
+              {
+                enablePeriodicCleanup: false,
+              }
+            )
             const freshService = new AIService(
               freshProviderRegistry,
               freshModelRegistry,
@@ -186,7 +216,6 @@ describe('AI Service Property Tests', () => {
     })
   })
 
-
   /**
    * **Feature: ai-agent-rework, Property 20: Retry with Exponential Backoff**
    * **Validates: Requirements 12.4**
@@ -197,39 +226,36 @@ describe('AI Service Property Tests', () => {
   describe('Property 20: Retry with Exponential Backoff', () => {
     it('calculates increasing delays for consecutive retry attempts', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 0, max: 10 }),
-          (maxRetries) => {
-            const retryConfig: RetryConfig = {
-              maxRetries,
-              initialDelayMs: 1000,
-              maxDelayMs: 30000,
-              backoffMultiplier: 2,
-            }
-
-            const testService = new AIService(
-              providerRegistry,
-              modelRegistry,
-              requestLogger,
-              mockKeychainService as any,
-              retryConfig
-            )
-
-            // Calculate delays for each retry attempt
-            const delays: number[] = []
-            for (let i = 0; i < maxRetries; i++) {
-              delays.push(testService.calculateRetryDelay(i))
-            }
-
-            // Verify each delay is greater than or equal to the previous
-            // (equal when hitting maxDelayMs cap)
-            for (let i = 1; i < delays.length; i++) {
-              expect(delays[i]).toBeGreaterThanOrEqual(delays[i - 1])
-            }
-
-            return true
+        fc.property(fc.integer({ min: 0, max: 10 }), maxRetries => {
+          const retryConfig: RetryConfig = {
+            maxRetries,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
           }
-        ),
+
+          const testService = new AIService(
+            providerRegistry,
+            modelRegistry,
+            requestLogger,
+            mockKeychainService as any,
+            retryConfig
+          )
+
+          // Calculate delays for each retry attempt
+          const delays: number[] = []
+          for (let i = 0; i < maxRetries; i++) {
+            delays.push(testService.calculateRetryDelay(i))
+          }
+
+          // Verify each delay is greater than or equal to the previous
+          // (equal when hitting maxDelayMs cap)
+          for (let i = 1; i < delays.length; i++) {
+            expect(delays[i]).toBeGreaterThanOrEqual(delays[i - 1])
+          }
+
+          return true
+        }),
         { numRuns: 100 }
       )
     })
@@ -281,7 +307,7 @@ describe('AI Service Property Tests', () => {
       fc.assert(
         fc.property(
           fc.constantFrom(...Object.values(AIErrorCode)),
-          (errorCode) => {
+          errorCode => {
             const isRetryable = aiService.isRetryableError(errorCode)
 
             // These error codes should be retryable
@@ -305,7 +331,6 @@ describe('AI Service Property Tests', () => {
     })
   })
 
-
   /**
    * **Feature: ai-agent-rework, Property 21: Concurrent Request Isolation**
    * **Validates: Requirements 12.5**
@@ -318,14 +343,23 @@ describe('AI Service Property Tests', () => {
       fc.assert(
         fc.property(
           fc.array(arbitraryProjectId, { minLength: 2, maxLength: 10 }),
-          fc.array(arbitraryConversationMessage, { minLength: 1, maxLength: 5 }),
+          fc.array(arbitraryConversationMessage, {
+            minLength: 1,
+            maxLength: 5,
+          }),
           (projectIds, messages) => {
             // Create fresh service for each test iteration
             const freshProviderRegistry = new ProviderRegistry()
-            const freshModelRegistry = new ModelRegistry(mockDatabaseService as any, null)
-            const freshRequestLogger = new RequestLogger(mockDatabaseService as any, {
-              enablePeriodicCleanup: false,
-            })
+            const freshModelRegistry = new ModelRegistry(
+              mockDatabaseService as any,
+              null
+            )
+            const freshRequestLogger = new RequestLogger(
+              mockDatabaseService as any,
+              {
+                enablePeriodicCleanup: false,
+              }
+            )
             const freshService = new AIService(
               freshProviderRegistry,
               freshModelRegistry,
@@ -382,10 +416,16 @@ describe('AI Service Property Tests', () => {
           (projectId1, projectId2, messages) => {
             // Create fresh service for each test iteration
             const freshProviderRegistry = new ProviderRegistry()
-            const freshModelRegistry = new ModelRegistry(mockDatabaseService as any, null)
-            const freshRequestLogger = new RequestLogger(mockDatabaseService as any, {
-              enablePeriodicCleanup: false,
-            })
+            const freshModelRegistry = new ModelRegistry(
+              mockDatabaseService as any,
+              null
+            )
+            const freshRequestLogger = new RequestLogger(
+              mockDatabaseService as any,
+              {
+                enablePeriodicCleanup: false,
+              }
+            )
             const freshService = new AIService(
               freshProviderRegistry,
               freshModelRegistry,
@@ -398,8 +438,14 @@ describe('AI Service Property Tests', () => {
 
             // Add messages to both projects
             for (const message of messages) {
-              freshService.addMessageToConversation(projectId1, { ...message, id: `p1-${message.id}` })
-              freshService.addMessageToConversation(projectId2, { ...message, id: `p2-${message.id}` })
+              freshService.addMessageToConversation(projectId1, {
+                ...message,
+                id: `p1-${message.id}`,
+              })
+              freshService.addMessageToConversation(projectId2, {
+                ...message,
+                id: `p2-${message.id}`,
+              })
             }
 
             // Clear first project's conversation
@@ -409,7 +455,9 @@ describe('AI Service Property Tests', () => {
             expect(freshService.getConversation(projectId1).length).toBe(0)
 
             // Verify second project is unaffected
-            expect(freshService.getConversation(projectId2).length).toBe(messages.length)
+            expect(freshService.getConversation(projectId2).length).toBe(
+              messages.length
+            )
 
             return true
           }
@@ -426,10 +474,16 @@ describe('AI Service Property Tests', () => {
           (projectIds, newMessage) => {
             // Create fresh service for each test iteration
             const freshProviderRegistry = new ProviderRegistry()
-            const freshModelRegistry = new ModelRegistry(mockDatabaseService as any, null)
-            const freshRequestLogger = new RequestLogger(mockDatabaseService as any, {
-              enablePeriodicCleanup: false,
-            })
+            const freshModelRegistry = new ModelRegistry(
+              mockDatabaseService as any,
+              null
+            )
+            const freshRequestLogger = new RequestLogger(
+              mockDatabaseService as any,
+              {
+                enablePeriodicCleanup: false,
+              }
+            )
             const freshService = new AIService(
               freshProviderRegistry,
               freshModelRegistry,
@@ -455,7 +509,9 @@ describe('AI Service Property Tests', () => {
 
             // Verify other projects are unaffected
             for (let i = 1; i < uniqueProjectIds.length; i++) {
-              expect(freshService.getConversation(uniqueProjectIds[i]).length).toBe(0)
+              expect(
+                freshService.getConversation(uniqueProjectIds[i]).length
+              ).toBe(0)
             }
 
             return true

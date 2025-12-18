@@ -118,43 +118,43 @@ export const useAIStore = create<AIState>((set, get) => ({
       modelsError: null,
     }),
 
-  setDefaultModelId: (modelId) =>
+  setDefaultModelId: modelId =>
     set({
       defaultModelId: modelId,
     }),
 
   setActionModel: (action, modelId) =>
-    set((state) => {
+    set(state => {
       const newActionModels = new Map(state.actionModels)
       newActionModels.set(action, modelId)
       return { actionModels: newActionModels }
     }),
 
-  setModelsLoading: (loading) =>
+  setModelsLoading: loading =>
     set({
       isLoadingModels: loading,
     }),
 
-  setModelsError: (error) =>
+  setModelsError: error =>
     set({
       modelsError: error,
     }),
 
   // Conversation management actions
-  setActiveProject: (projectId) =>
+  setActiveProject: projectId =>
     set({
       activeProjectId: projectId,
     }),
 
   setConversation: (projectId, messages) =>
-    set((state) => {
+    set(state => {
       const newConversations = new Map(state.conversations)
       newConversations.set(projectId, messages)
       return { conversations: newConversations }
     }),
 
   addMessage: (projectId, message) =>
-    set((state) => {
+    set(state => {
       const newConversations = new Map(state.conversations)
       const existing = newConversations.get(projectId) || []
       newConversations.set(projectId, [...existing, message])
@@ -162,7 +162,7 @@ export const useAIStore = create<AIState>((set, get) => ({
     }),
 
   updateLastMessage: (projectId, content) =>
-    set((state) => {
+    set(state => {
       const newConversations = new Map(state.conversations)
       const existing = newConversations.get(projectId) || []
       if (existing.length === 0) return state
@@ -174,15 +174,15 @@ export const useAIStore = create<AIState>((set, get) => ({
       return { conversations: newConversations }
     }),
 
-  clearConversation: (projectId) =>
-    set((state) => {
+  clearConversation: projectId =>
+    set(state => {
       const newConversations = new Map(state.conversations)
       newConversations.delete(projectId)
       return { conversations: newConversations }
     }),
 
   // Streaming actions
-  startStreaming: (streamId) =>
+  startStreaming: streamId =>
     set({
       streaming: {
         streamId,
@@ -192,7 +192,7 @@ export const useAIStore = create<AIState>((set, get) => ({
     }),
 
   appendStreamText: (streamId, text) =>
-    set((state) => {
+    set(state => {
       if (!state.streaming || state.streaming.streamId !== streamId) {
         return state
       }
@@ -204,8 +204,8 @@ export const useAIStore = create<AIState>((set, get) => ({
       }
     }),
 
-  completeStreaming: (streamId) =>
-    set((state) => {
+  completeStreaming: streamId =>
+    set(state => {
       if (!state.streaming || state.streaming.streamId !== streamId) {
         return state
       }
@@ -218,7 +218,7 @@ export const useAIStore = create<AIState>((set, get) => ({
     }),
 
   setStreamError: (streamId, error) =>
-    set((state) => {
+    set(state => {
       if (!state.streaming || state.streaming.streamId !== streamId) {
         return state
       }
@@ -237,33 +237,33 @@ export const useAIStore = create<AIState>((set, get) => ({
     }),
 
   // Request logs actions
-  setRequestLogs: (logs) =>
+  setRequestLogs: logs =>
     set({
       requestLogs: logs,
     }),
 
-  setLogsLoading: (loading) =>
+  setLogsLoading: loading =>
     set({
       isLoadingLogs: loading,
     }),
 
   // Agent configuration actions
-  setAgentConfig: (config) =>
+  setAgentConfig: config =>
     set({
       agentConfig: config,
     }),
 
-  setAgentConfigured: (configured) =>
+  setAgentConfigured: configured =>
     set({
       isAgentConfigured: configured,
     }),
 
   // Selectors
-  getConversation: (projectId) => {
+  getConversation: projectId => {
     return get().conversations.get(projectId) || []
   },
 
-  getModelForAction: (action) => {
+  getModelForAction: action => {
     const state = get()
     return state.actionModels.get(action) || state.defaultModelId
   },
@@ -271,7 +271,7 @@ export const useAIStore = create<AIState>((set, get) => ({
   getDefaultModel: () => {
     const state = get()
     if (!state.defaultModelId) return undefined
-    return state.availableModels.find((m) => m.id === state.defaultModelId)
+    return state.availableModels.find(m => m.id === state.defaultModelId)
   },
 }))
 
@@ -284,7 +284,7 @@ export const useAIStore = create<AIState>((set, get) => ({
  */
 export const useConversation = (projectId: string): ConversationMessage[] => {
   return useAIStore(
-    useShallow((state) => state.conversations.get(projectId) || [])
+    useShallow(state => state.conversations.get(projectId) || [])
   )
 }
 
@@ -292,23 +292,23 @@ export const useConversation = (projectId: string): ConversationMessage[] => {
  * Hook to get the active streaming state
  */
 export const useStreaming = (): StreamingState | null => {
-  return useAIStore((state) => state.streaming)
+  return useAIStore(state => state.streaming)
 }
 
 /**
  * Hook to get available models
  */
 export const useAvailableModels = (): AIModel[] => {
-  return useAIStore((state) => state.availableModels)
+  return useAIStore(state => state.availableModels)
 }
 
 /**
  * Hook to get the default model
  */
 export const useDefaultModel = (): AIModel | undefined => {
-  return useAIStore((state) => {
+  return useAIStore(state => {
     if (!state.defaultModelId) return undefined
-    return state.availableModels.find((m) => m.id === state.defaultModelId)
+    return state.availableModels.find(m => m.id === state.defaultModelId)
   })
 }
 
@@ -316,19 +316,19 @@ export const useDefaultModel = (): AIModel | undefined => {
  * Hook to check if models are loading
  */
 export const useModelsLoading = (): boolean => {
-  return useAIStore((state) => state.isLoadingModels)
+  return useAIStore(state => state.isLoadingModels)
 }
 
 /**
  * Hook to check if using cached models
  */
 export const useUsingCachedModels = (): boolean => {
-  return useAIStore((state) => state.isUsingCachedModels)
+  return useAIStore(state => state.isUsingCachedModels)
 }
 
 /**
  * Hook to get agent configuration status
  */
 export const useAgentConfigured = (): boolean => {
-  return useAIStore((state) => state.isAgentConfigured)
+  return useAIStore(state => state.isAgentConfigured)
 }

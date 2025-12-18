@@ -452,7 +452,9 @@ describe('DatabaseService', () => {
         targetDirectory: '/path2',
       })
 
-      const autonomousTasks = dbService.getAgentTasks({ agentType: 'autonomous' })
+      const autonomousTasks = dbService.getAgentTasks({
+        agentType: 'autonomous',
+      })
       expect(autonomousTasks).toHaveLength(1)
       expect(autonomousTasks[0].agentType).toBe('autonomous')
 
@@ -533,8 +535,16 @@ describe('DatabaseService', () => {
         targetDirectory: '/path',
       })
 
-      dbService.createTaskOutput({ taskId: task.id, content: 'Line 1', stream: 'stdout' })
-      dbService.createTaskOutput({ taskId: task.id, content: 'Line 2', stream: 'stderr' })
+      dbService.createTaskOutput({
+        taskId: task.id,
+        content: 'Line 1',
+        stream: 'stdout',
+      })
+      dbService.createTaskOutput({
+        taskId: task.id,
+        content: 'Line 2',
+        stream: 'stderr',
+      })
 
       expect(dbService.getTaskOutputCount(task.id)).toBe(2)
 
@@ -654,7 +664,11 @@ describe('DatabaseService', () => {
 
       const settings = dbService.getAllAISettings()
       expect(settings).toHaveLength(2)
-      expect(settings.find((s: { key: string; value: string }) => s.key === 'default_model')?.value).toBe('gpt-4')
+      expect(
+        settings.find(
+          (s: { key: string; value: string }) => s.key === 'default_model'
+        )?.value
+      ).toBe('gpt-4')
     })
 
     it('should delete an AI setting', () => {

@@ -124,7 +124,12 @@ export interface GitTelemetry {
   untracked: number
 }
 
-export type AIProvider = 'openrouter' | 'openai' | 'anthropic' | 'google' | 'local'
+export type AIProvider =
+  | 'openrouter'
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'local'
 
 export interface AIModel {
   id: string

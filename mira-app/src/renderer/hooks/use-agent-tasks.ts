@@ -53,7 +53,7 @@ export function useAgentTasks(filter?: {
       try {
         const response = await window.api.agentTasks.list({ filter })
         // Convert timestamps
-        const tasks = response.tasks.map((task) => ({
+        const tasks = response.tasks.map(task => ({
           ...task,
           createdAt:
             task.createdAt instanceof Date
@@ -175,7 +175,7 @@ export function useCreateAgentTask() {
 
       return task
     },
-    onSuccess: (task) => {
+    onSuccess: task => {
       addTask(task)
       queryClient.invalidateQueries({ queryKey: agentTaskKeys.lists() })
     },
@@ -219,7 +219,7 @@ export function useUpdateAgentTask() {
 
       return task
     },
-    onSuccess: (task) => {
+    onSuccess: task => {
       updateTask(task.id, task)
       queryClient.invalidateQueries({
         queryKey: agentTaskKeys.detail(task.id),
@@ -360,7 +360,7 @@ export function useAgentTaskOutput(taskId: string | null) {
       const response = await window.api.agentTasks.getOutput({ taskId })
 
       // Convert timestamps
-      const output = response.output.map((line) => ({
+      const output = response.output.map(line => ({
         ...line,
         timestamp:
           line.timestamp instanceof Date
@@ -387,7 +387,7 @@ export function useTaskOutputSubscription(taskId: string | null) {
     if (!taskId) return
 
     // Set up output listener
-    const cleanup = window.api.agentTasks.onOutputLine((data) => {
+    const cleanup = window.api.agentTasks.onOutputLine(data => {
       if (data.taskId !== taskId) return
 
       const line: OutputLine = {
@@ -455,7 +455,7 @@ export function useReorderTasks() {
 
       return true
     },
-    onMutate: (taskIds) => {
+    onMutate: taskIds => {
       // Optimistically update the order
       reorderTasks(taskIds)
     },
