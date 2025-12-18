@@ -32,6 +32,7 @@ import {
 import { useAppStore } from 'renderer/stores/app-store'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
+import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { CommandLibrary } from 'renderer/components/CommandLibrary'
@@ -259,6 +260,7 @@ interface AgentPanelProps {
   projectPath: string
   isVisible: boolean
   onTogglePanel: () => void
+  onNavigateToTasks: (taskId?: string) => void
 }
 
 const AgentPanel = memo(function AgentPanel({
@@ -266,6 +268,7 @@ const AgentPanel = memo(function AgentPanel({
   projectPath,
   isVisible,
   onTogglePanel,
+  onNavigateToTasks,
 }: AgentPanelProps) {
   const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>(
     'list'
@@ -273,23 +276,16 @@ const AgentPanel = memo(function AgentPanel({
   const [showTaskCreation, setShowTaskCreation] = useState(false)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
 
+  // Load persisted tasks from database on mount
+  useAgentTasks()
+
   const handleTaskSelect = useCallback(
     (taskId: string) => {
+      // Navigate to tasks page with the selected task
       setSelectedTask(taskId)
-      const task = useAgentTaskStore.getState().tasks.get(taskId)
-      if (task) {
-        if (
-          task.status === 'completed' ||
-          task.status === 'failed' ||
-          task.status === 'stopped'
-        ) {
-          setTaskView('completion')
-        } else {
-          setTaskView('detail')
-        }
-      }
+      onNavigateToTasks(taskId)
     },
-    [setSelectedTask]
+    [setSelectedTask, onNavigateToTasks]
   )
 
   const handleTaskCreated = useCallback(
@@ -311,10 +307,11 @@ const AgentPanel = memo(function AgentPanel({
 
   const handleEditTask = useCallback(
     (task: AgentTask) => {
+      // Navigate to tasks page with the selected task for editing
       setSelectedTask(task.id)
-      setTaskView('detail')
+      onNavigateToTasks(task.id)
     },
-    [setSelectedTask]
+    [setSelectedTask, onNavigateToTasks]
   )
 
   const handleOpenTaskCreation = useCallback(() => {
@@ -324,6 +321,10 @@ const AgentPanel = memo(function AgentPanel({
   const handleCloseTaskCreation = useCallback((open: boolean) => {
     setShowTaskCreation(open)
   }, [])
+
+  const handleViewAllTasks = useCallback(() => {
+    onNavigateToTasks()
+  }, [onNavigateToTasks])
 
   if (!isVisible) return null
 
@@ -360,14 +361,24 @@ const AgentPanel = memo(function AgentPanel({
             <span className="text-sm font-medium">Tasks</span>
           )}
           {taskView === 'list' && (
-            <Button
-              className="text-xs"
-              onClick={handleOpenTaskCreation}
-              size="sm"
-              variant="outline"
-            >
-              + New Task
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                className="text-xs"
+                onClick={handleViewAllTasks}
+                size="sm"
+                variant="ghost"
+              >
+                View All
+              </Button>
+              <Button
+                className="text-xs"
+                onClick={handleOpenTaskCreation}
+                size="sm"
+                variant="outline"
+              >
+                + New Task
+              </Button>
+            </div>
           )}
         </div>
 
@@ -432,6 +443,7 @@ export function ProjectWorkspace({
 
   // Select store values individually to prevent unnecessary re-renders
   const setActiveProject = useAppStore(state => state.setActiveProject)
+  const setActiveView = useAppStore(state => state.setActiveView)
   const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
   const agentPanelCollapsed = useAppStore(state => state.agentPanelCollapsed)
   const zenMode = useAppStore(state => state.zenMode)
@@ -457,6 +469,9 @@ export function ProjectWorkspace({
     right: 15,
   })
   const saveDebounceTimerRef = useRef<number | null>(null)
+
+  // Track if terminal restoration is in progress to prevent flash
+  const [isRestoringTerminals, setIsRestoringTerminals] = useState(true)
 
   // Memoized computed values
   const availableTags = useMemo(
@@ -599,6 +614,8 @@ export function ProjectWorkspace({
 
     if (existingTerminals.length === 0) {
       if (session?.terminals?.length) {
+        // Track pending terminal restorations
+        let pendingCount = session.terminals.length
         session.terminals.forEach(terminalData => {
           window.api.pty
             .create({ projectId, cwd: terminalData.cwd, shell: undefined })
@@ -615,10 +632,22 @@ export function ProjectWorkspace({
             .catch(error => {
               console.error('Failed to restore terminal:', error)
             })
+            .finally(() => {
+              pendingCount--
+              if (pendingCount === 0) {
+                setIsRestoringTerminals(false)
+              }
+            })
         })
       } else {
+        // No session terminals - create default and mark restoration complete
         createDefaultTerminal()
+        // Small delay to allow the default terminal creation to complete
+        setTimeout(() => setIsRestoringTerminals(false), 100)
       }
+    } else {
+      // Terminals already exist, no restoration needed
+      setIsRestoringTerminals(false)
     }
   }, [
     session,
@@ -718,6 +747,13 @@ export function ProjectWorkspace({
     saveSession({ projectId, state: buildSessionState() })
     setActiveProject(null)
   }, [saveSession, projectId, buildSessionState, setActiveProject])
+
+  const handleNavigateToTasks = useCallback(
+    (_taskId?: string): void => {
+      setActiveView('tasks')
+    },
+    [setActiveView]
+  )
 
   const handleLayoutChange = useCallback(
     (layout: number[]) => {
@@ -819,7 +855,11 @@ export function ProjectWorkspace({
           minSize={20}
         >
           <main className="h-full overflow-hidden">
-            <Terminal projectId={projectId} projectPath={project.path} />
+            <Terminal
+              isRestoring={isRestoringTerminals}
+              projectId={projectId}
+              projectPath={project.path}
+            />
           </main>
         </ResizablePanel>
 
@@ -840,6 +880,7 @@ export function ProjectWorkspace({
         >
           <AgentPanel
             isVisible={isRightPanelVisible}
+            onNavigateToTasks={handleNavigateToTasks}
             onTogglePanel={toggleAgentPanel}
             projectId={projectId}
             projectPath={project.path}

@@ -355,15 +355,31 @@ export function useStopAgentTask() {
 
 /**
  * Hook to fetch task output
+ *
+ * For running/paused tasks, gets output from memory buffer.
+ * For completed/stopped/failed tasks, loads persisted output from database.
  */
 export function useAgentTaskOutput(taskId: string | null) {
   const { setOutput } = useAgentTaskStore()
+  const task = useAgentTaskStore(state =>
+    taskId ? state.tasks.get(taskId) : undefined
+  )
+
+  // Determine if we should load from database (persisted) or memory
+  const isPersistedTask =
+    task?.status === 'completed' ||
+    task?.status === 'failed' ||
+    task?.status === 'stopped'
 
   return useQuery({
     queryKey: agentTaskKeys.output(taskId || ''),
     queryFn: async () => {
       if (!taskId) return []
-      const response = await window.api.agentTasks.getOutput({ taskId })
+
+      // Use loadOutput for persisted tasks, getOutput for active tasks
+      const response = isPersistedTask
+        ? await window.api.agentTasks.loadOutput({ taskId })
+        : await window.api.agentTasks.getOutput({ taskId })
 
       // Convert timestamps
       const output = response.output.map(line => ({

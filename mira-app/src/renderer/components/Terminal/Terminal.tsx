@@ -16,12 +16,14 @@ import type { ErrorContext } from 'shared/models'
 interface TerminalProps {
   projectId: string
   projectPath: string
+  isRestoring?: boolean
   onErrorContext?: (context: ErrorContext) => void
 }
 
 export function Terminal({
   projectId,
   projectPath,
+  isRestoring = false,
   onErrorContext,
 }: TerminalProps): React.JSX.Element {
   const terminals = useTerminalsByProject(projectId)
@@ -49,6 +51,9 @@ export function Terminal({
     }
   }
 
+  // Show loading state while restoring terminals to prevent flash
+  const showLoading = isRestoring && terminals.length === 0
+
   return (
     <div className="flex flex-col h-full bg-[#1e1e1e] dark:bg-[#1e1e1e]">
       {/* Terminal tabs */}
@@ -59,7 +64,11 @@ export function Terminal({
 
       {/* Terminal panes */}
       <div className="flex-1 overflow-hidden">
-        {terminals.length > 0 ? (
+        {showLoading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="animate-pulse">Loading terminal...</div>
+          </div>
+        ) : terminals.length > 0 ? (
           <TerminalPanes
             onErrorContext={onErrorContext}
             projectId={projectId}

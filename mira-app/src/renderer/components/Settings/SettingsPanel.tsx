@@ -17,6 +17,7 @@ import {
   IconCpu,
   IconRobot,
   IconSparkles,
+  IconListCheck,
 } from '@tabler/icons-react'
 import { Sheet, SheetContent } from 'renderer/components/ui/sheet'
 import {
@@ -30,6 +31,7 @@ import { BlueprintManager } from './BlueprintManager'
 import { GeneralSettings } from './GeneralSettings'
 import { TerminalSettings } from './TerminalSettings'
 import { AISettings } from './AISettings'
+import { TaskSettings } from './TaskSettings'
 import { ApiKeyManager } from 'renderer/components/Agent/ApiKeyManager'
 import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
 import { AgentConfigPanel } from 'renderer/components/Agent/AgentConfigPanel'
@@ -121,6 +123,13 @@ export function SettingsPanel({
                     <IconRobot className="h-4 w-4" />
                     Agent Configuration
                   </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="tasks"
+                  >
+                    <IconListCheck className="h-4 w-4" />
+                    Tasks
+                  </TabsTrigger>
 
                   {/* Tools Section */}
                   <div className="px-2 py-1.5 mt-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -175,6 +184,10 @@ export function SettingsPanel({
 
                 <TabsContent className="m-0 p-6 h-full" value="agent-config">
                   <AgentConfigPanel />
+                </TabsContent>
+
+                <TabsContent className="m-0 p-6 h-full" value="tasks">
+                  <TaskSettings />
                 </TabsContent>
 
                 <TabsContent className="m-0 p-6 h-full" value="blueprints">

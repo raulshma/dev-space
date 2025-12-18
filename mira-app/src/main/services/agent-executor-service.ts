@@ -57,6 +57,10 @@ import type {
   FileChangeSummary,
   OutputLine,
 } from 'shared/ai-types'
+import type {
+  JulesSessionStatus,
+  JulesTaskState,
+} from 'shared/notification-types'
 
 const execAsync = promisify(exec)
 
@@ -180,6 +184,9 @@ export class AgentExecutorService
   /** Base path for agent scripts */
   private agentScriptsBasePath: string
 
+  /** Whether the service has been initialized */
+  private initialized = false
+
   /**
    * Create a new AgentExecutorService instance
    */
@@ -202,6 +209,199 @@ export class AgentExecutorService
     this.gitService = gitService
     this.agentScriptsBasePath = agentScriptsBasePath
     this.julesService = julesService ?? null
+  }
+
+  /**
+   * Initialize the service and recover from previous session
+   *
+   * Called after database is initialized. Recovers tasks that were
+   * interrupted by a previous shutdown (running/queued/paused tasks
+   * are reset to stopped status).
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return
+    }
+
+    console.log('Initializing Agent Executor Service...')
+
+    // Recover interrupted tasks from previous session
+    await this.recoverInterruptedTasks()
+
+    this.initialized = true
+    console.log('Agent Executor Service initialized')
+  }
+
+  /**
+   * Recover tasks that were interrupted by app shutdown
+   *
+   * - Jules tasks: Fetch latest status from Google Jules API (they run in the cloud)
+   * - Claude Code tasks: Mark as stopped (can be auto-resumed based on setting)
+   */
+  private async recoverInterruptedTasks(): Promise<void> {
+    const interruptedStatuses: TaskStatus[] = ['running', 'queued', 'paused']
+
+    for (const status of interruptedStatuses) {
+      const tasks = this.db.getAgentTasks({ status })
+
+      for (const task of tasks) {
+        console.log(
+          `Recovering interrupted task ${task.id} (was ${task.status})`
+        )
+
+        // Handle Jules tasks differently - they run in the cloud
+        if (task.serviceType === 'google-jules' && task.julesSessionId) {
+          await this.recoverJulesTask(task)
+        } else {
+          // Claude Code tasks - mark as stopped (local process no longer exists)
+          this.db.updateAgentTask(task.id, {
+            status: 'stopped',
+            error: `Task was interrupted by application shutdown (was ${task.status})`,
+            completedAt: new Date(),
+          })
+        }
+
+        // Persist any buffered output that might exist
+        await this.outputBuffer.persist(task.id)
+      }
+    }
+  }
+
+  /**
+   * Recover a Jules task by fetching its current status from the API
+   *
+   * Jules tasks run in Google's cloud, so they continue even when the app is closed.
+   * We fetch the latest status and resume polling if still active.
+   */
+  private async recoverJulesTask(task: AgentTask): Promise<void> {
+    if (!this.julesService || !task.julesSessionId) {
+      // Can't recover without Jules service or session ID
+      this.db.updateAgentTask(task.id, {
+        status: 'stopped',
+        error: 'Unable to recover Jules task: missing service or session ID',
+        completedAt: new Date(),
+      })
+      return
+    }
+
+    try {
+      console.log(`Fetching Jules session status for task ${task.id}`)
+      const session = await this.julesService.getSession(task.julesSessionId)
+
+      // Check if session has completed (has outputs)
+      if (session.outputs && session.outputs.length > 0) {
+        // Session completed while app was closed
+        const line = this.outputBuffer.append(
+          task.id,
+          `\n[Jules] Session recovered - task completed while app was closed\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, line)
+
+        for (const output of session.outputs) {
+          if (output.pullRequest) {
+            const prLine = this.outputBuffer.append(
+              task.id,
+              `[Jules] Pull Request: ${output.pullRequest.url}\n`,
+              'stdout'
+            )
+            this.emit('outputReceived', task.id, prLine)
+          }
+        }
+
+        this.db.updateAgentTask(task.id, {
+          status: 'completed',
+          completedAt: new Date(),
+        })
+      } else {
+        // Session still active - resume polling
+        console.log(`Resuming Jules polling for task ${task.id}`)
+        const line = this.outputBuffer.append(
+          task.id,
+          `\n[Jules] Session recovered - resuming monitoring\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, line)
+
+        // Keep status as running and start polling
+        this.db.updateAgentTask(task.id, {
+          status: 'running',
+        })
+        this.taskQueue.setCurrentTask(task.id)
+        this.startJulesPolling(task.id, task.julesSessionId)
+      }
+    } catch (error) {
+      console.error(`Failed to recover Jules task ${task.id}:`, error)
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+
+      this.db.updateAgentTask(task.id, {
+        status: 'failed',
+        error: `Failed to recover Jules session: ${errorMessage}`,
+        completedAt: new Date(),
+      })
+    }
+  }
+
+  /**
+   * Auto-resume interrupted Claude Code tasks
+   *
+   * Called after initialization if auto-resume is enabled.
+   * Restarts stopped tasks that were interrupted by shutdown.
+   */
+  async autoResumeInterruptedTasks(): Promise<number> {
+    const stoppedTasks = this.db.getAgentTasks({ status: 'stopped' })
+
+    // Filter to only tasks that were interrupted by shutdown (not manually stopped)
+    const interruptedTasks = stoppedTasks.filter(
+      task =>
+        task.error?.includes('interrupted by application shutdown') &&
+        task.serviceType !== 'google-jules' // Jules tasks are handled separately
+    )
+
+    let resumedCount = 0
+
+    for (const task of interruptedTasks) {
+      try {
+        console.log(`Auto-resuming interrupted task ${task.id}`)
+
+        // Reset task to pending status
+        this.db.updateAgentTask(task.id, {
+          status: 'pending',
+          error: undefined,
+          completedAt: undefined,
+        })
+
+        // Clear old output and start fresh
+        this.outputBuffer.clear(task.id)
+        const line = this.outputBuffer.append(
+          task.id,
+          `[Mira] Task auto-resumed after application restart\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, line)
+
+        // Start the task
+        await this.startTask(task.id)
+        resumedCount++
+      } catch (error) {
+        console.error(`Failed to auto-resume task ${task.id}:`, error)
+      }
+    }
+
+    return resumedCount
+  }
+
+  /**
+   * Load persisted output for a task into the buffer
+   *
+   * Called when viewing task details to restore output from database.
+   *
+   * @param taskId - The task ID
+   * @returns Array of output lines
+   */
+  async loadTaskOutput(taskId: string): Promise<OutputLine[]> {
+    return this.outputBuffer.load(taskId)
   }
 
   // ============================================================================
@@ -766,6 +966,7 @@ export class AgentExecutorService
    */
   private startJulesPolling(taskId: string, sessionId: string): void {
     let lastActivityCount = 0
+    let lastState: JulesTaskState = 'initializing'
 
     const pollInterval = setInterval(async () => {
       try {
@@ -779,6 +980,22 @@ export class AgentExecutorService
 
         // Get activities
         const activities = await this.julesService.listActivities(sessionId)
+
+        // Detect current state from activities
+        const currentState = this.detectJulesState(activities, session)
+
+        // Emit status update if state changed
+        if (currentState !== lastState) {
+          lastState = currentState
+          const status = this.buildJulesStatus(
+            taskId,
+            sessionId,
+            currentState,
+            activities,
+            session
+          )
+          this.emit('julesStatusUpdate', taskId, status)
+        }
 
         // Process new activities
         if (activities.length > lastActivityCount) {
@@ -816,22 +1033,165 @@ export class AgentExecutorService
             }
           }
 
+          // Emit completed status
+          const completedStatus = this.buildJulesStatus(
+            taskId,
+            sessionId,
+            'completed',
+            activities,
+            session
+          )
+          this.emit('julesStatusUpdate', taskId, completedStatus)
+
           // Mark as completed
           this.stopJulesPolling(taskId)
           await this.handleJulesCompletion(taskId, session)
         }
       } catch (error) {
         console.error(`Jules polling error for task ${taskId}:`, error)
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
         const line = this.outputBuffer.append(
           taskId,
-          `[Jules] Error: ${error instanceof Error ? error.message : String(error)}\n`,
+          `[Jules] Error: ${errorMessage}\n`,
           'stderr'
         )
         this.emit('outputReceived', taskId, line)
+
+        // Check for fatal errors that should stop polling and fail the task
+        const isFatalError =
+          (error as { statusCode?: number })?.statusCode === 404 ||
+          (error as { code?: string })?.code === 'API_ERROR' ||
+          errorMessage.includes('NOT_FOUND') ||
+          errorMessage.includes('not found')
+
+        if (isFatalError) {
+          // Emit failed status
+          const failedStatus: JulesSessionStatus = {
+            sessionId,
+            taskId,
+            state: 'failed',
+          }
+          this.emit('julesStatusUpdate', taskId, failedStatus)
+
+          this.stopJulesPolling(taskId)
+          await this.handleTaskFailure(
+            taskId,
+            `Jules API error: ${errorMessage}`
+          )
+        }
       }
     }, 5000) // Poll every 5 seconds
 
     this.julesPollingIntervals.set(taskId, pollInterval)
+  }
+
+  /**
+   * Detect the current Jules task state from activities
+   */
+  private detectJulesState(
+    activities: Array<{
+      planGenerated?: { plan: { id: string } }
+      planApproved?: { planId: string }
+      progressUpdated?: { title: string }
+    }>,
+    session: { outputs?: unknown[]; state?: string }
+  ): JulesTaskState {
+    // Check for completion first
+    if (session.outputs && session.outputs.length > 0) {
+      return 'completed'
+    }
+
+    // Check session state if available
+    if (session.state === 'FAILED') {
+      return 'failed'
+    }
+
+    // Analyze activities to determine state
+    let hasPlanGenerated = false
+    let hasPlanApproved = false
+    let hasProgress = false
+
+    for (const activity of activities) {
+      if (activity.planGenerated) {
+        hasPlanGenerated = true
+      }
+      if (activity.planApproved) {
+        hasPlanApproved = true
+      }
+      if (activity.progressUpdated) {
+        hasProgress = true
+      }
+    }
+
+    // Determine state based on activity history
+    if (hasPlanGenerated && !hasPlanApproved) {
+      return 'awaiting-plan-approval'
+    }
+
+    if (hasPlanApproved || hasProgress) {
+      return 'executing'
+    }
+
+    if (activities.length === 0) {
+      return 'initializing'
+    }
+
+    return 'planning'
+  }
+
+  /**
+   * Build a JulesSessionStatus object
+   */
+  private buildJulesStatus(
+    taskId: string,
+    sessionId: string,
+    state: JulesTaskState,
+    activities: Array<{
+      planGenerated?: {
+        plan: { id: string; steps: Array<{ id: string; title: string; index?: number }> }
+      }
+      createTime?: string
+    }>,
+    session: {
+      title?: string
+      outputs?: Array<{ pullRequest?: { url: string } }>
+    }
+  ): JulesSessionStatus {
+    const status: JulesSessionStatus = {
+      sessionId,
+      taskId,
+      state,
+      title: session.title,
+    }
+
+    // Add pending plan if awaiting approval
+    if (state === 'awaiting-plan-approval') {
+      const planActivity = activities.find(a => a.planGenerated)
+      if (planActivity?.planGenerated) {
+        status.pendingPlan = planActivity.planGenerated.plan
+      }
+    }
+
+    // Add last activity timestamp
+    if (activities.length > 0) {
+      const lastActivity = activities[activities.length - 1]
+      if (lastActivity.createTime) {
+        status.lastActivityAt = new Date(lastActivity.createTime)
+      }
+    }
+
+    // Add PR URL if completed
+    if (state === 'completed' && session.outputs) {
+      for (const output of session.outputs) {
+        if (output.pullRequest?.url) {
+          status.pullRequestUrl = output.pullRequest.url
+          break
+        }
+      }
+    }
+
+    return status
   }
 
   /**
@@ -1216,5 +1576,156 @@ export class AgentExecutorService
    */
   isRunning(): boolean {
     return this.taskQueue.isProcessing()
+  }
+
+  /**
+   * Resync a Jules task by fetching latest status from the API
+   *
+   * @param taskId - The task ID
+   * @returns The current Jules session status
+   */
+  async resyncJulesTask(taskId: string): Promise<JulesSessionStatus | null> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      throw new AgentExecutorError(
+        `Task not found: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
+    if (task.serviceType !== 'google-jules' || !task.julesSessionId) {
+      return null
+    }
+
+    if (!this.julesService) {
+      throw new AgentExecutorError(
+        'Jules service not available',
+        AgentExecutorErrorCode.JULES_API_ERROR,
+        taskId
+      )
+    }
+
+    try {
+      const session = await this.julesService.getSession(task.julesSessionId)
+      const activities = await this.julesService.listActivities(
+        task.julesSessionId
+      )
+
+      const state = this.detectJulesState(activities, session)
+      const status = this.buildJulesStatus(
+        taskId,
+        task.julesSessionId,
+        state,
+        activities,
+        session
+      )
+
+      // Emit the status update
+      this.emit('julesStatusUpdate', taskId, status)
+
+      // If task was stopped but session is still active, restart polling
+      if (
+        task.status === 'stopped' &&
+        state !== 'completed' &&
+        state !== 'failed'
+      ) {
+        // Update task status back to running
+        this.db.updateAgentTask(taskId, {
+          status: 'running',
+          error: undefined,
+          completedAt: undefined,
+        })
+
+        // Restart polling
+        this.taskQueue.setCurrentTask(taskId)
+        this.startJulesPolling(taskId, task.julesSessionId)
+
+        const line = this.outputBuffer.append(
+          taskId,
+          `\n[Jules] Task resynced - resuming monitoring\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', taskId, line)
+      }
+
+      return status
+    } catch (error) {
+      console.error(`Failed to resync Jules task ${taskId}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Get the current status of a Jules task
+   *
+   * @param taskId - The task ID
+   * @returns The current Jules session status or null
+   */
+  async getJulesTaskStatus(taskId: string): Promise<JulesSessionStatus | null> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      return null
+    }
+
+    if (task.serviceType !== 'google-jules' || !task.julesSessionId) {
+      return null
+    }
+
+    if (!this.julesService) {
+      return null
+    }
+
+    try {
+      const session = await this.julesService.getSession(task.julesSessionId)
+      const activities = await this.julesService.listActivities(
+        task.julesSessionId
+      )
+
+      const state = this.detectJulesState(activities, session)
+      return this.buildJulesStatus(
+        taskId,
+        task.julesSessionId,
+        state,
+        activities,
+        session
+      )
+    } catch (error) {
+      console.error(`Failed to get Jules task status ${taskId}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Get activities for a Jules task
+   *
+   * @param taskId - The task ID
+   * @returns Array of Jules activities
+   */
+  async getJulesActivities(
+    taskId: string
+  ): Promise<import('shared/ipc-types').JulesActivity[]> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      return []
+    }
+
+    if (task.serviceType !== 'google-jules' || !task.julesSessionId) {
+      return []
+    }
+
+    if (!this.julesService) {
+      return []
+    }
+
+    try {
+      const activities = await this.julesService.listActivities(
+        task.julesSessionId
+      )
+      return activities
+    } catch (error) {
+      console.error(`Failed to get Jules activities for task ${taskId}:`, error)
+      return []
+    }
   }
 }

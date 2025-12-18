@@ -3,6 +3,8 @@
 
 import { create } from 'zustand'
 
+export type ActiveView = 'dashboard' | 'workspace' | 'tasks'
+
 export interface AppState {
   // UI State
   sidebarCollapsed: boolean
@@ -12,6 +14,7 @@ export interface AppState {
   activeTerminalId: string | null
   commandPaletteOpen: boolean
   settingsPanelOpen: boolean
+  activeView: ActiveView
 
   // Previous state for Zen Mode restoration
   previousSidebarState: boolean
@@ -37,6 +40,8 @@ export interface AppState {
   ) => void
   setActiveProject: (id: string | null) => void
   setActiveTerminal: (id: string | null) => void
+  setActiveView: (view: ActiveView) => void
+  openTasksWithTask: (taskId: string) => void
   openCommandPalette: () => void
   closeCommandPalette: () => void
   openSettingsPanel: () => void
@@ -52,6 +57,7 @@ export const useAppStore = create<AppState>(set => ({
   activeTerminalId: null,
   commandPaletteOpen: false,
   settingsPanelOpen: false,
+  activeView: 'dashboard',
   previousSidebarState: false,
   previousAgentPanelState: false,
 
@@ -103,13 +109,24 @@ export const useAppStore = create<AppState>(set => ({
     })),
 
   setActiveProject: (id: string | null) =>
-    set({
+    set(() => ({
       activeProjectId: id,
-    }),
+      activeView: id ? 'workspace' : 'dashboard',
+    })),
 
   setActiveTerminal: (id: string | null) =>
     set({
       activeTerminalId: id,
+    }),
+
+  setActiveView: (view: ActiveView) =>
+    set({
+      activeView: view,
+    }),
+
+  openTasksWithTask: (_taskId: string) =>
+    set({
+      activeView: 'tasks',
     }),
 
   openCommandPalette: () =>

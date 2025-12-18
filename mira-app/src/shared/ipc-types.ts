@@ -120,6 +120,7 @@ export const IPC_CHANNELS = {
   AGENT_TASK_RESUME: 'agentTask:resume',
   AGENT_TASK_STOP: 'agentTask:stop',
   AGENT_TASK_GET_OUTPUT: 'agentTask:getOutput',
+  AGENT_TASK_LOAD_OUTPUT: 'agentTask:loadOutput',
   AGENT_TASK_OUTPUT_STREAM: 'agentTask:outputStream',
   AGENT_TASK_SUBSCRIBE_OUTPUT: 'agentTask:subscribeOutput',
 
@@ -132,6 +133,12 @@ export const IPC_CHANNELS = {
 
   // Jules operations
   JULES_LIST_SOURCES: 'jules:listSources',
+  JULES_APPROVE_PLAN: 'jules:approvePlan',
+  JULES_SEND_MESSAGE: 'jules:sendMessage',
+  JULES_RESYNC_TASK: 'jules:resyncTask',
+  JULES_GET_SESSION_STATUS: 'jules:getSessionStatus',
+  JULES_GET_ACTIVITIES: 'jules:getActivities',
+  JULES_STATUS_UPDATE: 'jules:statusUpdate',
 
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
@@ -812,4 +819,100 @@ export interface JulesListSourcesRequest {}
 export interface JulesListSourcesResponse {
   sources: JulesSource[]
   error?: string
+}
+
+export interface JulesApprovePlanRequest {
+  sessionId: string
+}
+
+export interface JulesApprovePlanResponse {
+  success: boolean
+  error?: string
+}
+
+export interface JulesSendMessageRequest {
+  sessionId: string
+  message: string
+}
+
+export interface JulesSendMessageResponse {
+  success: boolean
+  error?: string
+}
+
+export interface JulesResyncTaskRequest {
+  taskId: string
+}
+
+export interface JulesResyncTaskResponse {
+  success: boolean
+  status?: import('./notification-types').JulesSessionStatus
+  error?: string
+}
+
+export interface JulesGetSessionStatusRequest {
+  taskId: string
+}
+
+export interface JulesGetSessionStatusResponse {
+  status: import('./notification-types').JulesSessionStatus | null
+  error?: string
+}
+
+export interface JulesActivity {
+  name: string
+  id: string
+  createTime: string
+  originator: 'user' | 'agent'
+  planGenerated?: {
+    plan: {
+      id: string
+      steps: Array<{
+        id: string
+        title: string
+        index?: number
+      }>
+    }
+  }
+  planApproved?: {
+    planId: string
+  }
+  progressUpdated?: {
+    title: string
+    description?: string
+  }
+  sessionCompleted?: Record<string, never>
+  artifacts?: Array<{
+    bashOutput?: {
+      command?: string
+      output?: string
+      exitCode?: number
+    }
+    changeSet?: {
+      source: string
+      gitPatch?: {
+        unidiffPatch?: string
+        baseCommitId?: string
+        suggestedCommitMessage?: string
+      }
+    }
+    media?: {
+      data: string
+      mimeType: string
+    }
+  }>
+}
+
+export interface JulesGetActivitiesRequest {
+  taskId: string
+}
+
+export interface JulesGetActivitiesResponse {
+  activities: JulesActivity[]
+  error?: string
+}
+
+export interface JulesStatusUpdateData {
+  taskId: string
+  status: import('./notification-types').JulesSessionStatus
 }

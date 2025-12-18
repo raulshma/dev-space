@@ -12,6 +12,7 @@ import {
   IconTag,
   IconFolderOpen,
   IconSettings,
+  IconRocket,
 } from '@tabler/icons-react'
 import {
   useProjects,
@@ -58,6 +59,7 @@ export function ProjectDashboard(): React.JSX.Element {
   const [newTagColor, setNewTagColor] = useState('')
 
   const setActiveProject = useAppStore(state => state.setActiveProject)
+  const setActiveView = useAppStore(state => state.setActiveView)
   const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
@@ -261,6 +263,13 @@ export function ProjectDashboard(): React.JSX.Element {
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold text-foreground">Projects</h1>
               <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setActiveView('tasks')}
+                  variant="outline"
+                >
+                  <IconRocket className="mr-2" size={18} />
+                  Tasks
+                </Button>
                 <Button onClick={() => setShowAddProjectDialog(true)}>
                   <IconFolderPlus className="mr-2" size={18} />
                   Add Project

@@ -157,6 +157,17 @@ import type {
   // Jules types
   JulesListSourcesRequest,
   JulesListSourcesResponse,
+  JulesApprovePlanRequest,
+  JulesApprovePlanResponse,
+  JulesSendMessageRequest,
+  JulesSendMessageResponse,
+  JulesResyncTaskRequest,
+  JulesResyncTaskResponse,
+  JulesGetSessionStatusRequest,
+  JulesGetSessionStatusResponse,
+  JulesGetActivitiesRequest,
+  JulesGetActivitiesResponse,
+  JulesStatusUpdateData,
 } from 'shared/ipc-types'
 
 /**
@@ -453,6 +464,10 @@ const api = {
       request: AgentTaskGetOutputRequest
     ): Promise<AgentTaskGetOutputResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_GET_OUTPUT, request),
+    loadOutput: (
+      request: AgentTaskGetOutputRequest
+    ): Promise<AgentTaskGetOutputResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_LOAD_OUTPUT, request),
     subscribeOutput: (
       request: AgentTaskGetOutputRequest
     ): Promise<{ success: boolean }> =>
@@ -502,6 +517,37 @@ const api = {
       request: JulesListSourcesRequest
     ): Promise<JulesListSourcesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.JULES_LIST_SOURCES, request),
+    approvePlan: (
+      request: JulesApprovePlanRequest
+    ): Promise<JulesApprovePlanResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JULES_APPROVE_PLAN, request),
+    sendMessage: (
+      request: JulesSendMessageRequest
+    ): Promise<JulesSendMessageResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JULES_SEND_MESSAGE, request),
+    resyncTask: (
+      request: JulesResyncTaskRequest
+    ): Promise<JulesResyncTaskResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JULES_RESYNC_TASK, request),
+    getSessionStatus: (
+      request: JulesGetSessionStatusRequest
+    ): Promise<JulesGetSessionStatusResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JULES_GET_SESSION_STATUS, request),
+    getActivities: (
+      request: JulesGetActivitiesRequest
+    ): Promise<JulesGetActivitiesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.JULES_GET_ACTIVITIES, request),
+    onStatusUpdate: (
+      callback: (data: JulesStatusUpdateData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: JulesStatusUpdateData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.JULES_STATUS_UPDATE, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.JULES_STATUS_UPDATE, listener)
+    },
   },
 }
 

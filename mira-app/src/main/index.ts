@@ -113,6 +113,24 @@ makeAppWithSingleInstanceLock(async () => {
     // Continue without AI service - user can configure later
   }
 
+  // Initialize Agent Executor service (recovers interrupted tasks)
+  try {
+    await agentExecutorService.initialize()
+    console.log('Agent executor service initialized successfully')
+
+    // Check if auto-resume is enabled and resume interrupted Claude Code tasks
+    const autoResumeSetting = db.getSetting('tasks.autoResume')
+    if (autoResumeSetting === 'true') {
+      const resumedCount =
+        await agentExecutorService.autoResumeInterruptedTasks()
+      if (resumedCount > 0) {
+        console.log(`Auto-resumed ${resumedCount} interrupted task(s)`)
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to initialize agent executor service:', error)
+  }
+
   // Register IPC handlers
   ipcHandlers.registerHandlers()
 

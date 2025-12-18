@@ -35,6 +35,12 @@ export const SETTING_KEYS = {
   AI_DEFAULT_MODEL: 'ai.defaultModel',
   AI_STREAM_RESPONSES: 'ai.streamResponses',
   AI_MAX_TOKENS: 'ai.maxTokens',
+
+  // Tasks
+  TASKS_AUTO_RESUME: 'tasks.autoResume',
+
+  // Workspace
+  LAST_OPENED_PROJECT: 'workspace.lastOpenedProject',
 } as const
 
 export type SettingKey = (typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
@@ -62,6 +68,10 @@ export const DEFAULT_SETTINGS: Record<SettingKey, string> = {
   [SETTING_KEYS.AI_DEFAULT_MODEL]: '',
   [SETTING_KEYS.AI_STREAM_RESPONSES]: 'true',
   [SETTING_KEYS.AI_MAX_TOKENS]: '4096',
+
+  [SETTING_KEYS.TASKS_AUTO_RESUME]: 'false',
+
+  [SETTING_KEYS.LAST_OPENED_PROJECT]: '',
 }
 
 /**

@@ -1,0 +1,148 @@
+/**
+ * Tasks Filters Component
+ *
+ * Filter bar for the tasks page with status, type, and search filters
+ */
+
+import { memo } from 'react'
+import { Input } from 'renderer/components/ui/input'
+import { Button } from 'renderer/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from 'renderer/components/ui/select'
+import {
+  IconSearch,
+  IconFilter,
+  IconSortAscending,
+  IconSortDescending,
+  IconX,
+} from '@tabler/icons-react'
+import type { TasksFilter } from 'renderer/screens/tasks'
+
+interface TasksFiltersProps {
+  filters: TasksFilter
+  onFilterChange: (filters: Partial<TasksFilter>) => void
+}
+
+export const TasksFilters = memo(function TasksFilters({
+  filters,
+  onFilterChange,
+}: TasksFiltersProps): React.JSX.Element {
+  const hasActiveFilters =
+    filters.status !== 'all' ||
+    filters.agentType !== 'all' ||
+    (filters.searchQuery && filters.searchQuery.length > 0)
+
+  const handleClearFilters = () => {
+    onFilterChange({
+      status: 'all',
+      agentType: 'all',
+      searchQuery: '',
+    })
+  }
+
+  return (
+    <div className="bg-card border-b border-border px-6 py-3">
+      <div className="flex items-center gap-4">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            onChange={e => onFilterChange({ searchQuery: e.target.value })}
+            placeholder="Search tasks..."
+            value={filters.searchQuery || ''}
+          />
+        </div>
+
+        {/* Status filter */}
+        <div className="flex items-center gap-2">
+          <IconFilter className="h-4 w-4 text-muted-foreground" />
+          <Select
+            onValueChange={value =>
+              onFilterChange({ status: value as TasksFilter['status'] })
+            }
+            value={filters.status || 'all'}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="queued">Queued</SelectItem>
+              <SelectItem value="running">Running</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="stopped">Stopped</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Agent type filter */}
+        <Select
+          onValueChange={value =>
+            onFilterChange({ agentType: value as TasksFilter['agentType'] })
+          }
+          value={filters.agentType || 'all'}
+        >
+          <SelectTrigger className="w-[150px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="autonomous">Autonomous</SelectItem>
+            <SelectItem value="feature">Feature</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Sort */}
+        <Select
+          onValueChange={value =>
+            onFilterChange({ sortBy: value as TasksFilter['sortBy'] })
+          }
+          value={filters.sortBy || 'createdAt'}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="createdAt">Created Date</SelectItem>
+            <SelectItem value="status">Status</SelectItem>
+            <SelectItem value="priority">Priority</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Sort order toggle */}
+        <Button
+          onClick={() =>
+            onFilterChange({
+              sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
+            })
+          }
+          size="icon"
+          variant="outline"
+        >
+          {filters.sortOrder === 'asc' ? (
+            <IconSortAscending className="h-4 w-4" />
+          ) : (
+            <IconSortDescending className="h-4 w-4" />
+          )}
+        </Button>
+
+        {/* Clear filters */}
+        {hasActiveFilters && (
+          <Button onClick={handleClearFilters} size="sm" variant="ghost">
+            <IconX className="h-4 w-4 mr-1" />
+            Clear
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+})

@@ -157,6 +157,28 @@ export class IPCHandlers {
     this.registerAgentExecutorHandlers()
     this.registerAgentConfigHandlers()
     this.registerJulesHandlers()
+    this.registerJulesEventForwarding()
+  }
+
+  /**
+   * Set up event forwarding for Jules status updates
+   */
+  private registerJulesEventForwarding(): void {
+    if (!this.agentExecutorService) return
+
+    // Forward Jules status updates to all renderer windows
+    this.agentExecutorService.on(
+      'julesStatusUpdate',
+      (taskId: string, status: import('shared/notification-types').JulesSessionStatus) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const window of windows) {
+          window.webContents.send(IPC_CHANNELS.JULES_STATUS_UPDATE, {
+            taskId,
+            status,
+          })
+        }
+      }
+    )
   }
 
   /**
@@ -1299,7 +1321,7 @@ export class IPCHandlers {
       }
     )
 
-    // Get task output
+    // Get task output (from memory buffer)
     ipcMain.handle(
       IPC_CHANNELS.AGENT_TASK_GET_OUTPUT,
       async (_event, request: AgentTaskGetOutputRequest) => {
@@ -1311,6 +1333,27 @@ export class IPCHandlers {
             }
           }
           const output = this.agentExecutorService.getTaskOutput(request.taskId)
+          return { output }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Load task output from database (for persisted tasks)
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_LOAD_OUTPUT,
+      async (_event, request: AgentTaskGetOutputRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const output = await this.agentExecutorService.loadTaskOutput(
+            request.taskId
+          )
           return { output }
         } catch (error) {
           return this.handleError(error)
@@ -1480,6 +1523,117 @@ export class IPCHandlers {
         }
       }
     })
+
+    // Approve plan for a Jules session
+    ipcMain.handle(
+      IPC_CHANNELS.JULES_APPROVE_PLAN,
+      async (
+        _event,
+        request: import('shared/ipc-types').JulesApprovePlanRequest
+      ) => {
+        try {
+          if (!this.julesService) {
+            return { success: false, error: 'Jules service not initialized' }
+          }
+          await this.julesService.approvePlan(request.sessionId)
+          return { success: true }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error'
+          return { success: false, error: message }
+        }
+      }
+    )
+
+    // Send message to a Jules session
+    ipcMain.handle(
+      IPC_CHANNELS.JULES_SEND_MESSAGE,
+      async (
+        _event,
+        request: import('shared/ipc-types').JulesSendMessageRequest
+      ) => {
+        try {
+          if (!this.julesService) {
+            return { success: false, error: 'Jules service not initialized' }
+          }
+          await this.julesService.sendMessage(request.sessionId, request.message)
+          return { success: true }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error'
+          return { success: false, error: message }
+        }
+      }
+    )
+
+    // Resync a Jules task (fetch latest status)
+    ipcMain.handle(
+      IPC_CHANNELS.JULES_RESYNC_TASK,
+      async (
+        _event,
+        request: import('shared/ipc-types').JulesResyncTaskRequest
+      ) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { success: false, error: 'Agent executor not initialized' }
+          }
+          const status = await this.agentExecutorService.resyncJulesTask(
+            request.taskId
+          )
+          return { success: true, status }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error'
+          return { success: false, error: message }
+        }
+      }
+    )
+
+    // Get session status for a Jules task
+    ipcMain.handle(
+      IPC_CHANNELS.JULES_GET_SESSION_STATUS,
+      async (
+        _event,
+        request: import('shared/ipc-types').JulesGetSessionStatusRequest
+      ) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { status: null, error: 'Agent executor not initialized' }
+          }
+          const status = await this.agentExecutorService.getJulesTaskStatus(
+            request.taskId
+          )
+          return { status }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error'
+          return { status: null, error: message }
+        }
+      }
+    )
+
+    // Get activities for a Jules task
+    ipcMain.handle(
+      IPC_CHANNELS.JULES_GET_ACTIVITIES,
+      async (
+        _event,
+        request: import('shared/ipc-types').JulesGetActivitiesRequest
+      ) => {
+        try {
+          if (!this.agentExecutorService) {
+            return { activities: [], error: 'Agent executor not initialized' }
+          }
+          const activities = await this.agentExecutorService.getJulesActivities(
+            request.taskId
+          )
+          return { activities }
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error'
+          return { activities: [], error: message }
+        }
+      }
+    )
   }
 
   /**
