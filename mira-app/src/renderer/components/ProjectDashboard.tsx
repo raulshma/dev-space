@@ -15,6 +15,23 @@ import {
 import { useTags, useCreateTag } from 'renderer/hooks/use-tags'
 import { useAppStore } from 'renderer/stores/app-store'
 import { ProjectCard } from 'renderer/components/ProjectCard'
+import { Button } from 'renderer/components/ui/button'
+import { Input } from 'renderer/components/ui/input'
+import { Label } from 'renderer/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from 'renderer/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from 'renderer/components/ui/select'
 import type { ProjectFilter } from 'shared/models'
 
 export function ProjectDashboard(): React.JSX.Element {
@@ -168,13 +185,14 @@ export function ProjectDashboard(): React.JSX.Element {
           <h2 className="text-sm font-semibold text-foreground">
             Filter by Tags
           </h2>
-          <button
-            className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setShowAddTagDialog(true)}
             title="Add new tag"
           >
             <Plus size={16} />
-          </button>
+          </Button>
         </div>
 
         {tagsLoading ? (
@@ -182,12 +200,13 @@ export function ProjectDashboard(): React.JSX.Element {
         ) : tags.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground mb-2">No tags available</p>
-            <button
-              className="text-xs text-primary hover:text-primary/80"
+            <Button
+              variant="link"
+              size="sm"
               onClick={() => setShowAddTagDialog(true)}
             >
               Create your first tag
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -214,12 +233,14 @@ export function ProjectDashboard(): React.JSX.Element {
         )}
 
         {selectedTagIds.length > 0 && (
-          <button
-            className="mt-4 w-full text-sm text-primary hover:text-primary/80"
+          <Button
+            variant="link"
+            size="sm"
+            className="mt-4 w-full"
             onClick={() => setSelectedTagIds([])}
           >
             Clear filters
-          </button>
+          </Button>
         )}
       </aside>
 
@@ -230,16 +251,13 @@ export function ProjectDashboard(): React.JSX.Element {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-              <button
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 transition-colors"
-                onClick={() => setShowAddProjectDialog(true)}
-              >
-                <FolderPlus size={18} />
+              <Button onClick={() => setShowAddProjectDialog(true)}>
+                <FolderPlus size={18} className="mr-2" />
                 Add Project
-              </button>
+              </Button>
             </div>
-            <input
-              className="w-full max-w-md px-4 py-2 bg-background text-foreground border border-input rounded-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+            <Input
+              className="w-full max-w-md"
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
               type="text"
@@ -263,12 +281,12 @@ export function ProjectDashboard(): React.JSX.Element {
                   Try adjusting your filters
                 </p>
               ) : (
-                <button
-                  className="text-sm text-primary hover:text-primary/80"
+                <Button
+                  variant="link"
                   onClick={() => setShowAddProjectDialog(true)}
                 >
                   Add your first project
-                </button>
+                </Button>
               )}
             </div>
           ) : (
@@ -287,178 +305,155 @@ export function ProjectDashboard(): React.JSX.Element {
       </main>
 
       {/* Add Project Dialog */}
-      {showAddProjectDialog && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-card text-card-foreground rounded-lg p-6 w-full max-w-md shadow-xl border border-border">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">
-              Add Project
-            </h3>
+      <Dialog open={showAddProjectDialog} onOpenChange={setShowAddProjectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Project</DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1 text-foreground"
-                  htmlFor="new-project-name"
-                >
-                  Project Name <span className="text-destructive">*</span>
-                </label>
-                <input
-                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                  id="new-project-name"
-                  onChange={e => setNewProjectName(e.target.value)}
-                  placeholder="My Awesome Project"
-                  type="text"
-                  value={newProjectName}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1 text-foreground"
-                  htmlFor="new-project-path"
-                >
-                  Project Path <span className="text-destructive">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                    id="new-project-path"
-                    onChange={e => setNewProjectPath(e.target.value)}
-                    placeholder="/path/to/project"
-                    type="text"
-                    value={newProjectPath}
-                  />
-                  <button
-                    className="px-3 py-2 text-sm border border-input text-foreground rounded-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-1 transition-colors"
-                    onClick={handleBrowsePath}
-                    title="Browse for directory"
-                    type="button"
-                  >
-                    <FolderOpen size={16} />
-                    Browse
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter the full path or browse to your project directory
-                </p>
-              </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-project-name">
+                Project Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="new-project-name"
+                onChange={e => setNewProjectName(e.target.value)}
+                placeholder="My Awesome Project"
+                type="text"
+                value={newProjectName}
+              />
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                className="px-4 py-2 text-sm border border-input text-foreground rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                onClick={() => {
-                  setShowAddProjectDialog(false)
-                  setNewProjectName('')
-                  setNewProjectPath('')
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                disabled={
-                  !newProjectName.trim() ||
-                  !newProjectPath.trim() ||
-                  createProject.isPending
-                }
-                onClick={handleAddProject}
-              >
-                {createProject.isPending ? 'Adding...' : 'Add Project'}
-              </button>
+            <div className="space-y-2">
+              <Label htmlFor="new-project-path">
+                Project Path <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  id="new-project-path"
+                  onChange={e => setNewProjectPath(e.target.value)}
+                  placeholder="/path/to/project"
+                  type="text"
+                  value={newProjectPath}
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleBrowsePath}
+                  title="Browse for directory"
+                  type="button"
+                >
+                  <FolderOpen size={16} className="mr-2" />
+                  Browse
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter the full path or browse to your project directory
+              </p>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddProjectDialog(false)
+                setNewProjectName('')
+                setNewProjectPath('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !newProjectName.trim() ||
+                !newProjectPath.trim() ||
+                createProject.isPending
+              }
+              onClick={handleAddProject}
+            >
+              {createProject.isPending ? 'Adding...' : 'Add Project'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Tag Dialog */}
-      {showAddTagDialog && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-card text-card-foreground rounded-lg p-6 w-full max-w-md shadow-xl border border-border">
-            <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
+      <Dialog open={showAddTagDialog} onOpenChange={setShowAddTagDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
               <TagIcon size={20} />
               Create Tag
-            </h3>
+            </DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1 text-foreground"
-                  htmlFor="new-tag-name"
-                >
-                  Tag Name <span className="text-destructive">*</span>
-                </label>
-                <input
-                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                  id="new-tag-name"
-                  onChange={e => setNewTagName(e.target.value)}
-                  placeholder="React, In Progress, etc."
-                  type="text"
-                  value={newTagName}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1 text-foreground"
-                  htmlFor="new-tag-category"
-                >
-                  Category
-                </label>
-                <select
-                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  id="new-tag-category"
-                  onChange={e =>
-                    setNewTagCategory(e.target.value as 'tech_stack' | 'status')
-                  }
-                  value={newTagCategory}
-                >
-                  <option value="tech_stack">Tech Stack</option>
-                  <option value="status">Status</option>
-                </select>
-              </div>
-
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1 text-foreground"
-                  htmlFor="new-tag-color"
-                >
-                  Color (optional)
-                </label>
-                <input
-                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                  id="new-tag-color"
-                  onChange={e => setNewTagColor(e.target.value)}
-                  placeholder="#3b82f6"
-                  type="text"
-                  value={newTagColor}
-                />
-              </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-tag-name">
+                Tag Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="new-tag-name"
+                onChange={e => setNewTagName(e.target.value)}
+                placeholder="React, In Progress, etc."
+                type="text"
+                value={newTagName}
+              />
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                className="px-4 py-2 text-sm border border-input text-foreground rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                onClick={() => {
-                  setShowAddTagDialog(false)
-                  setNewTagName('')
-                  setNewTagCategory('tech_stack')
-                  setNewTagColor('')
-                }}
+            <div className="space-y-2">
+              <Label htmlFor="new-tag-category">Category</Label>
+              <Select
+                value={newTagCategory}
+                onValueChange={value =>
+                  setNewTagCategory(value as 'tech_stack' | 'status')
+                }
               >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                disabled={!newTagName.trim() || createTag.isPending}
-                onClick={handleAddTag}
-              >
-                {createTag.isPending ? 'Creating...' : 'Create Tag'}
-              </button>
+                <SelectTrigger id="new-tag-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tech_stack">Tech Stack</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-tag-color">Color (optional)</Label>
+              <Input
+                id="new-tag-color"
+                onChange={e => setNewTagColor(e.target.value)}
+                placeholder="#3b82f6"
+                type="text"
+                value={newTagColor}
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddTagDialog(false)
+                setNewTagName('')
+                setNewTagCategory('tech_stack')
+                setNewTagColor('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!newTagName.trim() || createTag.isPending}
+              onClick={handleAddTag}
+            >
+              {createTag.isPending ? 'Creating...' : 'Create Tag'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from 'renderer/components/ui/card'
+import { Input } from 'renderer/components/ui/input'
+import { Button } from 'renderer/components/ui/button'
+import { Badge } from 'renderer/components/ui/badge'
+import { Alert, AlertDescription } from 'renderer/components/ui/alert'
+import { Info } from 'lucide-react'
 import type { AIProvider } from 'shared/models'
 
 /**
@@ -136,10 +142,10 @@ export function ApiKeyManager(): React.JSX.Element {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-neutral-100">
+        <h3 className="text-lg font-semibold">
           API Key Management
         </h3>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-muted-foreground">
           Configure API keys for AI providers. Keys are stored securely in your
           OS keychain.
         </p>
@@ -153,111 +159,97 @@ export function ApiKeyManager(): React.JSX.Element {
             const isEditing = editingProvider === config.provider
 
             return (
-              <div
-                className="p-4 border border-neutral-700 rounded-lg"
-                key={config.provider}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-medium text-neutral-100">
-                        {config.name}
-                      </h4>
-                      {isConfigured && (
-                        <span className="rounded-full bg-green-900/50 px-2 py-0.5 text-xs font-medium text-green-400">
-                          Configured
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-neutral-400">
-                      {config.description}
-                    </p>
+              <Card key={config.provider}>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">{config.name}</CardTitle>
+                    {isConfigured && (
+                      <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
+                        Configured
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription>{config.description}</CardDescription>
+                </CardHeader>
 
-                    {isEditing ? (
-                      <div className="mt-3 space-y-2">
-                        <input
-                          className="w-full rounded-sm border border-neutral-600 bg-neutral-900 text-neutral-100 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          onChange={e => setKeyInput(e.target.value)}
-                          placeholder="Enter API key"
-                          type="password"
-                          value={keyInput}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            className="rounded-sm bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:bg-neutral-700"
-                            disabled={loading}
-                            onClick={() => handleSaveKey(config.provider)}
-                          >
-                            Save
-                          </button>
-                          <button
-                            className="rounded-sm border border-neutral-600 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-neutral-800"
-                            disabled={loading}
-                            onClick={handleCancelEdit}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : isConfigured ? (
-                      <div className="mt-3 flex items-center gap-2">
-                        <span className="text-xs text-neutral-400">
-                          ••••••••••••••••
-                        </span>
-                        <button
-                          className="text-xs text-amber-400 hover:text-amber-300"
+                <CardContent>
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <Input
+                        onChange={e => setKeyInput(e.target.value)}
+                        placeholder="Enter API key"
+                        type="password"
+                        value={keyInput}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
                           disabled={loading}
-                          onClick={() => handleEditClick(config.provider)}
+                          onClick={() => handleSaveKey(config.provider)}
                         >
-                          Update
-                        </button>
-                        <span className="text-neutral-600">•</span>
-                        <button
-                          className="text-xs text-red-400 hover:text-red-300"
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           disabled={loading}
-                          onClick={() => handleDeleteKey(config.provider)}
+                          onClick={handleCancelEdit}
                         >
-                          Delete
-                        </button>
+                          Cancel
+                        </Button>
                       </div>
-                    ) : (
-                      <button
-                        className="mt-3 rounded-sm border border-amber-600 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-900/20"
+                    </div>
+                  ) : isConfigured ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">
+                        ••••••••••••••••
+                      </span>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0"
                         disabled={loading}
                         onClick={() => handleEditClick(config.provider)}
                       >
-                        Add API Key
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                        Update
+                      </Button>
+                      <span className="text-muted-foreground">•</span>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-destructive"
+                        disabled={loading}
+                        onClick={() => handleDeleteKey(config.provider)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={loading}
+                      onClick={() => handleEditClick(config.provider)}
+                    >
+                      Add API Key
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             )
           })}
         </div>
       </div>
 
       {/* Footer info */}
-      <div className="mt-6 pt-4 border-t border-neutral-700">
-        <div className="flex items-start gap-2 text-xs text-neutral-400">
-          <svg
-            className="mt-0.5 h-4 w-4 flex-shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              clipRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              fillRule="evenodd"
-            />
-          </svg>
-          <p>
-            API keys are stored securely in your operating system&apos;s
-            keychain and are never sent anywhere except to the respective AI
-            provider.
-          </p>
-        </div>
-      </div>
+      <Alert className="mt-6">
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          API keys are stored securely in your operating system&apos;s
+          keychain and are never sent anywhere except to the respective AI
+          provider.
+        </AlertDescription>
+      </Alert>
     </div>
   )
 }

@@ -7,111 +7,80 @@
  * Requirements: 8.1, 8.2, 14.2, 14.3, 14.4, 15.1, 15.2
  */
 
-import { useState } from 'react'
-import { X, Keyboard, Package, Key } from 'lucide-react'
+import { Keyboard, Package, Key } from 'lucide-react'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from 'renderer/components/ui/sheet'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'renderer/components/ui/tabs'
 import { ShortcutEditor } from './ShortcutEditor'
 import { BlueprintManager } from './BlueprintManager'
 import { ApiKeyManager } from 'renderer/components/Agent/ApiKeyManager'
 
 interface SettingsPanelProps {
   onClose: () => void
+  isOpen: boolean
 }
-
-type SettingsTab = 'shortcuts' | 'blueprints' | 'api-keys'
-
-interface TabConfig {
-  id: SettingsTab
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-}
-
-const TABS: TabConfig[] = [
-  {
-    id: 'shortcuts',
-    label: 'Keyboard Shortcuts',
-    icon: Keyboard,
-  },
-  {
-    id: 'blueprints',
-    label: 'Blueprints',
-    icon: Package,
-  },
-  {
-    id: 'api-keys',
-    label: 'API Keys',
-    icon: Key,
-  },
-]
 
 export function SettingsPanel({
   onClose,
+  isOpen,
 }: SettingsPanelProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('shortcuts')
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="flex h-[80vh] w-[90vw] max-w-6xl flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-neutral-700 px-6 py-4">
-          <h2 className="text-xl font-semibold text-neutral-100">Settings</h2>
-          <button
-            aria-label="Close settings"
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-            onClick={onClose}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="right" className="w-full sm:max-w-4xl p-0">
+        <SheetHeader className="px-6 py-4 border-b">
+          <SheetTitle>Settings</SheetTitle>
+        </SheetHeader>
 
-        {/* Content Area */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar with tabs */}
-          <aside className="w-64 border-r border-neutral-700 bg-neutral-800/50">
-            <nav className="p-2">
-              {TABS.map(tab => {
-                const Icon = tab.icon
-                const isActive = activeTab === tab.id
+        <Tabs defaultValue="shortcuts" className="h-[calc(100vh-5rem)]">
+          <div className="flex h-full">
+            {/* Sidebar with tabs */}
+            <aside className="w-64 border-r bg-muted/30">
+              <TabsList className="flex flex-col h-auto w-full bg-transparent p-2 gap-1">
+                <TabsTrigger
+                  value="shortcuts"
+                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                >
+                  <Keyboard className="h-4 w-4" />
+                  Keyboard Shortcuts
+                </TabsTrigger>
+                <TabsTrigger
+                  value="blueprints"
+                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                >
+                  <Package className="h-4 w-4" />
+                  Blueprints
+                </TabsTrigger>
+                <TabsTrigger
+                  value="api-keys"
+                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                >
+                  <Key className="h-4 w-4" />
+                  API Keys
+                </TabsTrigger>
+              </TabsList>
+            </aside>
 
-                return (
-                  <button
-                    className={`flex w-full items-center gap-3 rounded px-3 py-2 text-left text-sm transition-colors ${
-                      isActive
-                        ? 'bg-amber-600/20 text-amber-400'
-                        : 'text-neutral-300 hover:bg-neutral-700/50'
-                    }`}
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span>{tab.label}</span>
-                  </button>
-                )
-              })}
-            </nav>
-          </aside>
-
-          {/* Main content area */}
-          <main className="flex-1 overflow-y-auto bg-neutral-900 p-6">
-            {activeTab === 'shortcuts' && (
-              <div className="text-neutral-100">
+            {/* Main content area */}
+            <div className="flex-1 overflow-y-auto">
+              <TabsContent value="shortcuts" className="m-0 p-6">
                 <ShortcutEditor />
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'blueprints' && (
-              <div className="h-full">
+              <TabsContent value="blueprints" className="m-0 p-6 h-full">
                 <BlueprintManager />
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'api-keys' && (
-              <div className="h-full">
+              <TabsContent value="api-keys" className="m-0 p-6 h-full">
                 <ApiKeyManager />
-              </div>
-            )}
-          </main>
-        </div>
-      </div>
-    </div>
+              </TabsContent>
+            </div>
+          </div>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
   )
 }
