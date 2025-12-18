@@ -82,13 +82,20 @@ import type { GitService } from 'main/services/git-service'
 import type { KeychainService } from 'main/services/keychain-service'
 import type { AgentService } from 'main/services/agent-service'
 import { BlueprintService } from 'main/services/blueprint-service'
+import { FilesService } from 'main/services/files-service'
 import type { AIService } from 'main/services/ai-service'
 import type { AgentExecutorService } from 'main/services/agent-executor-service'
 import type { AgentConfigService } from 'main/services/agent/agent-config-service'
 import type { JulesService } from 'main/services/agent/jules-service'
 import type { RequestLogger } from 'main/services/ai/request-logger'
 import { ScriptsService } from 'main/services/scripts-service'
-import type { ScriptsGetRequest } from 'shared/ipc-types'
+import type {
+  ScriptsGetRequest,
+  FilesListRequest,
+  FilesListShallowRequest,
+  FilesReadRequest,
+  FilesWriteRequest,
+} from 'shared/ipc-types'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -106,6 +113,7 @@ export class IPCHandlers {
   private keychainService: KeychainService
   private agentService: AgentService
   private blueprintService: BlueprintService
+  private filesService: FilesService
   private scriptsService: ScriptsService
   private aiService?: AIService
   private agentExecutorService?: AgentExecutorService
@@ -131,6 +139,7 @@ export class IPCHandlers {
     this.keychainService = keychainService
     this.agentService = agentService
     this.blueprintService = new BlueprintService()
+    this.filesService = new FilesService()
     this.scriptsService = new ScriptsService()
     this.aiService = aiService
     this.agentExecutorService = agentExecutorService
@@ -143,6 +152,7 @@ export class IPCHandlers {
    * Register all IPC handlers
    */
   registerHandlers(): void {
+    this.registerFilesHandlers()
     this.registerProjectHandlers()
     this.registerTagHandlers()
     this.registerGitHandlers()
@@ -181,6 +191,70 @@ export class IPCHandlers {
             taskId,
             status,
           })
+        }
+      }
+    )
+  }
+
+  /**
+   * File system operation handlers
+   */
+  private registerFilesHandlers(): void {
+    ipcMain.handle(
+      IPC_CHANNELS.FILES_LIST,
+      async (_event, request: FilesListRequest) => {
+        try {
+          const files = await this.filesService.listDirectory(
+            request.path,
+            request.maxDepth ?? 3
+          )
+          return { files }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.FILES_LIST_SHALLOW,
+      async (_event, request: FilesListShallowRequest) => {
+        try {
+          const files = await this.filesService.listDirectoryShallow(
+            request.path
+          )
+          return { files }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.FILES_READ,
+      async (_event, request: FilesReadRequest) => {
+        try {
+          const result = await this.filesService.readFileContent(
+            request.path,
+            request.maxSize
+          )
+          return result
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.FILES_WRITE,
+      async (_event, request: FilesWriteRequest) => {
+        try {
+          const result = await this.filesService.writeFileContent(
+            request.path,
+            request.content
+          )
+          return result
+        } catch (error) {
+          return this.handleError(error)
         }
       }
     )

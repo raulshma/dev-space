@@ -114,6 +114,12 @@ export interface FixSuggestion {
   confidence: number
 }
 
+export interface GitFileStatus {
+  path: string
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'staged'
+  staged: boolean
+}
+
 export interface GitTelemetry {
   isGitRepo: boolean
   branch: string
@@ -122,6 +128,7 @@ export interface GitTelemetry {
   modified: number
   staged: number
   untracked: number
+  files: GitFileStatus[]
 }
 
 export type AIProvider =

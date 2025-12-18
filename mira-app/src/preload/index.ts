@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from 'shared/ipc-types'
 import type {
+  FilesListRequest,
+  FilesListResponse,
+  FilesListShallowRequest,
+  FilesListShallowResponse,
+  FilesReadRequest,
+  FilesReadResponse,
+  FilesWriteRequest,
+  FilesWriteResponse,
   ProjectListRequest,
   ProjectListResponse,
   ProjectGetRequest,
@@ -179,6 +187,20 @@ import type {
  * Requirements: 18.1
  */
 const api = {
+  // File operations
+  files: {
+    list: (request: FilesListRequest): Promise<FilesListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILES_LIST, request),
+    listShallow: (
+      request: FilesListShallowRequest
+    ): Promise<FilesListShallowResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILES_LIST_SHALLOW, request),
+    read: (request: FilesReadRequest): Promise<FilesReadResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILES_READ, request),
+    write: (request: FilesWriteRequest): Promise<FilesWriteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILES_WRITE, request),
+  },
+
   // Project operations
   projects: {
     list: (request: ProjectListRequest): Promise<ProjectListResponse> =>

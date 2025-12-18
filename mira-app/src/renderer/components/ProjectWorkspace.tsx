@@ -36,6 +36,8 @@ import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { LeftSidebar } from 'renderer/components/LeftSidebar'
+import { CodeEditorPanel } from 'renderer/components/CodeEditor'
+import { useEditorStore } from 'renderer/stores/editor-store'
 import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
 import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
 import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
@@ -412,6 +414,51 @@ const AgentPanel = memo(function AgentPanel({
         open={showTaskCreation}
       />
     </aside>
+  )
+})
+
+// Center panel with editor and terminal
+interface CenterPanelProps {
+  projectId: string
+  projectPath: string
+  isRestoringTerminals: boolean
+}
+
+const CenterPanel = memo(function CenterPanel({
+  projectId,
+  projectPath,
+  isRestoringTerminals,
+}: CenterPanelProps) {
+  const hasOpenFiles = useEditorStore(state => state.openFiles.length > 0)
+
+  if (!hasOpenFiles) {
+    // Only terminal when no files are open
+    return (
+      <main className="h-full overflow-hidden">
+        <Terminal
+          isRestoring={isRestoringTerminals}
+          projectId={projectId}
+          projectPath={projectPath}
+        />
+      </main>
+    )
+  }
+
+  // Split view with editor and terminal
+  return (
+    <ResizablePanelGroup direction="vertical" className="h-full">
+      <ResizablePanel defaultSize={60} minSize={20} id="center-editor">
+        <CodeEditorPanel />
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={40} minSize={15} id="center-terminal">
+        <Terminal
+          isRestoring={isRestoringTerminals}
+          projectId={projectId}
+          projectPath={projectPath}
+        />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   )
 })
 
@@ -854,13 +901,11 @@ export function ProjectWorkspace({
           id="project-workspace-center"
           minSize={20}
         >
-          <main className="h-full overflow-hidden">
-            <Terminal
-              isRestoring={isRestoringTerminals}
-              projectId={projectId}
-              projectPath={project.path}
-            />
-          </main>
+          <CenterPanel
+            projectId={projectId}
+            projectPath={project.path}
+            isRestoringTerminals={isRestoringTerminals}
+          />
         </ResizablePanel>
 
         <ResizableHandle

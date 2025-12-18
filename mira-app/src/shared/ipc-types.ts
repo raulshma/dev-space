@@ -25,6 +25,12 @@ import type {
 
 // IPC Channel Constants
 export const IPC_CHANNELS = {
+  // File operations
+  FILES_LIST: 'files:list',
+  FILES_LIST_SHALLOW: 'files:listShallow',
+  FILES_READ: 'files:read',
+  FILES_WRITE: 'files:write',
+
   // Project operations
   PROJECT_LIST: 'project:list',
   PROJECT_GET: 'project:get',
@@ -584,6 +590,53 @@ export interface DialogOpenDirectoryRequest {
 export interface DialogOpenDirectoryResponse {
   path: string | null
   canceled: boolean
+}
+
+// File System Request/Response Types
+export interface FileNode {
+  name: string
+  path: string
+  isDirectory: boolean
+  children?: FileNode[]
+}
+
+export interface FilesListRequest {
+  path: string
+  maxDepth?: number
+}
+
+export interface FilesListResponse {
+  files: FileNode[]
+}
+
+export interface FilesListShallowRequest {
+  path: string
+}
+
+export interface FilesListShallowResponse {
+  files: FileNode[]
+}
+
+export interface FilesReadRequest {
+  path: string
+  maxSize?: number // Max file size in bytes (default 1MB)
+}
+
+export interface FilesReadResponse {
+  content: string
+  size: number
+  isTruncated: boolean
+  language: string
+}
+
+export interface FilesWriteRequest {
+  path: string
+  content: string
+}
+
+export interface FilesWriteResponse {
+  success: boolean
+  size: number
 }
 
 // Generic IPC Error Response

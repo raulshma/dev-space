@@ -11,6 +11,12 @@ import {
   IconMinus,
   IconArrowUp,
   IconArrowDown,
+  IconFile,
+  IconFilePlus,
+  IconFileX,
+  IconFileOff,
+  IconExternalLink,
+  IconGitCompare,
 } from '@tabler/icons-react'
 import { useGitTelemetry } from 'renderer/hooks/use-git-telemetry'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
@@ -27,6 +33,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from 'renderer/components/ui/empty'
+import type { GitFileStatus } from 'shared/models'
 
 interface GitPanelProps {
   projectId: string
@@ -103,35 +110,11 @@ const gitOperations: GitOperation[] = [
     category: 'stash',
   },
   {
-    id: 'stash-staged',
-    name: 'Stash Staged',
-    command: 'git stash --staged',
-    icon: IconPackage,
-    description: 'Stash only staged changes',
-    category: 'stash',
-  },
-  {
-    id: 'stash-unstaged',
-    name: 'Stash Unstaged',
-    command: 'git stash --keep-index',
-    icon: IconPackage,
-    description: 'Stash unstaged changes only',
-    category: 'stash',
-  },
-  {
     id: 'stash-pop',
     name: 'Stash Pop',
     command: 'git stash pop',
     icon: IconArrowBackUp,
     description: 'Apply and remove latest stash',
-    category: 'stash',
-  },
-  {
-    id: 'stash-list',
-    name: 'Stash List',
-    command: 'git stash list',
-    icon: IconPackage,
-    description: 'List all stashes',
     category: 'stash',
   },
 
@@ -152,22 +135,6 @@ const gitOperations: GitOperation[] = [
     description: 'Merge branch (specify branch)',
     category: 'branch',
   },
-  {
-    id: 'rebase',
-    name: 'Rebase',
-    command: 'git rebase',
-    icon: IconGitMerge,
-    description: 'Rebase onto branch',
-    category: 'branch',
-  },
-  {
-    id: 'rebase-i',
-    name: 'Interactive Rebase',
-    command: 'git rebase -i HEAD~',
-    icon: IconGitMerge,
-    description: 'Interactive rebase',
-    category: 'branch',
-  },
 
   // Reset operations
   {
@@ -176,22 +143,6 @@ const gitOperations: GitOperation[] = [
     command: 'git reset --soft HEAD~1',
     icon: IconArrowBackUp,
     description: 'Undo last commit, keep changes staged',
-    category: 'reset',
-  },
-  {
-    id: 'reset-mixed',
-    name: 'Mixed Reset',
-    command: 'git reset HEAD~1',
-    icon: IconArrowBackUp,
-    description: 'Undo last commit, unstage changes',
-    category: 'reset',
-  },
-  {
-    id: 'reset-hard',
-    name: 'Hard Reset',
-    command: 'git reset --hard HEAD~1',
-    icon: IconArrowBackUp,
-    description: 'Undo last commit, discard changes',
     category: 'reset',
   },
   {
@@ -205,11 +156,122 @@ const gitOperations: GitOperation[] = [
 ]
 
 const categories = [
-  { id: 'common', name: 'Common', defaultOpen: true },
-  { id: 'stash', name: 'Stash', defaultOpen: true },
-  { id: 'branch', name: 'Branch & Merge', defaultOpen: false },
-  { id: 'reset', name: 'Reset & Undo', defaultOpen: false },
+  { id: 'common', name: 'Quick Actions', defaultOpen: true },
+  { id: 'stash', name: 'Stash', defaultOpen: false },
+  { id: 'branch', name: 'Branch', defaultOpen: false },
+  { id: 'reset', name: 'Reset', defaultOpen: false },
 ] as const
+
+// Get icon for file status
+const getStatusIcon = (status: GitFileStatus['status']) => {
+  switch (status) {
+    case 'added':
+    case 'staged':
+      return IconFilePlus
+    case 'deleted':
+      return IconFileX
+    case 'untracked':
+      return IconFileOff
+    default:
+      return IconFile
+  }
+}
+
+// Get color for file status
+const getStatusColor = (status: GitFileStatus['status'], staged: boolean) => {
+  if (staged) return 'text-green-500'
+  switch (status) {
+    case 'added':
+      return 'text-green-500'
+    case 'deleted':
+      return 'text-red-500'
+    case 'untracked':
+      return 'text-gray-400'
+    case 'modified':
+      return 'text-amber-500'
+    default:
+      return 'text-muted-foreground'
+  }
+}
+
+// Get status label
+const getStatusLabel = (status: GitFileStatus['status']) => {
+  switch (status) {
+    case 'added':
+      return 'A'
+    case 'deleted':
+      return 'D'
+    case 'modified':
+      return 'M'
+    case 'staged':
+      return 'S'
+    case 'untracked':
+      return 'U'
+    case 'renamed':
+      return 'R'
+    default:
+      return '?'
+  }
+}
+
+interface GitFileItemProps {
+  file: GitFileStatus
+  projectPath: string
+  onOpenFile: (path: string) => void
+  onViewDiff: (path: string) => void
+}
+
+const GitFileItem = memo(function GitFileItem({
+  file,
+  projectPath,
+  onOpenFile,
+  onViewDiff,
+}: GitFileItemProps) {
+  const StatusIcon = getStatusIcon(file.status)
+  const statusColor = getStatusColor(file.status, file.staged)
+  const fileName = file.path.split('/').pop() || file.path
+
+  return (
+    <div className="flex items-center gap-1 px-3 py-1 hover:bg-muted/50 group">
+      <StatusIcon className={`h-4 w-4 shrink-0 ${statusColor}`} />
+      <span
+        className="flex-1 text-sm truncate cursor-pointer hover:underline"
+        onClick={() => onOpenFile(`${projectPath}/${file.path}`)}
+        title={file.path}
+      >
+        {fileName}
+      </span>
+      <span
+        className={`text-xs font-mono px-1 rounded ${statusColor} bg-muted/50`}
+        title={file.staged ? 'Staged' : file.status}
+      >
+        {getStatusLabel(file.status)}
+      </span>
+      <div className="hidden group-hover:flex items-center gap-0.5">
+        <Button
+          className="h-5 w-5 p-0"
+          onClick={() => onOpenFile(`${projectPath}/${file.path}`)}
+          size="sm"
+          title="Open file"
+          variant="ghost"
+        >
+          <IconExternalLink className="h-3 w-3" />
+        </Button>
+        {file.status !== 'untracked' && (
+          <Button
+            className="h-5 w-5 p-0"
+            onClick={() => onViewDiff(file.path)}
+            size="sm"
+            title="View diff"
+            variant="ghost"
+          >
+            <IconGitCompare className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+})
 
 export const GitPanel = memo(function GitPanel({
   projectId,
@@ -222,6 +284,7 @@ export const GitPanel = memo(function GitPanel({
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
   >(() => Object.fromEntries(categories.map(c => [c.id, c.defaultOpen])))
+  const [changesExpanded, setChangesExpanded] = useState(true)
 
   const toggleCategory = useCallback((categoryId: string) => {
     setExpandedCategories(prev => ({
@@ -250,6 +313,17 @@ export const GitPanel = memo(function GitPanel({
       }
     },
     [focusedTerminalId, getTerminal, projectId]
+  )
+
+  const handleOpenFile = useCallback((filePath: string) => {
+    window.api.shell.openPath({ path: filePath }).catch(console.error)
+  }, [])
+
+  const handleViewDiff = useCallback(
+    (relativePath: string) => {
+      runGitCommand(`git diff "${relativePath}"`)
+    },
+    [runGitCommand]
   )
 
   if (isLoading) {
@@ -281,6 +355,10 @@ export const GitPanel = memo(function GitPanel({
       </Empty>
     )
   }
+
+  const stagedFiles = telemetry.files?.filter(f => f.staged) || []
+  const unstagedFiles = telemetry.files?.filter(f => !f.staged) || []
+  const hasChanges = telemetry.files && telemetry.files.length > 0
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -317,32 +395,75 @@ export const GitPanel = memo(function GitPanel({
         </div>
       </div>
 
-      {/* Status summary */}
-      <div className="flex items-center gap-3 px-3 py-2 text-xs border-b border-border bg-muted/30">
-        {telemetry.staged > 0 && (
-          <span className="text-green-600 dark:text-green-400">
-            {telemetry.staged} staged
-          </span>
-        )}
-        {telemetry.modified > 0 && (
-          <span className="text-amber-600 dark:text-amber-400">
-            {telemetry.modified} modified
-          </span>
-        )}
-        {telemetry.untracked > 0 && (
-          <span className="text-muted-foreground">
-            {telemetry.untracked} untracked
-          </span>
-        )}
-        {telemetry.staged === 0 &&
-          telemetry.modified === 0 &&
-          telemetry.untracked === 0 && (
-            <span className="text-muted-foreground">Working tree clean</span>
-          )}
-      </div>
-
-      {/* Git operations */}
       <div className="flex-1 overflow-y-auto">
+        {/* Changed Files Section */}
+        <Collapsible
+          onOpenChange={setChangesExpanded}
+          open={changesExpanded}
+        >
+          <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/50">
+            <span>Changes</span>
+            <div className="flex items-center gap-2">
+              {hasChanges && (
+                <span className="text-xs font-normal normal-case">
+                  {telemetry.files?.length} file
+                  {telemetry.files?.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              <IconChevronRight
+                className={`h-3 w-3 transition-transform ${changesExpanded ? 'rotate-90' : ''}`}
+              />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {hasChanges ? (
+              <div className="pb-2">
+                {/* Staged files */}
+                {stagedFiles.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                      Staged ({stagedFiles.length})
+                    </div>
+                    {stagedFiles.map(file => (
+                      <GitFileItem
+                        file={file}
+                        key={file.path}
+                        onOpenFile={handleOpenFile}
+                        onViewDiff={handleViewDiff}
+                        projectPath={projectPath}
+                      />
+                    ))}
+                  </div>
+                )}
+                {/* Unstaged files */}
+                {unstagedFiles.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      Changes ({unstagedFiles.length})
+                    </div>
+                    {unstagedFiles.map(file => (
+                      <GitFileItem
+                        file={file}
+                        key={file.path}
+                        onOpenFile={handleOpenFile}
+                        onViewDiff={handleViewDiff}
+                        projectPath={projectPath}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                No changes
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Separator />
+
+        {/* Git operations */}
         {categories.map(category => (
           <Collapsible
             key={category.id}
@@ -367,6 +488,7 @@ export const GitPanel = memo(function GitPanel({
                         key={operation.id}
                         onClick={() => runGitCommand(operation.command)}
                         title={operation.description}
+                        type="button"
                       >
                         <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0" />
                         <span className="truncate">{operation.name}</span>

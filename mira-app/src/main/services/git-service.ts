@@ -2,7 +2,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { GitTelemetry } from 'shared/models'
+import type { GitTelemetry, GitFileStatus } from 'shared/models'
 
 const execAsync = promisify(exec)
 
@@ -48,6 +48,7 @@ export class GitService {
         modified: 0,
         staged: 0,
         untracked: 0,
+        files: [],
       }
     }
 
@@ -77,7 +78,7 @@ export class GitService {
         // No upstream configured or other error - leave as 0
       }
 
-      // Get status counts
+      // Get status counts and file list
       const statusResult = await execAsync('git status --porcelain', {
         cwd: projectPath,
         timeout: 5000,
@@ -89,9 +90,11 @@ export class GitService {
       let modified = 0
       let staged = 0
       let untracked = 0
+      const files: GitFileStatus[] = []
 
       for (const line of statusLines) {
         const status = line.substring(0, 2)
+        const filePath = line.substring(3).trim()
         const x = status[0]
         const y = status[1]
 
@@ -109,6 +112,34 @@ export class GitService {
         if (status === '??') {
           untracked++
         }
+
+        // Build file status
+        let fileStatus: GitFileStatus['status'] = 'modified'
+        let isStaged = false
+
+        if (status === '??') {
+          fileStatus = 'untracked'
+        } else if (x === 'A') {
+          fileStatus = 'added'
+          isStaged = true
+        } else if (x === 'D' || y === 'D') {
+          fileStatus = 'deleted'
+          isStaged = x === 'D'
+        } else if (x === 'R') {
+          fileStatus = 'renamed'
+          isStaged = true
+        } else if (x === 'M') {
+          fileStatus = 'staged'
+          isStaged = true
+        } else if (y === 'M') {
+          fileStatus = 'modified'
+        }
+
+        files.push({
+          path: filePath,
+          status: fileStatus,
+          staged: isStaged,
+        })
       }
 
       const telemetry: GitTelemetry = {
@@ -119,6 +150,7 @@ export class GitService {
         modified,
         staged,
         untracked,
+        files,
       }
 
       // Cache the result
@@ -135,6 +167,7 @@ export class GitService {
         modified: 0,
         staged: 0,
         untracked: 0,
+        files: [],
       }
     }
   }
