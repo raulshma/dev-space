@@ -882,6 +882,18 @@ export interface JulesActivity {
     description?: string
   }
   sessionCompleted?: Record<string, never>
+  /** Agent is waiting for user input/message */
+  userMessageRequested?: {
+    prompt?: string
+  }
+  /** User sent a message to the agent */
+  userMessageSent?: {
+    message: string
+  }
+  /** Agent sent a message */
+  agentMessaged?: {
+    agentMessage: string
+  }
   artifacts?: Array<{
     bashOutput?: {
       command?: string

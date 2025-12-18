@@ -195,23 +195,21 @@ export function TerminalPanes({
   const setLayout = useTerminalStore(state => state.setLayout)
   const addTerminal = useTerminalStore(state => state.addTerminal)
 
-  // Initialize layout if not exists or update when terminals change
-  useEffect(() => {
+  // Compute effective layout synchronously to prevent flash
+  // This avoids the render -> effect -> re-render cycle
+  const effectiveLayout = (() => {
     if (terminals.length === 0) {
-      // Clear layout when no terminals
-      setLayout(projectId, { projectId, panes: [] })
-      return
+      return { projectId, panes: [] }
     }
 
     if (!layout || layout.panes.length === 0) {
-      // Initialize layout with first terminal
+      // Create initial layout synchronously
       const initialLayout: TerminalPane = {
         terminalId: terminals[0].id,
         direction: null,
         size: 100,
       }
-      setLayout(projectId, { projectId, panes: [initialLayout] })
-      return
+      return { projectId, panes: [initialLayout] }
     }
 
     // Check if layout references terminals that no longer exist
@@ -242,24 +240,29 @@ export function TerminalPanes({
       .map(cleanupPane)
       .filter((p): p is TerminalPane => p !== null)
 
-    // Only update if panes changed
-    if (
-      cleanedPanes.length !== layout.panes.length ||
-      JSON.stringify(cleanedPanes) !== JSON.stringify(layout.panes)
-    ) {
-      if (cleanedPanes.length === 0 && terminals.length > 0) {
-        // All panes were removed but we have terminals - recreate layout
-        const initialLayout: TerminalPane = {
-          terminalId: terminals[0].id,
-          direction: null,
-          size: 100,
-        }
-        setLayout(projectId, { projectId, panes: [initialLayout] })
-      } else {
-        setLayout(projectId, { projectId, panes: cleanedPanes })
+    if (cleanedPanes.length === 0 && terminals.length > 0) {
+      // All panes were removed but we have terminals - recreate layout
+      const initialLayout: TerminalPane = {
+        terminalId: terminals[0].id,
+        direction: null,
+        size: 100,
       }
+      return { projectId, panes: [initialLayout] }
     }
-  }, [layout, terminals, projectId, setLayout])
+
+    return { projectId, panes: cleanedPanes }
+  })()
+
+  // Sync computed layout to store (for persistence and splits)
+  useEffect(() => {
+    const currentLayout = useTerminalStore.getState().getLayout(projectId)
+    if (
+      JSON.stringify(currentLayout?.panes) !==
+      JSON.stringify(effectiveLayout.panes)
+    ) {
+      setLayout(projectId, effectiveLayout)
+    }
+  }, [effectiveLayout, projectId, setLayout])
 
   const handleSplit = async (
     terminalId: string,
@@ -289,7 +292,7 @@ export function TerminalPanes({
       })
 
       // Update layout to include split
-      if (layout) {
+      if (effectiveLayout.panes.length > 0) {
         const updatePaneWithSplit = (pane: TerminalPane): TerminalPane => {
           if (pane.terminalId === terminalId) {
             // Convert this pane to a container with two children
@@ -323,8 +326,8 @@ export function TerminalPanes({
         }
 
         const updatedLayout = {
-          ...layout,
-          panes: layout.panes.map(updatePaneWithSplit),
+          ...effectiveLayout,
+          panes: effectiveLayout.panes.map(updatePaneWithSplit),
         }
 
         setLayout(projectId, updatedLayout)
@@ -346,8 +349,8 @@ export function TerminalPanes({
     )
   }
 
-  // If no layout, show single terminal
-  if (!layout || layout.panes.length === 0) {
+  // If no panes in effective layout, show single terminal
+  if (effectiveLayout.panes.length === 0) {
     return (
       <div className="w-full h-full">
         <TerminalView
@@ -361,7 +364,7 @@ export function TerminalPanes({
 
   return (
     <div className="w-full h-full bg-neutral-900">
-      {layout.panes.map(pane => (
+      {effectiveLayout.panes.map(pane => (
         <PaneLayout
           key={pane.terminalId}
           onErrorContext={onErrorContext}

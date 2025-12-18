@@ -40,6 +40,12 @@ export interface JulesSession {
     }
   }
   prompt: string
+  /** Session creation time (RFC 3339 format) */
+  createTime?: string
+  /** Session last update time (RFC 3339 format) */
+  updateTime?: string
+  /** URL to view the session in Jules web app */
+  url?: string
   outputs?: JulesOutput[]
   state?: string
 }
@@ -80,6 +86,16 @@ export interface JulesActivity {
     title: string
     description?: string
   }
+  /** Agent is waiting for user input/message */
+  userMessageRequested?: {
+    prompt?: string
+  }
+  /** User sent a message to the agent */
+  userMessageSent?: {
+    message: string
+  }
+  /** Session has completed */
+  sessionCompleted?: Record<string, never>
   artifacts?: Array<{
     bashOutput?: {
       command?: string
@@ -91,6 +107,7 @@ export interface JulesActivity {
       gitPatch?: {
         unidiffPatch?: string
         baseCommitId?: string
+        suggestedCommitMessage?: string
       }
     }
     media?: {
@@ -137,6 +154,11 @@ export interface IJulesService {
   approvePlan(sessionId: string): Promise<void>
   sendMessage(sessionId: string, prompt: string): Promise<void>
   listActivities(sessionId: string, pageSize?: number): Promise<JulesActivity[]>
+  listActivitiesPage(
+    sessionId: string,
+    pageSize?: number,
+    pageToken?: string
+  ): Promise<{ activities: JulesActivity[]; nextPageToken?: string }>
 }
 
 /**
@@ -325,16 +347,56 @@ export class JulesService implements IJulesService {
   }
 
   /**
-   * List activities in a session
+   * List activities in a session (fetches all pages)
    */
   async listActivities(
     sessionId: string,
-    pageSize = 30
+    pageSize = 50
   ): Promise<JulesActivity[]> {
-    const response = await this.request<{ activities: JulesActivity[] }>(
-      `/sessions/${sessionId}/activities?pageSize=${pageSize}`
-    )
-    return response.activities || []
+    const allActivities: JulesActivity[] = []
+    let pageToken: string | undefined
+
+    do {
+      const url = pageToken
+        ? `/sessions/${sessionId}/activities?pageSize=${pageSize}&pageToken=${pageToken}`
+        : `/sessions/${sessionId}/activities?pageSize=${pageSize}`
+
+      const response = await this.request<{
+        activities: JulesActivity[]
+        nextPageToken?: string
+      }>(url)
+
+      if (response.activities) {
+        allActivities.push(...response.activities)
+      }
+
+      pageToken = response.nextPageToken
+    } while (pageToken)
+
+    return allActivities
+  }
+
+  /**
+   * List activities in a session (single page, for incremental fetching)
+   */
+  async listActivitiesPage(
+    sessionId: string,
+    pageSize = 50,
+    pageToken?: string
+  ): Promise<{ activities: JulesActivity[]; nextPageToken?: string }> {
+    const url = pageToken
+      ? `/sessions/${sessionId}/activities?pageSize=${pageSize}&pageToken=${pageToken}`
+      : `/sessions/${sessionId}/activities?pageSize=${pageSize}`
+
+    const response = await this.request<{
+      activities: JulesActivity[]
+      nextPageToken?: string
+    }>(url)
+
+    return {
+      activities: response.activities || [],
+      nextPageToken: response.nextPageToken,
+    }
   }
 
   /**
@@ -391,6 +453,41 @@ export class JulesService implements IJulesService {
             stream: 'stdout',
           })
         }
+      }
+
+      if (activity.userMessageRequested) {
+        lines.push({
+          taskId,
+          timestamp,
+          content: `${prefix} Waiting for your reply`,
+          stream: 'stdout',
+        })
+        if (activity.userMessageRequested.prompt) {
+          lines.push({
+            taskId,
+            timestamp,
+            content: `  ${activity.userMessageRequested.prompt}`,
+            stream: 'stdout',
+          })
+        }
+      }
+
+      if (activity.userMessageSent) {
+        lines.push({
+          taskId,
+          timestamp,
+          content: `${prefix} ${activity.userMessageSent.message}`,
+          stream: 'stdout',
+        })
+      }
+
+      if (activity.sessionCompleted) {
+        lines.push({
+          taskId,
+          timestamp,
+          content: `${prefix} Session completed`,
+          stream: 'stdout',
+        })
       }
 
       if (activity.artifacts) {

@@ -56,7 +56,14 @@ import {
   useStopAgentTask,
   useStartAgentTask,
 } from 'renderer/hooks/use-agent-tasks'
-import { useApprovePlan } from 'renderer/hooks/use-jules-notifications'
+import {
+  useApprovePlan,
+  useSendJulesMessage,
+} from 'renderer/hooks/use-jules-notifications'
+import { useNotificationStore } from 'renderer/stores/notification-store'
+import { Input } from 'renderer/components/ui/input'
+import { SimpleMarkdown } from 'renderer/components/ui/simple-markdown'
+import { IconSend } from '@tabler/icons-react'
 import type { TaskStatus, OutputLine, FileChangeSummary } from 'shared/ai-types'
 import type {
   JulesSessionStatus,
@@ -311,17 +318,63 @@ function FileChangeList({
 }
 
 /**
+ * Get the last agent message text from activities
+ */
+function getLastAgentMessage(activities: JulesActivity[]): string | null {
+  // Find the last activity from the agent that has a message
+  for (let i = activities.length - 1; i >= 0; i--) {
+    const activity = activities[i]
+    if (activity.originator === 'agent') {
+      // Check agentMessaged for direct agent messages (highest priority)
+      if (activity.agentMessaged?.agentMessage) {
+        return activity.agentMessaged.agentMessage
+      }
+      // Check progressUpdated for agent status messages
+      if (activity.progressUpdated?.description) {
+        return activity.progressUpdated.description
+      }
+      if (activity.progressUpdated?.title) {
+        return activity.progressUpdated.title
+      }
+      // Check userMessageRequested for agent prompts
+      if (activity.userMessageRequested?.prompt) {
+        return activity.userMessageRequested.prompt
+      }
+    }
+  }
+  return null
+}
+
+/**
  * Jules Activity Item Component
  * Renders a single activity from the Jules session
  */
 const JulesActivityItem = memo(function JulesActivityItem({
   activity,
+  isWaitingForReply,
+  sessionStatus,
+  isLastAgentActivity,
 }: {
   activity: JulesActivity
+  isWaitingForReply?: boolean
+  sessionStatus?: JulesSessionStatus | null
+  isLastAgentActivity?: boolean
 }): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false)
   const timestamp = new Date(activity.createTime)
   const isAgent = activity.originator === 'agent'
+
+  // Determine if this activity requires user action
+  const requiresUserAction =
+    activity.userMessageRequested ||
+    (activity.planGenerated && isWaitingForReply)
+
+  // Get the agent message text for this activity
+  const agentMessageText =
+    activity.agentMessaged?.agentMessage ||
+    activity.progressUpdated?.description ||
+    activity.progressUpdated?.title ||
+    activity.userMessageRequested?.prompt
 
   return (
     <div className="border-b border-border/50 py-3 last:border-b-0">
@@ -343,13 +396,45 @@ const JulesActivityItem = memo(function JulesActivityItem({
             <span className="text-xs text-muted-foreground">
               {timestamp.toLocaleTimeString()}
             </span>
+            {requiresUserAction && (
+              <Badge className="text-xs bg-yellow-500/20 text-yellow-500 border-yellow-500/30">
+                Action Required
+              </Badge>
+            )}
+            {isLastAgentActivity && isAgent && (
+              <Badge className="text-xs bg-blue-500/20 text-blue-500 border-blue-500/30">
+                Latest
+              </Badge>
+            )}
           </div>
+
+          {/* Agent message text - shown prominently for the last agent activity */}
+          {isAgent && isLastAgentActivity && agentMessageText && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-2 mb-2">
+              <p className="text-sm font-medium text-blue-400 mb-1">
+                Latest Message
+              </p>
+              <SimpleMarkdown className="text-sm" content={agentMessageText} />
+            </div>
+          )}
 
           {/* Plan Generated */}
           {activity.planGenerated && (
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 mt-2">
-              <p className="text-sm font-medium text-blue-500 mb-2">
-                Plan Generated
+            <div
+              className={`rounded-md p-3 mt-2 ${
+                isWaitingForReply
+                  ? 'bg-yellow-500/10 border border-yellow-500/30'
+                  : 'bg-blue-500/10 border border-blue-500/30'
+              }`}
+            >
+              <p
+                className={`text-sm font-medium mb-2 ${
+                  isWaitingForReply ? 'text-yellow-500' : 'text-blue-500'
+                }`}
+              >
+                {isWaitingForReply
+                  ? 'Plan Awaiting Approval'
+                  : 'Plan Generated'}
               </p>
               <div className="space-y-1">
                 {activity.planGenerated.plan.steps.map((step, idx) => (
@@ -384,11 +469,97 @@ const JulesActivityItem = memo(function JulesActivityItem({
             </div>
           )}
 
-          {/* Session Completed */}
+          {/* User Message Requested - Agent waiting for user input */}
+          {activity.userMessageRequested && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-md p-3 mt-2">
+              <div className="flex items-center gap-2 text-yellow-500">
+                <IconClock className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Waiting for your reply
+                </span>
+              </div>
+              {activity.userMessageRequested.prompt && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {activity.userMessageRequested.prompt}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* User Message Sent */}
+          {activity.userMessageSent && (
+            <div className="bg-green-500/10 border border-green-500/30 rounded-md p-3 mt-2">
+              <p className="text-sm">{activity.userMessageSent.message}</p>
+            </div>
+          )}
+
+          {/* Agent Message - Direct message from agent */}
+          {activity.agentMessaged && !isLastAgentActivity && (
+            <div className="bg-muted/50 border border-border rounded-md p-3 mt-2">
+              <SimpleMarkdown
+                className="text-sm"
+                content={activity.agentMessaged.agentMessage}
+              />
+            </div>
+          )}
+
+          {/* Session Completed - Show detailed summary */}
           {activity.sessionCompleted && (
-            <div className="flex items-center gap-2 text-sm text-green-500">
-              <IconCheck className="h-4 w-4" />
-              <span>Session completed</span>
+            <div className="bg-green-500/10 border border-green-500/30 rounded-md p-3 mt-2">
+              <div className="flex items-center gap-2 text-green-500 mb-2">
+                <IconCheck className="h-4 w-4" />
+                <span className="text-sm font-medium">Session Completed</span>
+              </div>
+              {sessionStatus && (
+                <div className="space-y-2 text-xs">
+                  {sessionStatus.title && (
+                    <div>
+                      <span className="text-muted-foreground">Task: </span>
+                      <span>{sessionStatus.title}</span>
+                    </div>
+                  )}
+                  {sessionStatus.pullRequestUrl && (
+                    <div className="flex items-center gap-2">
+                      <IconBrandGithub className="h-3 w-3 text-green-500" />
+                      <span className="text-muted-foreground">PR: </span>
+                      <Button
+                        className="text-xs h-5 p-0 text-green-500"
+                        onClick={() => {
+                          if (sessionStatus.pullRequestUrl) {
+                            window.api.shell.openExternal({
+                              url: sessionStatus.pullRequestUrl,
+                            })
+                          }
+                        }}
+                        variant="link"
+                      >
+                        {sessionStatus.pullRequestUrl
+                          .split('/')
+                          .slice(-2)
+                          .join('/')}
+                      </Button>
+                    </div>
+                  )}
+                  {sessionStatus.sourceContext && (
+                    <div>
+                      <span className="text-muted-foreground">
+                        Repository:{' '}
+                      </span>
+                      <span className="font-mono">
+                        {sessionStatus.sourceContext.source}
+                      </span>
+                    </div>
+                  )}
+                  {sessionStatus.updateTime && (
+                    <div>
+                      <span className="text-muted-foreground">Completed: </span>
+                      <span>
+                        {new Date(sessionStatus.updateTime).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -442,6 +613,11 @@ const JulesActivityItem = memo(function JulesActivityItem({
                         {artifact.changeSet.gitPatch.suggestedCommitMessage}
                       </div>
                     )}
+                    {artifact.media && (
+                      <div className="text-muted-foreground">
+                        Media: {artifact.media.mimeType}
+                      </div>
+                    )}
                   </div>
                 ))}
               </CollapsibleContent>
@@ -460,26 +636,95 @@ const JulesActivityItem = memo(function JulesActivityItem({
 function JulesActivitiesOutput({
   taskId,
   sessionStatus,
+  julesSessionId,
   onApprovePlan,
   isApprovingPlan,
 }: {
   taskId: string
   sessionStatus: JulesSessionStatus | null
+  julesSessionId?: string
   onApprovePlan: () => void
   isApprovingPlan: boolean
 }): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isAutoScroll, setIsAutoScroll] = useState(true)
   const [userInterrupted, setUserInterrupted] = useState(false)
+  const [messageInput, setMessageInput] = useState('')
   const lastScrollTop = useRef(0)
   const prevActivitiesLength = useRef(0)
+  const prevSessionState = useRef<string | null>(null)
+
+  const sendMessage = useSendJulesMessage()
+  const { addNotification } = useNotificationStore()
 
   const isExecuting =
     sessionStatus?.state === 'executing' ||
     sessionStatus?.state === 'planning' ||
     sessionStatus?.state === 'initializing'
 
-  // Fetch Jules activities
+  const isWaitingForReply =
+    sessionStatus?.state === 'awaiting-reply' ||
+    sessionStatus?.state === 'awaiting-plan-approval'
+
+  // Reset state when taskId changes (component remounts or task changes)
+  useEffect(() => {
+    prevActivitiesLength.current = 0
+    lastScrollTop.current = 0
+    prevSessionState.current = null
+    setIsAutoScroll(true)
+    setUserInterrupted(false)
+    setMessageInput('')
+  }, [taskId])
+
+  // Notify user when session state changes to awaiting states
+  useEffect(() => {
+    if (!sessionStatus) return
+
+    const currentState = sessionStatus.state
+    const prevState = prevSessionState.current
+
+    // Only notify on state change, not on initial load
+    if (prevState && prevState !== currentState) {
+      if (currentState === 'awaiting-reply') {
+        addNotification({
+          type: 'jules-waiting-reply',
+          severity: 'warning',
+          title: 'Jules Needs Your Input',
+          message: `Jules is waiting for your reply on "${sessionStatus.title || 'your task'}"`,
+          persistent: true,
+          autoHideMs: 0,
+          taskId: sessionStatus.taskId,
+          julesSessionId: sessionStatus.sessionId,
+        })
+      } else if (currentState === 'awaiting-plan-approval') {
+        addNotification({
+          type: 'jules-plan-approval',
+          severity: 'warning',
+          title: 'Plan Approval Required',
+          message: `Jules has generated a plan for "${sessionStatus.title || 'your task'}"`,
+          persistent: true,
+          autoHideMs: 0,
+          taskId: sessionStatus.taskId,
+          julesSessionId: sessionStatus.sessionId,
+        })
+      }
+    }
+
+    prevSessionState.current = currentState
+  }, [sessionStatus, addNotification])
+
+  const handleSendMessage = useCallback(() => {
+    const sessionId = sessionStatus?.sessionId || julesSessionId
+    if (!messageInput.trim() || !sessionId) return
+
+    sendMessage.mutate({
+      sessionId,
+      message: messageInput.trim(),
+    })
+    setMessageInput('')
+  }, [messageInput, sessionStatus?.sessionId, julesSessionId, sendMessage])
+
+  // Fetch Jules activities - refetch on mount and when taskId changes
   const { data: activitiesData, isLoading } = useQuery({
     queryKey: ['jules-activities', taskId],
     queryFn: async () => {
@@ -490,7 +735,8 @@ function JulesActivitiesOutput({
       sessionStatus?.state === 'completed' || sessionStatus?.state === 'failed'
         ? false
         : 5000,
-    staleTime: 3000,
+    staleTime: 0, // Always consider data stale to ensure fresh fetch on mount
+    refetchOnMount: 'always', // Always refetch when component mounts
   })
 
   const activities = activitiesData ?? []
@@ -617,6 +863,30 @@ function JulesActivitiesOutput({
         </div>
       )}
 
+      {/* Last agent message banner */}
+      {activities.length > 0 &&
+        (() => {
+          const lastAgentMessage = getLastAgentMessage(activities)
+          if (lastAgentMessage && (isExecuting || isWaitingForReply)) {
+            return (
+              <div className="border-b border-blue-500/30 bg-blue-500/5 px-4 py-3 shrink-0 max-h-32 overflow-y-auto">
+                <div className="flex items-start gap-2">
+                  <div className="shrink-0 w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <span className="text-xs font-medium text-blue-500">J</span>
+                  </div>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Latest from Jules
+                    </p>
+                    <SimpleMarkdown className="text-sm" content={lastAgentMessage} />
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          return null
+        })()}
+
       {/* Activities list */}
       <div className="flex-1 min-h-0" ref={scrollRef}>
         <ScrollArea className="h-full" onScrollCapture={handleScroll}>
@@ -630,9 +900,47 @@ function JulesActivitiesOutput({
               </div>
             ) : (
               <>
-                {activities.map(activity => (
-                  <JulesActivityItem activity={activity} key={activity.id} />
-                ))}
+                {(() => {
+                  // Find the index of the last agent activity
+                  let lastAgentActivityIndex = -1
+                  for (let i = activities.length - 1; i >= 0; i--) {
+                    if (activities[i].originator === 'agent') {
+                      lastAgentActivityIndex = i
+                      break
+                    }
+                  }
+
+                  return activities.map((activity, index) => {
+                    // Determine if this activity should show waiting state
+                    // Only the last activity with planGenerated or userMessageRequested should show waiting
+                    const isLastActivity = index === activities.length - 1
+                    const showWaiting =
+                      isWaitingForReply &&
+                      isLastActivity &&
+                      !!(
+                        activity.planGenerated || activity.userMessageRequested
+                      )
+
+                    // Pass sessionStatus to the last activity if it's a completion
+                    const isCompletionActivity =
+                      isLastActivity && activity.sessionCompleted
+
+                    // Check if this is the last agent activity
+                    const isLastAgentActivity = index === lastAgentActivityIndex
+
+                    return (
+                      <JulesActivityItem
+                        activity={activity}
+                        isLastAgentActivity={isLastAgentActivity}
+                        isWaitingForReply={showWaiting}
+                        key={activity.id}
+                        sessionStatus={
+                          isCompletionActivity ? sessionStatus : null
+                        }
+                      />
+                    )
+                  })
+                })()}
                 {/* In-progress indicator */}
                 {isExecuting && (
                   <div className="flex items-center gap-2 py-3 text-muted-foreground">
@@ -646,6 +954,54 @@ function JulesActivitiesOutput({
         </ScrollArea>
       </div>
 
+      {/* Message input - show for sessions that have a session ID */}
+      {(sessionStatus?.sessionId || julesSessionId) && (
+          <div
+            className={`border-t px-4 py-3 ${
+              isWaitingForReply
+                ? 'border-yellow-500/30 bg-yellow-500/5'
+                : 'border-border bg-muted/30'
+            }`}
+          >
+            {isWaitingForReply && (
+              <p className="text-xs text-yellow-500 mb-2">
+                Jules is waiting for your reply
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <Input
+                className="flex-1"
+                disabled={sendMessage.isPending}
+                onChange={e => setMessageInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSendMessage()
+                  }
+                }}
+                placeholder={
+                  isWaitingForReply
+                    ? 'Type your reply to Jules...'
+                    : 'Send a message to Jules...'
+                }
+                value={messageInput}
+              />
+              <Button
+                disabled={!messageInput.trim() || sendMessage.isPending}
+                onClick={handleSendMessage}
+                size="sm"
+                variant={isWaitingForReply ? 'default' : 'outline'}
+              >
+                {sendMessage.isPending ? (
+                  <IconLoader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <IconSend className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
       {/* Footer with activity count and controls */}
       <div className="border-t border-border px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -656,6 +1012,12 @@ function JulesActivitiesOutput({
             <span className="flex items-center gap-1 text-xs text-green-500">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               Live
+            </span>
+          )}
+          {isWaitingForReply && (
+            <span className="flex items-center gap-1 text-xs text-yellow-500">
+              <IconClock className="h-3 w-3" />
+              Waiting for input
             </span>
           )}
         </div>
@@ -961,6 +1323,7 @@ export function TaskExecutionPanel({
           {isJulesTask ? (
             <JulesActivitiesOutput
               isApprovingPlan={approvePlan.isPending}
+              julesSessionId={task.julesSessionId}
               onApprovePlan={handleApprovePlan}
               sessionStatus={julesStatus ?? null}
               taskId={taskId}
@@ -1035,6 +1398,126 @@ export function TaskExecutionPanel({
         <TabsContent className="flex-1 min-h-0 mt-0" value="details">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
+              {/* Jules Session Info */}
+              {isJulesTask && julesStatus && (
+                <div className="border border-blue-500/30 bg-blue-500/5 rounded-md p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-blue-500">
+                      Jules Session
+                    </p>
+                    {julesStatus.webUrl && (
+                      <Button
+                        className="text-xs h-6"
+                        onClick={() => {
+                          if (julesStatus.webUrl) {
+                            window.api.shell.openExternal({
+                              url: julesStatus.webUrl,
+                            })
+                          }
+                        }}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <IconExternalLink className="h-3 w-3 mr-1" />
+                        Open in Jules
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Session ID
+                      </p>
+                      <p className="text-xs font-mono truncate">
+                        {julesStatus.sessionId}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        State
+                      </p>
+                      <p className="text-xs">
+                        {JULES_STATE_CONFIG[julesStatus.state]?.label ||
+                          julesStatus.state}
+                      </p>
+                    </div>
+                  </div>
+                  {julesStatus.title && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Title
+                      </p>
+                      <p className="text-xs">{julesStatus.title}</p>
+                    </div>
+                  )}
+                  {julesStatus.prompt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Prompt
+                      </p>
+                      <p className="text-xs line-clamp-3">
+                        {julesStatus.prompt}
+                      </p>
+                    </div>
+                  )}
+                  {julesStatus.sourceContext && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Source
+                      </p>
+                      <p className="text-xs font-mono">
+                        {julesStatus.sourceContext.source}
+                        {julesStatus.sourceContext.githubRepoContext
+                          ?.startingBranch &&
+                          ` (${julesStatus.sourceContext.githubRepoContext.startingBranch})`}
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {julesStatus.createTime && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">
+                          Created
+                        </p>
+                        <p className="text-xs">
+                          {new Date(julesStatus.createTime).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    {julesStatus.updateTime && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">
+                          Last Updated
+                        </p>
+                        <p className="text-xs">
+                          {new Date(julesStatus.updateTime).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {julesStatus.pullRequestUrl && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">
+                        Pull Request
+                      </p>
+                      <Button
+                        className="text-xs h-6 p-0"
+                        onClick={() => {
+                          if (julesStatus.pullRequestUrl) {
+                            window.api.shell.openExternal({
+                              url: julesStatus.pullRequestUrl,
+                            })
+                          }
+                        }}
+                        variant="link"
+                      >
+                        {julesStatus.pullRequestUrl}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <p className="text-xs text-muted-foreground mb-1">
                   Description

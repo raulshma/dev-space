@@ -378,6 +378,40 @@ export class DatabaseService {
         updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
       )
     `)
+
+    // Jules Activities table - stores activities synced from Jules API
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS jules_activities (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        create_time TEXT NOT NULL,
+        originator TEXT NOT NULL,
+        activity_json TEXT NOT NULL,
+        synced_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Jules Activities indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_jules_activities_task ON jules_activities(task_id);
+      CREATE INDEX IF NOT EXISTS idx_jules_activities_session ON jules_activities(session_id);
+      CREATE INDEX IF NOT EXISTS idx_jules_activities_create_time ON jules_activities(create_time);
+    `)
+
+    // Jules Sync State table - tracks pagination state for incremental fetching
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS jules_sync_state (
+        task_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        last_page_token TEXT,
+        last_activity_count INTEGER DEFAULT 0,
+        last_sync_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+      )
+    `)
   }
 
   /**
@@ -1501,6 +1535,185 @@ export class DatabaseService {
     const db = this.getDb()
 
     const stmt = db.prepare('DELETE FROM agent_task_output WHERE task_id = ?')
+    stmt.run(taskId)
+  }
+
+  // ============================================================================
+  // JULES ACTIVITIES OPERATIONS
+  // ============================================================================
+
+  /**
+   * Upsert a Jules activity (insert or update)
+   */
+  upsertJulesActivity(
+    taskId: string,
+    sessionId: string,
+    activity: import('shared/ipc-types').JulesActivity
+  ): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO jules_activities (
+        id, task_id, session_id, name, create_time, originator, activity_json, synced_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      activity.id,
+      taskId,
+      sessionId,
+      activity.name,
+      activity.createTime,
+      activity.originator,
+      JSON.stringify(activity),
+      Date.now()
+    )
+  }
+
+  /**
+   * Upsert multiple Jules activities in a transaction
+   */
+  upsertJulesActivities(
+    taskId: string,
+    sessionId: string,
+    activities: import('shared/ipc-types').JulesActivity[]
+  ): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO jules_activities (
+        id, task_id, session_id, name, create_time, originator, activity_json, synced_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    const now = Date.now()
+    const insertMany = db.transaction(
+      (items: import('shared/ipc-types').JulesActivity[]) => {
+        for (const activity of items) {
+          stmt.run(
+            activity.id,
+            taskId,
+            sessionId,
+            activity.name,
+            activity.createTime,
+            activity.originator,
+            JSON.stringify(activity),
+            now
+          )
+        }
+      }
+    )
+
+    insertMany(activities)
+  }
+
+  /**
+   * Get Jules activities for a task
+   */
+  getJulesActivities(
+    taskId: string
+  ): import('shared/ipc-types').JulesActivity[] {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      SELECT activity_json FROM jules_activities
+      WHERE task_id = ?
+      ORDER BY create_time ASC
+    `)
+
+    const rows = stmt.all(taskId) as Array<{ activity_json: string }>
+
+    return rows.map(row => JSON.parse(row.activity_json))
+  }
+
+  /**
+   * Get the count of Jules activities for a task
+   */
+  getJulesActivityCount(taskId: string): number {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT COUNT(*) as count FROM jules_activities WHERE task_id = ?'
+    )
+    const result = stmt.get(taskId) as { count: number }
+
+    return result.count
+  }
+
+  /**
+   * Clear Jules activities for a task
+   */
+  clearJulesActivities(taskId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM jules_activities WHERE task_id = ?')
+    stmt.run(taskId)
+  }
+
+  /**
+   * Get Jules sync state for a task
+   */
+  getJulesSyncState(taskId: string): {
+    sessionId: string
+    lastPageToken: string | null
+    lastActivityCount: number
+    lastSyncAt: number
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      SELECT session_id, last_page_token, last_activity_count, last_sync_at
+      FROM jules_sync_state
+      WHERE task_id = ?
+    `)
+
+    const row = stmt.get(taskId) as {
+      session_id: string
+      last_page_token: string | null
+      last_activity_count: number
+      last_sync_at: number
+    } | null
+
+    if (!row) return null
+
+    return {
+      sessionId: row.session_id,
+      lastPageToken: row.last_page_token,
+      lastActivityCount: row.last_activity_count,
+      lastSyncAt: row.last_sync_at,
+    }
+  }
+
+  /**
+   * Update Jules sync state for a task
+   */
+  updateJulesSyncState(
+    taskId: string,
+    sessionId: string,
+    lastPageToken: string | null,
+    lastActivityCount: number
+  ): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO jules_sync_state (
+        task_id, session_id, last_page_token, last_activity_count, last_sync_at
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(taskId, sessionId, lastPageToken, lastActivityCount, Date.now())
+  }
+
+  /**
+   * Clear Jules sync state for a task
+   */
+  clearJulesSyncState(taskId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM jules_sync_state WHERE task_id = ?')
     stmt.run(taskId)
   }
 

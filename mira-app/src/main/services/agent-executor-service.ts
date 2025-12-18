@@ -181,6 +181,15 @@ export class AgentExecutorService
   /** Map of task IDs to Jules polling intervals */
   private julesPollingIntervals: Map<string, NodeJS.Timeout> = new Map()
 
+  /** Cache of Jules activities by task ID */
+  private julesActivitiesCache: Map<
+    string,
+    {
+      activities: import('./agent/jules-service').JulesActivity[]
+      lastFetchTime: number
+    }
+  > = new Map()
+
   /** Base path for agent scripts */
   private agentScriptsBasePath: string
 
@@ -978,10 +987,27 @@ export class AgentExecutorService
         // Get session status
         const session = await this.julesService.getSession(sessionId)
 
-        // Get activities
+        // Get activities (fetches all pages)
         const activities = await this.julesService.listActivities(sessionId)
 
-        // Detect current state from activities
+        // Sync activities to database
+        if (activities.length > 0) {
+          this.db.upsertJulesActivities(taskId, sessionId, activities)
+          this.db.updateJulesSyncState(
+            taskId,
+            sessionId,
+            null,
+            activities.length
+          )
+        }
+
+        // Update the in-memory cache
+        this.julesActivitiesCache.set(taskId, {
+          activities,
+          lastFetchTime: Date.now(),
+        })
+
+        // Detect current state from activities and session
         const currentState = this.detectJulesState(activities, session)
 
         // Emit status update if state changed
@@ -1008,7 +1034,7 @@ export class AgentExecutorService
           for (const outputLine of outputLines) {
             const line = this.outputBuffer.append(
               taskId,
-              outputLine.content + '\n',
+              `${outputLine.content}\n`,
               outputLine.stream
             )
             this.emit('outputReceived', taskId, line)
@@ -1094,6 +1120,7 @@ export class AgentExecutorService
       planGenerated?: { plan: { id: string } }
       planApproved?: { planId: string }
       progressUpdated?: { title: string }
+      userMessageRequested?: { prompt?: string }
     }>,
     session: { outputs?: unknown[]; state?: string }
   ): JulesTaskState {
@@ -1102,19 +1129,42 @@ export class AgentExecutorService
       return 'completed'
     }
 
-    // Check session state if available
-    if (session.state === 'FAILED') {
-      return 'failed'
+    // Map Jules API states directly when available
+    // Jules API states: STATE_UNSPECIFIED, QUEUED, PLANNING, AWAITING_PLAN_APPROVAL,
+    // AWAITING_USER_FEEDBACK, IN_PROGRESS, PAUSED, FAILED, COMPLETED
+    if (session.state) {
+      switch (session.state) {
+        case 'COMPLETED':
+          return 'completed'
+        case 'FAILED':
+          return 'failed'
+        case 'AWAITING_PLAN_APPROVAL':
+          return 'awaiting-plan-approval'
+        case 'AWAITING_USER_FEEDBACK':
+          return 'awaiting-reply'
+        case 'IN_PROGRESS':
+          return 'executing'
+        case 'PLANNING':
+          return 'planning'
+        case 'QUEUED':
+        case 'STATE_UNSPECIFIED':
+          return 'initializing'
+        case 'PAUSED':
+          return 'executing' // Treat paused as executing for now
+      }
     }
 
-    // Analyze activities to determine state
+    // Fallback: Analyze activities to determine state if session.state is not available
     let hasPlanGenerated = false
     let hasPlanApproved = false
     let hasProgress = false
+    let planGeneratedIndex = -1
 
-    for (const activity of activities) {
+    for (let i = 0; i < activities.length; i++) {
+      const activity = activities[i]
       if (activity.planGenerated) {
         hasPlanGenerated = true
+        planGeneratedIndex = i
       }
       if (activity.planApproved) {
         hasPlanApproved = true
@@ -1124,12 +1174,33 @@ export class AgentExecutorService
       }
     }
 
+    // Auto-detect plan approval: if there are activities after planGenerated, consider it approved
+    // Jules sometimes auto-approves plans and continues without explicit planApproved activity
+    const hasActivitiesAfterPlan =
+      hasPlanGenerated &&
+      planGeneratedIndex >= 0 &&
+      planGeneratedIndex < activities.length - 1
+    if (hasActivitiesAfterPlan) {
+      hasPlanApproved = true
+    }
+
+    // Check if the last activity is userMessageRequested (agent waiting for reply)
+    const lastActivity = activities[activities.length - 1]
+    if (lastActivity?.userMessageRequested) {
+      return 'awaiting-reply'
+    }
+
+    // If there's progress, the agent is executing (regardless of plan approval status)
+    if (hasProgress) {
+      return 'executing'
+    }
+
     // Determine state based on activity history
     if (hasPlanGenerated && !hasPlanApproved) {
       return 'awaiting-plan-approval'
     }
 
-    if (hasPlanApproved || hasProgress) {
+    if (hasPlanApproved) {
       return 'executing'
     }
 
@@ -1149,12 +1220,25 @@ export class AgentExecutorService
     state: JulesTaskState,
     activities: Array<{
       planGenerated?: {
-        plan: { id: string; steps: Array<{ id: string; title: string; index?: number }> }
+        plan: {
+          id: string
+          steps: Array<{ id: string; title: string; index?: number }>
+        }
       }
       createTime?: string
     }>,
     session: {
       title?: string
+      prompt?: string
+      createTime?: string
+      updateTime?: string
+      url?: string
+      sourceContext?: {
+        source: string
+        githubRepoContext?: {
+          startingBranch: string
+        }
+      }
       outputs?: Array<{ pullRequest?: { url: string } }>
     }
   ): JulesSessionStatus {
@@ -1163,6 +1247,11 @@ export class AgentExecutorService
       taskId,
       state,
       title: session.title,
+      prompt: session.prompt,
+      createTime: session.createTime,
+      updateTime: session.updateTime,
+      webUrl: session.url,
+      sourceContext: session.sourceContext,
     }
 
     // Add pending plan if awaiting approval
@@ -1210,7 +1299,7 @@ export class AgentExecutorService
    */
   private async handleJulesCompletion(
     taskId: string,
-    session: { outputs?: Array<{ pullRequest?: { url: string } }> }
+    _session: { outputs?: Array<{ pullRequest?: { url: string } }> }
   ): Promise<void> {
     // Clear current task
     if (this.taskQueue.getCurrentTaskId() === taskId) {
@@ -1697,13 +1786,15 @@ export class AgentExecutorService
   }
 
   /**
-   * Get activities for a Jules task
+   * Get activities for a Jules task (uses cache if available and fresh)
    *
    * @param taskId - The task ID
+   * @param forceRefresh - Force a refresh from the API
    * @returns Array of Jules activities
    */
   async getJulesActivities(
-    taskId: string
+    taskId: string,
+    forceRefresh = false
   ): Promise<import('shared/ipc-types').JulesActivity[]> {
     const task = this.db.getAgentTask(taskId)
     if (!task) {
@@ -1718,14 +1809,187 @@ export class AgentExecutorService
       return []
     }
 
+    // Check in-memory cache first (valid for 3 seconds unless force refresh)
+    const cached = this.julesActivitiesCache.get(taskId)
+    const cacheAge = cached ? Date.now() - cached.lastFetchTime : Infinity
+    const cacheValid = cacheAge < 3000 && !forceRefresh
+
+    if (cached && cacheValid) {
+      return cached.activities
+    }
+
     try {
-      const activities = await this.julesService.listActivities(
-        task.julesSessionId
-      )
+      // Sync activities from API (incremental)
+      await this.syncJulesActivities(taskId, task.julesSessionId)
+
+      // Get activities from database
+      const activities = this.db.getJulesActivities(taskId)
+
+      // Update in-memory cache
+      this.julesActivitiesCache.set(taskId, {
+        activities,
+        lastFetchTime: Date.now(),
+      })
+
       return activities
     } catch (error) {
       console.error(`Failed to get Jules activities for task ${taskId}:`, error)
-      return []
+      // Return cached data or DB data if available
+      if (cached?.activities) {
+        return cached.activities
+      }
+      // Try to get from DB as fallback
+      return this.db.getJulesActivities(taskId)
     }
+  }
+
+  /**
+   * Sync Jules activities from API to database (incremental)
+   * Uses pagination tokens to only fetch new activities since last sync
+   */
+  private async syncJulesActivities(
+    taskId: string,
+    sessionId: string
+  ): Promise<void> {
+    if (!this.julesService) return
+
+    // Get sync state from DB
+    const syncState = this.db.getJulesSyncState(taskId)
+    const dbActivityCount = this.db.getJulesActivityCount(taskId)
+
+    // If we have a sync state with a page token and DB count matches, try incremental fetch
+    // This means we previously fetched all pages and have a token for the "next" page
+    if (
+      syncState?.lastPageToken &&
+      syncState.lastActivityCount === dbActivityCount
+    ) {
+      // Continue from where we left off using the stored page token
+      // This fetches only new activities that appeared after our last sync
+      let pageToken: string | undefined = syncState.lastPageToken
+      const newActivities: import('./agent/jules-service').JulesActivity[] = []
+
+      // Fetch all new pages starting from the stored token
+      while (pageToken) {
+        const { activities, nextPageToken } =
+          await this.julesService.listActivitiesPage(sessionId, 50, pageToken)
+
+        if (activities.length > 0) {
+          newActivities.push(...activities)
+        }
+
+        pageToken = nextPageToken
+      }
+
+      if (newActivities.length > 0) {
+        // Upsert new activities to DB
+        this.db.upsertJulesActivities(taskId, sessionId, newActivities)
+      }
+
+      // Update sync state - fetch the last page to get the current nextPageToken
+      // We need to know where to continue from next time
+      const { nextPageToken: latestToken } =
+        await this.julesService.listActivitiesPage(sessionId, 50)
+      const newCount = this.db.getJulesActivityCount(taskId)
+      this.db.updateJulesSyncState(
+        taskId,
+        sessionId,
+        latestToken ?? null,
+        newCount
+      )
+    } else if (syncState && syncState.lastActivityCount === dbActivityCount) {
+      // We have sync state but no page token - check if there are new activities
+      // by fetching the first page and comparing
+      const { activities, nextPageToken } =
+        await this.julesService.listActivitiesPage(sessionId, 50)
+
+      if (activities.length > 0) {
+        // Get existing activity IDs to filter out duplicates
+        const existingIds = new Set(
+          this.db.getJulesActivities(taskId).map(a => a.id)
+        )
+        const newActivities = activities.filter(a => !existingIds.has(a.id))
+
+        // If there are new activities, we need to fetch all pages
+        if (newActivities.length > 0 || nextPageToken) {
+          // Fetch remaining pages if any
+          let pageToken = nextPageToken
+          const allNewActivities = [...newActivities]
+
+          while (pageToken) {
+            const { activities: pageActivities, nextPageToken: nextToken } =
+              await this.julesService.listActivitiesPage(
+                sessionId,
+                50,
+                pageToken
+              )
+
+            const filteredActivities = pageActivities.filter(
+              a => !existingIds.has(a.id)
+            )
+            allNewActivities.push(...filteredActivities)
+            pageToken = nextToken
+          }
+
+          if (allNewActivities.length > 0) {
+            this.db.upsertJulesActivities(taskId, sessionId, allNewActivities)
+          }
+        }
+
+        // Update sync state with the latest page token
+        const newCount = this.db.getJulesActivityCount(taskId)
+        this.db.updateJulesSyncState(
+          taskId,
+          sessionId,
+          nextPageToken ?? null,
+          newCount
+        )
+      }
+    } else {
+      // Full sync - no sync state or DB count mismatch
+      // Fetch all activities from scratch
+      const allActivities = await this.julesService.listActivities(sessionId)
+
+      if (allActivities.length > 0) {
+        // Upsert all activities to DB
+        this.db.upsertJulesActivities(taskId, sessionId, allActivities)
+      }
+
+      // Get the last page token for future incremental syncs
+      const { nextPageToken } = await this.julesService.listActivitiesPage(
+        sessionId,
+        50
+      )
+
+      // Update sync state
+      this.db.updateJulesSyncState(
+        taskId,
+        sessionId,
+        nextPageToken ?? null,
+        allActivities.length
+      )
+    }
+  }
+
+  /**
+   * Clear the activities cache for a task
+   */
+  clearJulesActivitiesCache(taskId: string): void {
+    this.julesActivitiesCache.delete(taskId)
+  }
+
+  /**
+   * Clear all activities caches
+   */
+  clearAllJulesActivitiesCaches(): void {
+    this.julesActivitiesCache.clear()
+  }
+
+  /**
+   * Clear Jules data for a task (cache, DB activities, sync state)
+   */
+  clearJulesData(taskId: string): void {
+    this.julesActivitiesCache.delete(taskId)
+    this.db.clearJulesActivities(taskId)
+    this.db.clearJulesSyncState(taskId)
   }
 }

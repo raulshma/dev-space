@@ -89,6 +89,21 @@ export interface JulesSessionStatus {
   taskId: string
   state: JulesTaskState
   title?: string
+  /** The prompt used to start the session */
+  prompt?: string
+  /** Session creation time */
+  createTime?: string
+  /** Session last update time */
+  updateTime?: string
+  /** URL to view the session in Jules web app */
+  webUrl?: string
+  /** Source context (repo info) */
+  sourceContext?: {
+    source: string
+    githubRepoContext?: {
+      startingBranch: string
+    }
+  }
   /** Current plan if awaiting approval */
   pendingPlan?: {
     id: string
