@@ -36,6 +36,7 @@ import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { CommandLibrary } from 'renderer/components/CommandLibrary'
+import { ProjectScripts } from 'renderer/components/ProjectScripts'
 import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
 import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
 import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
@@ -839,6 +840,7 @@ export function ProjectWorkspace({
         >
           {isLeftPanelVisible && (
             <aside className="h-full overflow-y-auto">
+              <ProjectScripts projectId={projectId} projectPath={project.path} />
               <CommandLibrary projectId={projectId} />
             </aside>
           )}

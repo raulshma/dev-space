@@ -101,6 +101,8 @@ import type {
   AgentGenerateFixResponse,
   DialogOpenDirectoryRequest,
   DialogOpenDirectoryResponse,
+  ScriptsGetRequest,
+  ScriptsGetResponse,
   // New AI Service types
   AIGenerateTextRequest,
   AIGenerateTextResponse,
@@ -331,6 +333,12 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_EXTERNAL, request),
     openPath: (request: ShellOpenPathRequest): Promise<ShellOpenPathResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_PATH, request),
+  },
+
+  // Scripts operations
+  scripts: {
+    get: (request: ScriptsGetRequest): Promise<ScriptsGetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SCRIPTS_GET, request),
   },
 
   // Dialog operations

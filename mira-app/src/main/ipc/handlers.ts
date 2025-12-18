@@ -87,6 +87,8 @@ import type { AgentExecutorService } from 'main/services/agent-executor-service'
 import type { AgentConfigService } from 'main/services/agent/agent-config-service'
 import type { JulesService } from 'main/services/agent/jules-service'
 import type { RequestLogger } from 'main/services/ai/request-logger'
+import { ScriptsService } from 'main/services/scripts-service'
+import type { ScriptsGetRequest } from 'shared/ipc-types'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -104,6 +106,7 @@ export class IPCHandlers {
   private keychainService: KeychainService
   private agentService: AgentService
   private blueprintService: BlueprintService
+  private scriptsService: ScriptsService
   private aiService?: AIService
   private agentExecutorService?: AgentExecutorService
   private agentConfigService?: AgentConfigService
@@ -128,6 +131,7 @@ export class IPCHandlers {
     this.keychainService = keychainService
     this.agentService = agentService
     this.blueprintService = new BlueprintService()
+    this.scriptsService = new ScriptsService()
     this.aiService = aiService
     this.agentExecutorService = agentExecutorService
     this.agentConfigService = agentConfigService
@@ -150,6 +154,7 @@ export class IPCHandlers {
     this.registerSettingsHandlers()
     this.registerShortcutHandlers()
     this.registerShellHandlers()
+    this.registerScriptsHandlers()
     this.registerAgentHandlers()
     this.registerDialogHandlers()
     // New AI service handlers
@@ -730,6 +735,23 @@ export class IPCHandlers {
         try {
           await shell.openPath(request.path)
           return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Scripts operation handlers
+   */
+  private registerScriptsHandlers(): void {
+    ipcMain.handle(
+      IPC_CHANNELS.SCRIPTS_GET,
+      async (_event, request: ScriptsGetRequest) => {
+        try {
+          const result = this.scriptsService.getScripts(request.projectPath)
+          return result
         } catch (error) {
           return this.handleError(error)
         }

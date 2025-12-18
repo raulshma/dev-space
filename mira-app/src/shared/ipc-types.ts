@@ -140,6 +140,9 @@ export const IPC_CHANNELS = {
   JULES_GET_ACTIVITIES: 'jules:getActivities',
   JULES_STATUS_UPDATE: 'jules:statusUpdate',
 
+  // Scripts operations
+  SCRIPTS_GET: 'scripts:get',
+
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   SHELL_OPEN_PATH: 'shell:openPath',
@@ -536,6 +539,23 @@ export interface AgentGenerateFixRequest {
 
 export interface AgentGenerateFixResponse {
   suggestion: FixSuggestion
+}
+
+// Scripts Request/Response Types
+export interface ProjectScript {
+  name: string
+  command: string
+  packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun'
+}
+
+export interface ScriptsGetRequest {
+  projectPath: string
+}
+
+export interface ScriptsGetResponse {
+  scripts: ProjectScript[]
+  packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun'
+  hasPackageJson: boolean
 }
 
 // Shell Request/Response Types
