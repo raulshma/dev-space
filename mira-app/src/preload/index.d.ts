@@ -97,6 +97,8 @@ import type {
   AgentGetTokenUsageResponse,
   AgentGenerateFixRequest,
   AgentGenerateFixResponse,
+  DialogOpenDirectoryRequest,
+  DialogOpenDirectoryResponse,
 } from 'shared/ipc-types'
 
 export interface MiraAPI {
@@ -177,6 +179,11 @@ export interface MiraAPI {
       request: ShellOpenExternalRequest
     ) => Promise<ShellOpenExternalResponse>
     openPath: (request: ShellOpenPathRequest) => Promise<ShellOpenPathResponse>
+  }
+  dialog: {
+    openDirectory: (
+      request: DialogOpenDirectoryRequest
+    ) => Promise<DialogOpenDirectoryResponse>
   }
   agent: {
     setModel: (request: AgentSetModelRequest) => Promise<AgentSetModelResponse>

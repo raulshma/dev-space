@@ -9,7 +9,12 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { TerminalView } from './TerminalView'
-import { useTerminalStore } from 'renderer/stores/terminal-store'
+import {
+  useTerminalStore,
+  useTerminalsByProject,
+  useTerminal,
+  useTerminalLayout,
+} from 'renderer/stores/terminal-store'
 import type { TerminalPane, ErrorContext } from 'shared/models'
 
 interface TerminalPanesProps {
@@ -34,7 +39,7 @@ function PaneLayout({
     null
   )
 
-  const terminal = useTerminalStore(state => state.getTerminal(pane.terminalId))
+  const terminal = useTerminal(pane.terminalId)
   const updateTerminal = useTerminalStore(state => state.updateTerminal)
 
   const handleMouseDown = (e: React.MouseEvent): void => {
@@ -184,11 +189,9 @@ export function TerminalPanes({
   projectId,
   onErrorContext,
 }: TerminalPanesProps): React.JSX.Element {
-  const terminals = useTerminalStore(state =>
-    state.getTerminalsByProject(projectId)
-  )
+  const terminals = useTerminalsByProject(projectId)
   const focusedTerminalId = useTerminalStore(state => state.focusedTerminalId)
-  const layout = useTerminalStore(state => state.getLayout(projectId))
+  const layout = useTerminalLayout(projectId)
   const setLayout = useTerminalStore(state => state.setLayout)
   const addTerminal = useTerminalStore(state => state.addTerminal)
 

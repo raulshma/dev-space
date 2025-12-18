@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, dialog, BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from 'shared/ipc-types'
 import type {
   ProjectListRequest,
@@ -48,6 +48,7 @@ import type {
   AgentGetContextFilesRequest,
   AgentGetTokenUsageRequest,
   AgentGenerateFixRequest,
+  DialogOpenDirectoryRequest,
 } from 'shared/ipc-types'
 import type { DatabaseService } from 'main/services/database'
 import type { PTYManager } from 'main/services/pty-manager'
@@ -104,6 +105,7 @@ export class IPCHandlers {
     this.registerShortcutHandlers()
     this.registerShellHandlers()
     this.registerAgentHandlers()
+    this.registerDialogHandlers()
   }
 
   /**
@@ -803,6 +805,34 @@ export class IPCHandlers {
             request.errorContext
           )
           return { suggestion }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Dialog operation handlers
+   */
+  private registerDialogHandlers(): void {
+    ipcMain.handle(
+      IPC_CHANNELS.DIALOG_OPEN_DIRECTORY,
+      async (_event, request: DialogOpenDirectoryRequest) => {
+        try {
+          const focusedWindow = BrowserWindow.getFocusedWindow()
+          const result = await dialog.showOpenDialog(
+            focusedWindow ?? undefined as unknown as BrowserWindow,
+            {
+              title: request.title ?? 'Select Directory',
+              defaultPath: request.defaultPath,
+              properties: ['openDirectory'],
+            }
+          )
+          return {
+            path: result.filePaths[0] ?? null,
+            canceled: result.canceled,
+          }
         } catch (error) {
           return this.handleError(error)
         }

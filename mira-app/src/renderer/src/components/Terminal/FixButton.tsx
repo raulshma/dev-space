@@ -6,7 +6,7 @@
  */
 
 import { Wrench } from 'lucide-react'
-import { useErrorStore } from 'renderer/stores/error-store'
+import { useErrorStore, useErrorsByTerminal } from 'renderer/stores/error-store'
 import { createErrorContext } from 'renderer/lib/error-detector'
 import type { DetectedError } from 'renderer/lib/error-detector'
 import type { ErrorContext } from 'shared/models'
@@ -91,7 +91,7 @@ export function TerminalErrors({
   onFixClick,
   onErrorContext,
 }: TerminalErrorsProps): React.JSX.Element | null {
-  const errors = useErrorStore(state => state.getErrorsByTerminal(terminalId))
+  const errors = useErrorsByTerminal(terminalId)
 
   return errors.length === 0 ? null : (
     <div className="absolute bottom-4 left-4 right-4 z-10 space-y-2 max-h-[200px] overflow-y-auto">

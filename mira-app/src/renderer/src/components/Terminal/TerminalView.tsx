@@ -8,7 +8,7 @@
  * Requirements: 9.1, 11.1, 11.2, 11.3, 11.4
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -47,11 +47,33 @@ export function TerminalView({
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [terminalBuffer, setTerminalBuffer] = useState<string>('')
+  const [isContainerReady, setIsContainerReady] = useState(false)
 
   const addError = useErrorStore(state => state.addError)
 
+  // Use callback ref to detect when container is mounted and has dimensions
+  const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      terminalRef.current = node
+      // Check if container has dimensions
+      const checkDimensions = (): void => {
+        if (node.offsetWidth > 0 && node.offsetHeight > 0) {
+          setIsContainerReady(true)
+        } else {
+          // Retry on next frame
+          requestAnimationFrame(checkDimensions)
+        }
+      }
+      checkDimensions()
+    }
+  }, [])
+
+  // Use ref for terminal buffer to avoid re-renders causing terminal recreation
+  const terminalBufferRef = useRef<string>('')
+
   useEffect(() => {
-    if (!terminalRef.current) return
+    const container = terminalRef.current
+    if (!container || !isContainerReady) return
 
     // Create terminal instance
     const terminal = new Terminal({
@@ -87,11 +109,14 @@ export function TerminalView({
     terminal.loadAddon(fitAddon)
 
     // Open terminal in DOM
-    terminal.open(terminalRef.current)
+    terminal.open(container)
 
-    // Load WebGL addon for performance
+    // Load WebGL addon for performance (after terminal is opened)
     try {
       const webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose()
+      })
       terminal.loadAddon(webglAddon)
     } catch (error) {
       console.warn(
@@ -144,18 +169,23 @@ export function TerminalView({
       },
     })
 
-    // Fit terminal to container
-    fitAddon.fit()
-
     // Store refs
     xtermRef.current = terminal
     fitAddonRef.current = fitAddon
 
+    // Fit terminal after a short delay to ensure DOM is ready
+    requestAnimationFrame(() => {
+      if (fitAddonRef.current) {
+        fitAddonRef.current.fit()
+      }
+    })
+
     // Set up PTY data listener
     const unsubscribeData = window.api.pty.onData(ptyId, (data: string) => {
       terminal.write(data)
-      // Accumulate terminal buffer for error detection
-      setTerminalBuffer(prev => prev + data)
+      // Accumulate terminal buffer for error detection (using ref to avoid re-renders)
+      terminalBufferRef.current += data
+      setTerminalBuffer(terminalBufferRef.current)
     })
 
     // Set up PTY exit listener
@@ -164,8 +194,8 @@ export function TerminalView({
 
       // Detect errors on non-zero exit codes
       if (isErrorExitCode(code)) {
-        const command = parseCommand(terminalBuffer)
-        const errorOutput = extractErrorOutput(terminalBuffer)
+        const command = parseCommand(terminalBufferRef.current)
+        const errorOutput = extractErrorOutput(terminalBufferRef.current)
 
         const error: DetectedError = {
           id: `error-${Date.now()}-${Math.random()}`,
@@ -181,6 +211,7 @@ export function TerminalView({
       }
 
       // Clear buffer after processing
+      terminalBufferRef.current = ''
       setTerminalBuffer('')
 
       if (onExit) {
@@ -205,25 +236,27 @@ export function TerminalView({
     // Handle resize events
     const resizeObserver = new ResizeObserver(() => {
       if (fitAddonRef.current && xtermRef.current) {
-        fitAddonRef.current.fit()
-        const dimensions = fitAddonRef.current.proposeDimensions()
-        if (dimensions) {
-          window.api.pty
-            .resize({
-              ptyId,
-              cols: dimensions.cols,
-              rows: dimensions.rows,
-            })
-            .catch(error => {
-              console.error('Failed to resize PTY:', error)
-            })
+        try {
+          fitAddonRef.current.fit()
+          const dimensions = fitAddonRef.current.proposeDimensions()
+          if (dimensions) {
+            window.api.pty
+              .resize({
+                ptyId,
+                cols: dimensions.cols,
+                rows: dimensions.rows,
+              })
+              .catch(error => {
+                console.error('Failed to resize PTY:', error)
+              })
+          }
+        } catch (error) {
+          // Ignore resize errors during initialization
         }
       }
     })
 
-    if (terminalRef.current) {
-      resizeObserver.observe(terminalRef.current)
-    }
+    resizeObserver.observe(container)
 
     // Cleanup
     return () => {
@@ -234,13 +267,13 @@ export function TerminalView({
       resizeObserver.disconnect()
       terminal.dispose()
     }
-  }, [ptyId, terminalId, onTitleChange, onExit, terminalBuffer, addError])
+  }, [ptyId, terminalId, onTitleChange, onExit, addError, isContainerReady])
 
   return (
     <div className="relative w-full h-full">
       <div
         className="w-full h-full"
-        ref={terminalRef}
+        ref={containerRefCallback}
         style={{ backgroundColor: '#1e1e1e' }}
       />
       <TerminalErrors onErrorContext={onErrorContext} terminalId={terminalId} />

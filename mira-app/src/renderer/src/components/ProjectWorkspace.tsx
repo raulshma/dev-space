@@ -5,7 +5,7 @@
  * Requirements: 3.2, 4.2, 4.3, 4.4, 16.1, 16.2, 16.3, 16.4, 5.1, 6.1, 7.2, 7.3
  */
 
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { Tag as TagIcon, Plus, X } from 'lucide-react'
 import { useProject } from 'renderer/hooks/use-projects'
 import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
@@ -72,13 +72,17 @@ export function ProjectWorkspace({
 
   const addTerminal = useTerminalStore(state => state.addTerminal)
   const clearProject = useTerminalStore(state => state.clearProject)
-  const getTerminalsByProject = useTerminalStore(
-    state => state.getTerminalsByProject
-  )
+
+  // Track if session restoration has been attempted
+  const sessionRestoredRef = useRef(false)
 
   // Create a default terminal if no session exists
   const createDefaultTerminal = useCallback((): void => {
     if (!project) return
+
+    // Check if terminals already exist for this project
+    const existingTerminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    if (existingTerminals.length > 0) return
 
     window.api.pty
       .create({
@@ -87,6 +91,14 @@ export function ProjectWorkspace({
         shell: undefined,
       })
       .then(response => {
+        // Double-check no terminals were added while we were creating
+        const currentTerminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+        if (currentTerminals.length > 0) {
+          // Kill the PTY we just created since it's not needed
+          window.api.pty.kill({ ptyId: response.ptyId }).catch(console.error)
+          return
+        }
+
         const terminalId = `term-${Date.now()}`
         addTerminal({
           id: terminalId,
@@ -104,10 +116,18 @@ export function ProjectWorkspace({
 
   // Restore session when component mounts
   useEffect(() => {
-    if (!session || sessionLoading) return
+    // Only restore session once per mount
+    if (sessionRestoredRef.current) return
+    if (sessionLoading) return
 
-    // Restore terminals
-    if (session.terminals && session.terminals.length > 0) {
+    sessionRestoredRef.current = true
+
+    // Check if terminals already exist for this project (e.g., from a previous mount)
+    const existingTerminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    if (existingTerminals.length > 0) return
+
+    // Restore terminals from session
+    if (session?.terminals && session.terminals.length > 0) {
       session.terminals.forEach(terminalData => {
         // Create PTY and add terminal to store
         window.api.pty
@@ -143,7 +163,8 @@ export function ProjectWorkspace({
   useEffect(() => {
     return () => {
       // Cleanup: save session state before unmounting
-      const terminals = getTerminalsByProject(projectId)
+      // Use getState() to get current terminals without subscribing
+      const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
       const sessionState: SessionState = {
         terminals: terminals.map(t => ({
           id: t.id,
@@ -170,7 +191,7 @@ export function ProjectWorkspace({
 
       clearProject(projectId)
     }
-  }, [projectId, getTerminalsByProject, saveSession, clearProject])
+  }, [projectId, saveSession, clearProject])
 
   // Handle error context from Fix button
   const handleErrorContext = useCallback((context: ErrorContext) => {
@@ -211,7 +232,8 @@ export function ProjectWorkspace({
   // Handle back to dashboard
   const handleBackToDashboard = (): void => {
     // Save session before navigating away
-    const terminals = getTerminalsByProject(projectId)
+    // Use getState() to get current terminals without subscribing
+    const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
     const sessionState: SessionState = {
       terminals: terminals.map(t => ({
         id: t.id,
@@ -233,19 +255,19 @@ export function ProjectWorkspace({
 
   if (projectLoading || sessionLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-neutral-50">
-        <p className="text-neutral-500">Loading project...</p>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <p className="text-muted-foreground">Loading project...</p>
       </div>
     )
   }
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-screen bg-neutral-50">
+      <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
-          <p className="text-neutral-500 mb-4">Project not found</p>
+          <p className="text-muted-foreground mb-4">Project not found</p>
           <button
-            className="px-4 py-2 bg-amber-500 text-white rounded-sm hover:bg-amber-600"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:bg-primary/90"
             onClick={handleBackToDashboard}
           >
             Back to Dashboard
@@ -256,40 +278,40 @@ export function ProjectWorkspace({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-50">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b border-neutral-200 px-6 py-4">
+      <header className="bg-card border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              className="text-neutral-600 hover:text-neutral-900"
+              className="text-muted-foreground hover:text-foreground"
               onClick={handleBackToDashboard}
             >
               ← Back
             </button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-xl font-semibold text-neutral-900">
+                <h1 className="text-xl font-semibold text-foreground">
                   {project.name}
                 </h1>
                 {/* Git status indicator */}
                 {gitTelemetry?.isGitRepo && (
-                  <div className="flex items-center gap-2 text-xs text-neutral-600">
-                    <span className="px-2 py-0.5 bg-neutral-100 rounded">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="px-2 py-0.5 bg-secondary rounded">
                       {gitTelemetry.branch || 'main'}
                     </span>
                     {gitTelemetry.ahead > 0 && (
-                      <span className="text-green-600">
+                      <span className="text-green-600 dark:text-green-400">
                         ↑{gitTelemetry.ahead}
                       </span>
                     )}
                     {gitTelemetry.behind > 0 && (
-                      <span className="text-red-600">
+                      <span className="text-red-600 dark:text-red-400">
                         ↓{gitTelemetry.behind}
                       </span>
                     )}
                     {gitTelemetry.modified > 0 && (
-                      <span className="text-amber-600">
+                      <span className="text-amber-600 dark:text-amber-400">
                         ●{gitTelemetry.modified}
                       </span>
                     )}
@@ -297,12 +319,12 @@ export function ProjectWorkspace({
                 )}
               </div>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-sm text-neutral-500">{project.path}</p>
+                <p className="text-sm text-muted-foreground">{project.path}</p>
                 {/* Tags */}
                 <div className="flex items-center gap-1 ml-2">
                   {project.tags.map(tag => (
                     <span
-                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm bg-blue-100 text-blue-800"
+                      className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm bg-primary/20 text-primary"
                       key={tag.id}
                       style={
                         tag.color ? { backgroundColor: tag.color } : undefined
@@ -310,7 +332,7 @@ export function ProjectWorkspace({
                     >
                       {tag.name}
                       <button
-                        className="hover:text-red-600"
+                        className="hover:text-destructive"
                         onClick={() => handleRemoveTag(tag.id)}
                         title="Remove tag"
                       >
@@ -321,7 +343,7 @@ export function ProjectWorkspace({
                   {/* Add tag button */}
                   <div className="relative">
                     <button
-                      className="p-1 text-neutral-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                      className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded"
                       onClick={() => setShowTagMenu(!showTagMenu)}
                       title="Add tag"
                     >
@@ -336,10 +358,10 @@ export function ProjectWorkspace({
                           tabIndex={-1}
                           type="button"
                         />
-                        <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-neutral-200 rounded shadow-lg py-1 min-w-[120px]">
+                        <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded shadow-lg py-1 min-w-[120px]">
                           {availableTags.map(tag => (
                             <button
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-amber-50 flex items-center gap-2"
+                              className="w-full text-left px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent flex items-center gap-2"
                               key={tag.id}
                               onClick={() => handleAddTag(tag.id)}
                             >
@@ -359,8 +381,8 @@ export function ProjectWorkspace({
                           tabIndex={-1}
                           type="button"
                         />
-                        <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-neutral-200 rounded shadow-lg py-2 px-3 min-w-[150px]">
-                          <p className="text-xs text-neutral-500">
+                        <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded shadow-lg py-2 px-3 min-w-[150px]">
+                          <p className="text-xs text-muted-foreground">
                             No more tags available
                           </p>
                         </div>
@@ -376,8 +398,8 @@ export function ProjectWorkspace({
             <button
               className={`px-3 py-1.5 rounded-sm text-sm transition-colors ${
                 zenMode
-                  ? 'bg-amber-500 text-white hover:bg-amber-600'
-                  : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
               }`}
               onClick={toggleZenMode}
               title={
@@ -392,14 +414,14 @@ export function ProjectWorkspace({
             {!zenMode && (
               <>
                 <button
-                  className="px-3 py-1.5 bg-neutral-200 text-neutral-700 hover:bg-neutral-300 rounded-sm text-sm"
+                  className="px-3 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-sm text-sm"
                   onClick={toggleSidebar}
                   title="Toggle Sidebar (Mod+B)"
                 >
                   {sidebarCollapsed ? '☰' : '←'}
                 </button>
                 <button
-                  className="px-3 py-1.5 bg-neutral-200 text-neutral-700 hover:bg-neutral-300 rounded-sm text-sm"
+                  className="px-3 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-sm text-sm"
                   onClick={toggleAgentPanel}
                   title="Toggle Agent Panel"
                 >
@@ -415,7 +437,7 @@ export function ProjectWorkspace({
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Command Library (hidden in Zen Mode or when collapsed) */}
         {!zenMode && !sidebarCollapsed && (
-          <aside className="w-64 bg-white border-r border-neutral-200 overflow-y-auto">
+          <aside className="w-64 bg-card border-r border-border overflow-y-auto">
             <CommandLibrary projectId={projectId} />
           </aside>
         )}
@@ -431,14 +453,14 @@ export function ProjectWorkspace({
 
         {/* Agent Panel (hidden in Zen Mode or when collapsed) */}
         {!zenMode && !agentPanelCollapsed && (
-          <aside className="w-96 bg-white border-l border-neutral-200 flex flex-col overflow-hidden">
+          <aside className="w-96 bg-card border-l border-border flex flex-col overflow-hidden">
             {/* Agent Panel Header */}
-            <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-              <h2 className="text-lg font-semibold text-neutral-900">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h2 className="text-lg font-semibold text-foreground">
                 AI Agent
               </h2>
               <button
-                className="text-neutral-500 hover:text-neutral-700"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={toggleAgentPanel}
                 title="Hide Agent Panel"
               >
@@ -447,12 +469,12 @@ export function ProjectWorkspace({
             </div>
 
             {/* Model Selector */}
-            <div className="border-b border-neutral-200 px-4 py-3">
+            <div className="border-b border-border px-4 py-3">
               <ModelSelector projectId={projectId} />
             </div>
 
             {/* Context Shredder */}
-            <div className="h-64 border-b border-neutral-200">
+            <div className="h-64 border-b border-border">
               <ContextShredder projectId={projectId} />
             </div>
 

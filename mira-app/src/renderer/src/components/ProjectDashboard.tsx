@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { Plus, FolderPlus, Tag as TagIcon } from 'lucide-react'
+import { Plus, FolderPlus, Tag as TagIcon, FolderOpen } from 'lucide-react'
 import {
   useProjects,
   useCreateProject,
@@ -68,6 +68,31 @@ export function ProjectDashboard(): React.JSX.Element {
   // Handle project click
   const handleProjectClick = (projectId: string): void => {
     setActiveProject(projectId)
+  }
+
+  // Extract folder name from path
+  const getFolderName = (path: string): string => {
+    const normalized = path.replace(/\\/g, '/')
+    const parts = normalized.split('/').filter(Boolean)
+    return parts[parts.length - 1] || ''
+  }
+
+  // Handle browse for project path
+  const handleBrowsePath = async (): Promise<void> => {
+    try {
+      const result = await window.api.dialog.openDirectory({
+        title: 'Select Project Directory',
+      })
+      if (!result.canceled && result.path) {
+        setNewProjectPath(result.path)
+        // Auto-fill project name from folder name if empty
+        if (!newProjectName.trim()) {
+          setNewProjectName(getFolderName(result.path))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to open directory dialog:', error)
+    }
   }
 
   // Handle add project
@@ -136,15 +161,15 @@ export function ProjectDashboard(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-screen bg-neutral-50">
+    <div className="flex h-screen bg-background">
       {/* Tag Filter Sidebar */}
-      <aside className="w-64 bg-white border-r border-neutral-200 p-4 overflow-y-auto">
+      <aside className="w-64 bg-card border-r border-border p-4 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-neutral-900">
+          <h2 className="text-sm font-semibold text-foreground">
             Filter by Tags
           </h2>
           <button
-            className="p-1 text-neutral-500 hover:text-amber-600 hover:bg-amber-50 rounded"
+            className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded"
             onClick={() => setShowAddTagDialog(true)}
             title="Add new tag"
           >
@@ -153,12 +178,12 @@ export function ProjectDashboard(): React.JSX.Element {
         </div>
 
         {tagsLoading ? (
-          <p className="text-sm text-neutral-500">Loading tags...</p>
+          <p className="text-sm text-muted-foreground">Loading tags...</p>
         ) : tags.length === 0 ? (
           <div className="text-center py-4">
-            <p className="text-sm text-neutral-500 mb-2">No tags available</p>
+            <p className="text-sm text-muted-foreground mb-2">No tags available</p>
             <button
-              className="text-xs text-amber-600 hover:text-amber-700"
+              className="text-xs text-primary hover:text-primary/80"
               onClick={() => setShowAddTagDialog(true)}
             >
               Create your first tag
@@ -172,14 +197,14 @@ export function ProjectDashboard(): React.JSX.Element {
                 <button
                   className={`w-full text-left px-3 py-2 rounded-sm text-sm transition-colors ${
                     isSelected
-                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                      ? 'bg-primary/20 text-primary-foreground dark:text-primary border border-primary/50'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                   }`}
                   key={tag.id}
                   onClick={() => toggleTagFilter(tag.id)}
                 >
                   {tag.name}
-                  <span className="text-xs ml-2 text-neutral-500">
+                  <span className="text-xs ml-2 text-muted-foreground">
                     ({tag.category === 'tech_stack' ? 'Tech' : 'Status'})
                   </span>
                 </button>
@@ -190,7 +215,7 @@ export function ProjectDashboard(): React.JSX.Element {
 
         {selectedTagIds.length > 0 && (
           <button
-            className="mt-4 w-full text-sm text-amber-600 hover:text-amber-700"
+            className="mt-4 w-full text-sm text-primary hover:text-primary/80"
             onClick={() => setSelectedTagIds([])}
           >
             Clear filters
@@ -204,9 +229,9 @@ export function ProjectDashboard(): React.JSX.Element {
           {/* Header with Search and Add Button */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-neutral-900">Projects</h1>
+              <h1 className="text-2xl font-bold text-foreground">Projects</h1>
               <button
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-sm hover:bg-amber-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 transition-colors"
                 onClick={() => setShowAddProjectDialog(true)}
               >
                 <FolderPlus size={18} />
@@ -214,7 +239,7 @@ export function ProjectDashboard(): React.JSX.Element {
               </button>
             </div>
             <input
-              className="w-full max-w-md px-4 py-2 border border-neutral-300 rounded-sm focus:outline-none focus:border-amber-500"
+              className="w-full max-w-md px-4 py-2 bg-background text-foreground border border-input rounded-sm focus:outline-none focus:border-ring focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
               type="text"
@@ -224,22 +249,22 @@ export function ProjectDashboard(): React.JSX.Element {
 
           {/* Project Grid */}
           {projectsLoading ? (
-            <p className="text-neutral-500">Loading projects...</p>
+            <p className="text-muted-foreground">Loading projects...</p>
           ) : projects.length === 0 ? (
             <div className="text-center py-12">
-              <FolderPlus className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
-              <p className="text-neutral-500 mb-2">
+              <FolderPlus className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground mb-2">
                 {searchQuery || selectedTagIds.length > 0
                   ? 'No projects found'
                   : 'No projects yet'}
               </p>
               {searchQuery || selectedTagIds.length > 0 ? (
-                <p className="text-sm text-neutral-400">
+                <p className="text-sm text-muted-foreground/70">
                   Try adjusting your filters
                 </p>
               ) : (
                 <button
-                  className="text-sm text-amber-600 hover:text-amber-700"
+                  className="text-sm text-primary hover:text-primary/80"
                   onClick={() => setShowAddProjectDialog(true)}
                 >
                   Add your first project
@@ -263,22 +288,22 @@ export function ProjectDashboard(): React.JSX.Element {
 
       {/* Add Project Dialog */}
       {showAddProjectDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 text-neutral-900">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-card text-card-foreground rounded-lg p-6 w-full max-w-md shadow-xl border border-border">
+            <h3 className="text-lg font-semibold mb-4 text-foreground">
               Add Project
             </h3>
 
             <div className="space-y-4">
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 text-neutral-700"
+                  className="block text-sm font-medium mb-1 text-foreground"
                   htmlFor="new-project-name"
                 >
-                  Project Name <span className="text-red-500">*</span>
+                  Project Name <span className="text-destructive">*</span>
                 </label>
                 <input
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
                   id="new-project-name"
                   onChange={e => setNewProjectName(e.target.value)}
                   placeholder="My Awesome Project"
@@ -289,28 +314,39 @@ export function ProjectDashboard(): React.JSX.Element {
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 text-neutral-700"
+                  className="block text-sm font-medium mb-1 text-foreground"
                   htmlFor="new-project-path"
                 >
-                  Project Path <span className="text-red-500">*</span>
+                  Project Path <span className="text-destructive">*</span>
                 </label>
-                <input
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  id="new-project-path"
-                  onChange={e => setNewProjectPath(e.target.value)}
-                  placeholder="/path/to/project"
-                  type="text"
-                  value={newProjectPath}
-                />
-                <p className="text-xs text-neutral-500 mt-1">
-                  Enter the full path to your project directory
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+                    id="new-project-path"
+                    onChange={e => setNewProjectPath(e.target.value)}
+                    placeholder="/path/to/project"
+                    type="text"
+                    value={newProjectPath}
+                  />
+                  <button
+                    className="px-3 py-2 text-sm border border-input text-foreground rounded-sm hover:bg-accent hover:text-accent-foreground flex items-center gap-1 transition-colors"
+                    onClick={handleBrowsePath}
+                    title="Browse for directory"
+                    type="button"
+                  >
+                    <FolderOpen size={16} />
+                    Browse
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter the full path or browse to your project directory
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
               <button
-                className="px-4 py-2 text-sm border border-neutral-300 text-neutral-700 rounded-sm hover:bg-neutral-100"
+                className="px-4 py-2 text-sm border border-input text-foreground rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                 onClick={() => {
                   setShowAddProjectDialog(false)
                   setNewProjectName('')
@@ -320,7 +356,7 @@ export function ProjectDashboard(): React.JSX.Element {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 text-sm bg-amber-500 text-white rounded-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 disabled={
                   !newProjectName.trim() ||
                   !newProjectPath.trim() ||
@@ -337,9 +373,9 @@ export function ProjectDashboard(): React.JSX.Element {
 
       {/* Add Tag Dialog */}
       {showAddTagDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 text-neutral-900 flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-card text-card-foreground rounded-lg p-6 w-full max-w-md shadow-xl border border-border">
+            <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center gap-2">
               <TagIcon size={20} />
               Create Tag
             </h3>
@@ -347,13 +383,13 @@ export function ProjectDashboard(): React.JSX.Element {
             <div className="space-y-4">
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 text-neutral-700"
+                  className="block text-sm font-medium mb-1 text-foreground"
                   htmlFor="new-tag-name"
                 >
-                  Tag Name <span className="text-red-500">*</span>
+                  Tag Name <span className="text-destructive">*</span>
                 </label>
                 <input
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
                   id="new-tag-name"
                   onChange={e => setNewTagName(e.target.value)}
                   placeholder="React, In Progress, etc."
@@ -364,13 +400,13 @@ export function ProjectDashboard(): React.JSX.Element {
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 text-neutral-700"
+                  className="block text-sm font-medium mb-1 text-foreground"
                   htmlFor="new-tag-category"
                 >
                   Category
                 </label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   id="new-tag-category"
                   onChange={e =>
                     setNewTagCategory(e.target.value as 'tech_stack' | 'status')
@@ -384,13 +420,13 @@ export function ProjectDashboard(): React.JSX.Element {
 
               <div>
                 <label
-                  className="block text-sm font-medium mb-1 text-neutral-700"
+                  className="block text-sm font-medium mb-1 text-foreground"
                   htmlFor="new-tag-color"
                 >
                   Color (optional)
                 </label>
                 <input
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 text-sm bg-background text-foreground border border-input rounded-sm focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
                   id="new-tag-color"
                   onChange={e => setNewTagColor(e.target.value)}
                   placeholder="#3b82f6"
@@ -402,7 +438,7 @@ export function ProjectDashboard(): React.JSX.Element {
 
             <div className="flex justify-end gap-2 mt-6">
               <button
-                className="px-4 py-2 text-sm border border-neutral-300 text-neutral-700 rounded-sm hover:bg-neutral-100"
+                className="px-4 py-2 text-sm border border-input text-foreground rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                 onClick={() => {
                   setShowAddTagDialog(false)
                   setNewTagName('')
@@ -413,7 +449,7 @@ export function ProjectDashboard(): React.JSX.Element {
                 Cancel
               </button>
               <button
-                className="px-4 py-2 text-sm bg-amber-500 text-white rounded-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 disabled={!newTagName.trim() || createTag.isPending}
                 onClick={handleAddTag}
               >

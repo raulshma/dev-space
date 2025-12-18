@@ -99,6 +99,8 @@ import type {
   AgentGetTokenUsageResponse,
   AgentGenerateFixRequest,
   AgentGenerateFixResponse,
+  DialogOpenDirectoryRequest,
+  DialogOpenDirectoryResponse,
 } from 'shared/ipc-types'
 
 /**
@@ -262,6 +264,14 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_EXTERNAL, request),
     openPath: (request: ShellOpenPathRequest): Promise<ShellOpenPathResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_PATH, request),
+  },
+
+  // Dialog operations
+  dialog: {
+    openDirectory: (
+      request: DialogOpenDirectoryRequest
+    ): Promise<DialogOpenDirectoryResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DIALOG_OPEN_DIRECTORY, request),
   },
 
   // AI Agent operations

@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import type { DetectedError } from 'renderer/lib/error-detector'
 
 export interface AppError {
@@ -107,3 +108,12 @@ export const useErrorStore = create<ErrorState>((set, get) => ({
       appErrors: [],
     }),
 }))
+
+// Custom hook to get errors by terminal with proper memoization
+export const useErrorsByTerminal = (terminalId: string): DetectedError[] => {
+  return useErrorStore(
+    useShallow(state =>
+      Array.from(state.errors.values()).filter(e => e.terminalId === terminalId)
+    )
+  )
+}

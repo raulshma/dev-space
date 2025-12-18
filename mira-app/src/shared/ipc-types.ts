@@ -100,6 +100,9 @@ export const IPC_CHANNELS = {
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   SHELL_OPEN_PATH: 'shell:openPath',
+
+  // Dialog operations
+  DIALOG_OPEN_DIRECTORY: 'dialog:openDirectory',
 } as const
 
 // Project Request/Response Types
@@ -507,6 +510,17 @@ export interface ShellOpenPathRequest {
 
 export interface ShellOpenPathResponse {
   success: boolean
+}
+
+// Dialog Request/Response Types
+export interface DialogOpenDirectoryRequest {
+  title?: string
+  defaultPath?: string
+}
+
+export interface DialogOpenDirectoryResponse {
+  path: string | null
+  canceled: boolean
 }
 
 // Generic IPC Error Response

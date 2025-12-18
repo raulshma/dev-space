@@ -7,7 +7,7 @@
 
 import { TerminalTabs } from './TerminalTabs'
 import { TerminalPanes } from './TerminalPanes'
-import { useTerminalStore } from 'renderer/stores/terminal-store'
+import { useTerminalStore, useTerminalsByProject } from 'renderer/stores/terminal-store'
 import type { ErrorContext } from 'shared/models'
 
 interface TerminalProps {
@@ -21,9 +21,7 @@ export function Terminal({
   projectPath,
   onErrorContext,
 }: TerminalProps): React.JSX.Element {
-  const terminals = useTerminalStore(state =>
-    state.getTerminalsByProject(projectId)
-  )
+  const terminals = useTerminalsByProject(projectId)
   const addTerminal = useTerminalStore(state => state.addTerminal)
 
   const handleCreateTerminal = async (): Promise<void> => {
@@ -49,7 +47,7 @@ export function Terminal({
   }
 
   return (
-    <div className="flex flex-col h-full bg-neutral-900">
+    <div className="flex flex-col h-full bg-[#1e1e1e] dark:bg-[#1e1e1e]">
       {/* Terminal tabs */}
       <TerminalTabs
         onCreateTerminal={handleCreateTerminal}
@@ -64,10 +62,10 @@ export function Terminal({
             projectId={projectId}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-neutral-400">
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <p className="mb-4">No terminals open</p>
             <button
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-sm transition-colors"
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-sm transition-colors"
               onClick={handleCreateTerminal}
             >
               Create Terminal

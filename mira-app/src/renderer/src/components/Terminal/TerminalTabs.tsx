@@ -9,7 +9,7 @@
 
 import { useEffect } from 'react'
 import { X, Plus, Pin, PinOff } from 'lucide-react'
-import { useTerminalStore } from 'renderer/stores/terminal-store'
+import { useTerminalStore, useTerminalsByProject } from 'renderer/stores/terminal-store'
 import type { TerminalInstance } from 'renderer/stores/terminal-store'
 
 interface TerminalTabsProps {
@@ -21,9 +21,7 @@ export function TerminalTabs({
   projectId,
   onCreateTerminal,
 }: TerminalTabsProps): React.JSX.Element {
-  const terminals = useTerminalStore(state =>
-    state.getTerminalsByProject(projectId)
-  )
+  const terminals = useTerminalsByProject(projectId)
   const focusedTerminalId = useTerminalStore(state => state.focusedTerminalId)
   const focusTerminal = useTerminalStore(state => state.focusTerminal)
   const removeTerminal = useTerminalStore(state => state.removeTerminal)

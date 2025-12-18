@@ -2,6 +2,7 @@
 // Requirements: 16.1, 16.3, 13.1
 
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import type { TerminalLayout } from 'shared/models'
 
 export interface TerminalInstance {
@@ -141,3 +142,26 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       }
     }),
 }))
+
+// Custom hook to get terminals by project with proper memoization
+export const useTerminalsByProject = (projectId: string): TerminalInstance[] => {
+  return useTerminalStore(
+    useShallow(state =>
+      Array.from(state.terminals.values()).filter(t => t.projectId === projectId)
+    )
+  )
+}
+
+// Custom hook to get a single terminal by ID
+export const useTerminal = (
+  terminalId: string
+): TerminalInstance | undefined => {
+  return useTerminalStore(state => state.terminals.get(terminalId))
+}
+
+// Custom hook to get layout by project ID
+export const useTerminalLayout = (
+  projectId: string
+): TerminalLayout | undefined => {
+  return useTerminalStore(state => state.layouts.get(projectId))
+}

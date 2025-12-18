@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-// import * as pty from 'node-pty'
+import * as pty from '@lydell/node-pty'
 
 /**
  * PTY Manager Service
@@ -8,10 +8,6 @@ import { EventEmitter } from 'node:events'
  * Handles PTY lifecycle, I/O operations, and pinned process management.
  *
  * Requirements: 9.1, 9.4, 12.1, 12.3, 12.4
- *
- * NOTE: node-pty requires Visual Studio Build Tools on Windows.
- * Install with: npm install --global windows-build-tools
- * Or install Visual Studio with "Desktop development with C++" workload.
  */
 
 export interface PTYCreateOptions {
@@ -30,9 +26,7 @@ export interface PinnedProcess {
 }
 
 interface PTYInstance {
-  // pty: pty.IPty
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  pty: any // Placeholder until node-pty is properly installed
+  pty: pty.IPty
   emitter: EventEmitter
   isPinned: boolean
   projectId?: string
@@ -48,49 +42,20 @@ export class PTYManager {
    * Create a new PTY instance
    * Requirements: 9.1
    */
-  create(_options: PTYCreateOptions): string {
+  create(options: PTYCreateOptions): string {
     const ptyId = `pty-${this.nextId++}`
 
     // Determine shell based on platform
-    // const shell = options.shell || this.getDefaultShell()
+    const shell = options.shell || this.getDefaultShell()
 
     // Create PTY instance
-    // NOTE: Commented out until node-pty is properly installed
-    /*
-    const shell = options.shell || this.getDefaultShell()
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
       cwd: options.cwd,
-      env: { ...process.env, ...options.env }
+      env: { ...process.env, ...options.env } as Record<string, string>,
     })
-    */
-
-    // Placeholder implementation
-    const ptyProcess = {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      onData: (_callback: (data: string) => void) => {
-        // Placeholder
-      },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      onExit: (
-        _callback: (exitCode: { exitCode: number; signal?: number }) => void
-      ) => {
-        // Placeholder
-      },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      write: (_data: string) => {
-        // Placeholder
-      },
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      resize: (_cols: number, _rows: number) => {
-        // Placeholder
-      },
-      kill: () => {
-        // Placeholder
-      },
-    }
 
     const emitter = new EventEmitter()
 
