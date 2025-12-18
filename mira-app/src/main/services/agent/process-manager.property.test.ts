@@ -12,13 +12,33 @@ import * as fc from 'fast-check'
 import { ProcessManager, buildAgentEnvironment, type ProcessStatus } from './process-manager'
 
 /**
+ * JavaScript reserved property names that should not be used as object keys
+ * These have special behavior and can cause issues with Object.entries()
+ */
+const RESERVED_JS_PROPERTIES = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  '__defineGetter__',
+  '__defineSetter__',
+  '__lookupGetter__',
+  '__lookupSetter__',
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toLocaleString',
+  'toString',
+  'valueOf',
+])
+
+/**
  * Arbitrary generator for valid environment variable keys
  * Keys must be non-empty, contain only alphanumeric characters and underscores,
- * and not start with a number
+ * not start with a number, and not be JavaScript reserved property names
  */
 const arbitraryEnvKey: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 50 })
-  .filter((s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s))
+  .filter((s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s) && !RESERVED_JS_PROPERTIES.has(s))
 
 /**
  * Arbitrary generator for environment variable values

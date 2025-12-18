@@ -2,12 +2,12 @@
  * SettingsPanel Component
  *
  * Main settings view with tabbed interface for managing application settings.
- * Integrates ShortcutEditor, BlueprintManager, and ApiKeyManager.
+ * Integrates ShortcutEditor, BlueprintManager, ApiKeyManager, ModelSelector, and AgentConfigPanel.
  *
- * Requirements: 8.1, 8.2, 14.2, 14.3, 14.4, 15.1, 15.2
+ * Requirements: 2.1, 3.1, 5.1, 8.1, 8.2, 14.2, 14.3, 14.4, 15.1, 15.2
  */
 
-import { Keyboard, Package, Key } from 'lucide-react'
+import { Keyboard, Package, Key, Cpu, Bot } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from 'renderer/components/ui
 import { ShortcutEditor } from './ShortcutEditor'
 import { BlueprintManager } from './BlueprintManager'
 import { ApiKeyManager } from 'renderer/components/Agent/ApiKeyManager'
+import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
+import { AgentConfigPanel } from 'renderer/components/Agent/AgentConfigPanel'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -61,6 +63,20 @@ export function SettingsPanel({
                   <Key className="h-4 w-4" />
                   API Keys
                 </TabsTrigger>
+                <TabsTrigger
+                  value="ai-models"
+                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                >
+                  <Cpu className="h-4 w-4" />
+                  AI Models
+                </TabsTrigger>
+                <TabsTrigger
+                  value="agent-config"
+                  className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                >
+                  <Bot className="h-4 w-4" />
+                  Agent Configuration
+                </TabsTrigger>
               </TabsList>
             </aside>
 
@@ -76,6 +92,22 @@ export function SettingsPanel({
 
               <TabsContent value="api-keys" className="m-0 p-6 h-full">
                 <ApiKeyManager />
+              </TabsContent>
+
+              <TabsContent value="ai-models" className="m-0 p-6 h-full">
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">AI Model Configuration</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Select and configure AI models from OpenRouter for different actions
+                    </p>
+                  </div>
+                  <ModelSelector showActionModels />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="agent-config" className="m-0 p-6 h-full">
+                <AgentConfigPanel />
               </TabsContent>
             </div>
           </div>

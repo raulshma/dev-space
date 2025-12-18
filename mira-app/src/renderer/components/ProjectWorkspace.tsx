@@ -2,7 +2,7 @@
  * ProjectWorkspace Component
  *
  * Workspace view for an active project with session restoration.
- * Requirements: 3.2, 4.2, 4.3, 4.4, 16.1, 16.2, 16.3, 16.4, 5.1, 6.1, 7.2, 7.3
+ * Requirements: 3.2, 4.2, 4.3, 4.4, 16.1, 16.2, 16.3, 16.4, 5.1, 6.1, 7.1, 7.2, 7.3, 9.2
  */
 
 import { useEffect, useCallback, useState, useRef } from 'react'
@@ -20,13 +20,21 @@ import {
 } from 'renderer/hooks/use-tags'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
+import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { CommandLibrary } from 'renderer/components/CommandLibrary'
 import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
 import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
 import { ConversationView } from 'renderer/components/Agent/ConversationView'
+import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
+import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
+import { TaskCompletionView } from 'renderer/components/Agent/TaskCompletionView'
+import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from 'renderer/components/ui/tabs'
+import { Button } from 'renderer/components/ui/button'
 import type { SessionState, ErrorContext } from 'shared/models'
+import type { AgentTask } from 'shared/ai-types'
 
 interface ProjectWorkspaceProps {
   projectId: string
@@ -49,6 +57,15 @@ export function ProjectWorkspace({
   // Error context state for Fix button integration
   const [errorContext, setErrorContext] = useState<ErrorContext | null>(null)
   const [showTagMenu, setShowTagMenu] = useState(false)
+
+  // Agent task panel state
+  const [agentPanelTab, setAgentPanelTab] = useState<'chat' | 'tasks'>('chat')
+  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>('list')
+  const [showTaskCreation, setShowTaskCreation] = useState(false)
+  const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
+  const selectedTask = useAgentTaskStore(state =>
+    selectedTaskId ? state.tasks.get(selectedTaskId) : undefined
+  )
 
   // Git telemetry for header display
   const { data: gitTelemetry } = useGitTelemetry(
@@ -202,6 +219,42 @@ export function ProjectWorkspace({
   const handleErrorContextUsed = useCallback(() => {
     setErrorContext(null)
   }, [])
+
+  // Handle task selection and navigation
+  const handleTaskSelect = useCallback((taskId: string) => {
+    setSelectedTask(taskId)
+    const task = useAgentTaskStore.getState().tasks.get(taskId)
+    if (task) {
+      // Navigate to appropriate view based on task status
+      if (task.status === 'completed' || task.status === 'failed' || task.status === 'stopped') {
+        setTaskView('completion')
+      } else if (task.status === 'running' || task.status === 'paused') {
+        setTaskView('detail')
+      } else {
+        setTaskView('detail')
+      }
+    }
+  }, [setSelectedTask])
+
+  const handleTaskCreated = useCallback((taskId: string) => {
+    setSelectedTask(taskId)
+    setTaskView('list')
+  }, [setSelectedTask])
+
+  const handleBackToTaskList = useCallback(() => {
+    setTaskView('list')
+    setSelectedTask(null)
+  }, [setSelectedTask])
+
+  const handleViewFullOutput = useCallback(() => {
+    setTaskView('detail')
+  }, [])
+
+  const handleEditTask = useCallback((task: AgentTask) => {
+    // For now, just select the task - editing could be implemented later
+    setSelectedTask(task.id)
+    setTaskView('detail')
+  }, [setSelectedTask])
 
   // Handle adding a tag to the project
   const handleAddTag = async (tagId: string): Promise<void> => {
@@ -454,11 +507,18 @@ export function ProjectWorkspace({
         {/* Agent Panel (hidden in Zen Mode or when collapsed) */}
         {!zenMode && !agentPanelCollapsed && (
           <aside className="w-96 bg-card border-l border-border flex flex-col overflow-hidden">
-            {/* Agent Panel Header */}
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="text-lg font-semibold text-foreground">
-                AI Agent
-              </h2>
+            {/* Agent Panel Header with Tabs */}
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <Tabs value={agentPanelTab} onValueChange={(v) => setAgentPanelTab(v as 'chat' | 'tasks')}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="chat" className="text-xs px-3">
+                    💬 Chat
+                  </TabsTrigger>
+                  <TabsTrigger value="tasks" className="text-xs px-3">
+                    🤖 Tasks
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
               <button
                 className="text-muted-foreground hover:text-foreground"
                 onClick={toggleAgentPanel}
@@ -468,26 +528,94 @@ export function ProjectWorkspace({
               </button>
             </div>
 
-            {/* Model Selector */}
-            <div className="border-b border-border px-4 py-3">
-              <ModelSelector projectId={projectId} />
-            </div>
+            {/* Chat Tab Content */}
+            {agentPanelTab === 'chat' && (
+              <>
+                {/* Model Selector */}
+                <div className="border-b border-border px-4 py-3">
+                  <ModelSelector />
+                </div>
 
-            {/* Context Shredder */}
-            <div className="h-64 border-b border-border">
-              <ContextShredder projectId={projectId} />
-            </div>
+                {/* Context Shredder */}
+                <div className="h-64 border-b border-border">
+                  <ContextShredder projectId={projectId} />
+                </div>
 
-            {/* Conversation View - takes remaining space */}
-            <div className="flex-1 overflow-hidden">
-              <ConversationView
-                errorContext={errorContext}
-                onErrorContextUsed={handleErrorContextUsed}
-                projectId={projectId}
-              />
-            </div>
+                {/* Conversation View - takes remaining space */}
+                <div className="flex-1 overflow-hidden">
+                  <ConversationView
+                    errorContext={errorContext}
+                    onErrorContextUsed={handleErrorContextUsed}
+                    projectId={projectId}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Tasks Tab Content */}
+            {agentPanelTab === 'tasks' && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Task Panel Header */}
+                <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                  {taskView !== 'list' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBackToTaskList}
+                      className="text-xs"
+                    >
+                      ← Back to List
+                    </Button>
+                  )}
+                  {taskView === 'list' && (
+                    <span className="text-sm font-medium">Agent Tasks</span>
+                  )}
+                  {taskView === 'list' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTaskCreation(true)}
+                      className="text-xs"
+                    >
+                      + New Task
+                    </Button>
+                  )}
+                </div>
+
+                {/* Task Views */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  {taskView === 'list' && (
+                    <TaskBacklogList
+                      onTaskSelect={handleTaskSelect}
+                      onEditTask={handleEditTask}
+                    />
+                  )}
+                  {taskView === 'detail' && selectedTaskId && (
+                    <TaskDetailView
+                      taskId={selectedTaskId}
+                      onBack={handleBackToTaskList}
+                    />
+                  )}
+                  {taskView === 'completion' && selectedTaskId && (
+                    <TaskCompletionView
+                      taskId={selectedTaskId}
+                      onBack={handleBackToTaskList}
+                      onViewOutput={handleViewFullOutput}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
           </aside>
         )}
+
+        {/* Task Creation Dialog */}
+        <TaskCreationDialog
+          open={showTaskCreation}
+          onOpenChange={setShowTaskCreation}
+          defaultDirectory={project.path}
+          onTaskCreated={handleTaskCreated}
+        />
       </div>
 
       {/* Global pinned process indicator */}

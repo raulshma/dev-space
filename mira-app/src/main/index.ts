@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { join } from 'node:path'
 
 import { makeAppWithSingleInstanceLock } from 'lib/electron-app/factories/app/instance'
 import { makeAppSetup } from 'lib/electron-app/factories/app/setup'
@@ -14,20 +15,69 @@ import { KeychainService } from 'main/services/keychain-service'
 import { AgentService } from 'main/services/agent-service'
 import { IPCHandlers } from 'main/ipc/handlers'
 
-// Initialize services
+// AI Service imports
+import { AIService } from 'main/services/ai-service'
+import { ProviderRegistry } from 'main/services/ai/provider-registry'
+import { ModelRegistry } from 'main/services/ai/model-registry'
+import { RequestLogger } from 'main/services/ai/request-logger'
+
+// Agent Executor imports
+import { AgentExecutorService } from 'main/services/agent-executor-service'
+import { AgentConfigService } from 'main/services/agent/agent-config-service'
+import { ProcessManager } from 'main/services/agent/process-manager'
+import { TaskQueue } from 'main/services/agent/task-queue'
+import { OutputBuffer } from 'main/services/agent/output-buffer'
+
+// Initialize core services
 const db = new DatabaseService()
 const ptyManager = new PTYManager()
 const gitService = new GitService()
 const keychainService = new KeychainService()
 const agentService = new AgentService(keychainService)
 
-// Initialize IPC handlers
+// Initialize AI services
+const providerRegistry = new ProviderRegistry()
+const modelRegistry = new ModelRegistry(db)
+const requestLogger = new RequestLogger(db)
+const aiService = new AIService(
+  providerRegistry,
+  modelRegistry,
+  requestLogger,
+  keychainService
+)
+
+// Initialize Agent Executor services
+const agentConfigService = new AgentConfigService(db, keychainService)
+const processManager = new ProcessManager()
+const taskQueue = new TaskQueue()
+const outputBuffer = new OutputBuffer(db)
+
+// Get the base path for agent scripts (workspace root)
+const agentScriptsBasePath = ENVIRONMENT.IS_DEV
+  ? join(__dirname, '..', '..', '..')
+  : join(app.getAppPath(), '..')
+
+const agentExecutorService = new AgentExecutorService(
+  db,
+  processManager,
+  taskQueue,
+  outputBuffer,
+  agentConfigService,
+  gitService,
+  agentScriptsBasePath
+)
+
+// Initialize IPC handlers with all services
 const ipcHandlers = new IPCHandlers(
   db,
   ptyManager,
   gitService,
   keychainService,
-  agentService
+  agentService,
+  aiService,
+  agentExecutorService,
+  agentConfigService,
+  requestLogger
 )
 
 makeAppWithSingleInstanceLock(async () => {
@@ -36,6 +86,16 @@ makeAppWithSingleInstanceLock(async () => {
   // Initialize database
   db.initialize()
   db.migrate()
+
+  // Initialize AI service (loads API key from keychain and sets up provider)
+  // Requirements: 1.1
+  try {
+    await aiService.initialize()
+    console.log('AI service initialized successfully')
+  } catch (error) {
+    console.warn('Failed to initialize AI service:', error)
+    // Continue without AI service - user can configure later
+  }
 
   // Register IPC handlers
   ipcHandlers.registerHandlers()
@@ -56,8 +116,27 @@ makeAppWithSingleInstanceLock(async () => {
 })
 
 // Cleanup on quit
-app.on('before-quit', () => {
+// Requirements: 8.5 - Gracefully terminate agents and persist task state
+app.on('before-quit', async () => {
+  console.log('Application shutting down...')
+
+  // Gracefully shutdown agent executor (stops running tasks, persists state)
+  try {
+    await agentExecutorService.shutdown()
+    console.log('Agent executor shutdown complete')
+  } catch (error) {
+    console.error('Error during agent executor shutdown:', error)
+  }
+
+  // Stop request logger cleanup timer
+  requestLogger.stopPeriodicCleanup()
+
+  // Close database
   db.close()
+
+  // Kill all PTY processes
   ptyManager.killAll()
+
+  // Stop git telemetry refreshes
   gitService.stopAllRefreshes()
 })
