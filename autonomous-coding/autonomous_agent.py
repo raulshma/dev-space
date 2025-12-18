@@ -8,8 +8,8 @@ This script implements the two-agent pattern (initializer + coding agent) and
 incorporates all the strategies from the long-running agents guide.
 
 Example Usage:
-    python autonomous_agent_demo.py --project-dir ./claude_clone_demo
-    python autonomous_agent_demo.py --project-dir ./claude_clone_demo --max-iterations 5
+    python autonomous_agent.py --project-dir ./claude_clone_demo
+    python autonomous_agent.py --project-dir ./claude_clone_demo --max-iterations 5
 """
 
 import argparse
@@ -32,16 +32,19 @@ def parse_args() -> argparse.Namespace:
         epilog="""
 Examples:
   # Start fresh project
-  python autonomous_agent_demo.py --project-dir ./claude_clone
+  python autonomous_agent.py --project-dir ./claude_clone
 
   # Use a specific model
-  python autonomous_agent_demo.py --project-dir ./claude_clone --model claude-sonnet-4-5-20250929
+  python autonomous_agent.py --project-dir ./claude_clone --model claude-sonnet-4-5-20250929
 
   # Limit iterations for testing
-  python autonomous_agent_demo.py --project-dir ./claude_clone --max-iterations 5
+  python autonomous_agent.py --project-dir ./claude_clone --max-iterations 5
 
   # Continue existing project
-  python autonomous_agent_demo.py --project-dir ./claude_clone
+  python autonomous_agent.py --project-dir ./claude_clone
+
+  # Generate a specific number of test cases
+  python autonomous_agent.py --project-dir ./claude_clone --test-count 100
 
 Environment Variables:
   ANTHROPIC_API_KEY    Your Anthropic API key (required)
@@ -67,6 +70,13 @@ Environment Variables:
         type=str,
         default=DEFAULT_MODEL,
         help=f"Claude model to use (default: {DEFAULT_MODEL})",
+    )
+
+    parser.add_argument(
+        "--test-count",
+        type=int,
+        default=200,
+        help="Number of test cases to generate (default: 200)",
     )
 
     return parser.parse_args()
@@ -102,6 +112,7 @@ def main() -> None:
                 project_dir=project_dir,
                 model=args.model,
                 max_iterations=args.max_iterations,
+                test_count=args.test_count,
             )
         )
     except KeyboardInterrupt:

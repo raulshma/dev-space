@@ -327,6 +327,7 @@ async def run_autonomous_agent(
     project_dir: Path,
     model: str,
     max_iterations: Optional[int] = None,
+    test_count: int = 200,
 ) -> None:
     """
     Run the autonomous agent loop.
@@ -359,7 +360,7 @@ async def run_autonomous_agent(
         print()
         print("=" * 70)
         print("  NOTE: First session takes 10-20+ minutes!")
-        print("  The agent is generating 200 detailed test cases.")
+        print(f"  The agent is generating {test_count} detailed test cases.")
         print("  This may appear to hang - it's working. Watch for [Tool: ...] output.")
         print("=" * 70)
         print()
@@ -389,10 +390,10 @@ async def run_autonomous_agent(
 
         # Choose prompt based on session type
         if is_first_run:
-            prompt = get_initializer_prompt()
+            prompt = get_initializer_prompt(test_count=test_count)
             is_first_run = False  # Only use initializer once
         else:
-            prompt = get_coding_prompt()
+            prompt = get_coding_prompt(test_count=test_count)
 
         # Run session with async context manager
         async with client:

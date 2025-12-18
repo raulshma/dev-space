@@ -28,12 +28,12 @@ export ANTHROPIC_API_KEY='your-api-key-here'
 ## Quick Start
 
 ```bash
-python autonomous_agent_demo.py --project-dir ./my_project
+python autonomous_agent.py --project-dir ./my_project
 ```
 
 For testing with limited iterations:
 ```bash
-python autonomous_agent_demo.py --project-dir ./my_project --max-iterations 3
+python autonomous_agent.py --project-dir ./my_project --max-iterations 3
 ```
 
 ## Important Timing Expectations
@@ -81,7 +81,7 @@ Commands not in the allowlist are blocked by the security hook.
 
 ```
 autonomous-coding/
-├── autonomous_agent_demo.py  # Main entry point
+├── autonomous_agent.py  # Main entry point
 ├── agent.py                  # Agent session logic
 ├── client.py                 # Claude SDK client configuration
 ├── security.py               # Bash command allowlist and validation

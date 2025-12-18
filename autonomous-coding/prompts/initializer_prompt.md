@@ -11,9 +11,8 @@ before proceeding.
 
 ### CRITICAL FIRST TASK: Create feature_list.json
 
-Based on `app_spec.txt`, create a file called `feature_list.json` with 200 detailed
-end-to-end test cases. This file is the single source of truth for what
-needs to be built.
+Based on `app_spec.txt`, create a file called `feature_list.json` with **{{TEST_COUNT}}** detailed
+end-to-end test cases. This file is the single source of truth for what needs to be built.
 
 **Format:**
 ```json
@@ -42,13 +41,14 @@ needs to be built.
 ```
 
 **Requirements for feature_list.json:**
-- Minimum 200 features total with testing steps for each
+- Generate exactly **{{TEST_COUNT}}** test cases total
 - Both "functional" and "style" categories
-- Mix of narrow tests (2-5 steps) and comprehensive tests (10+ steps)
-- At least 25 tests MUST have 10+ steps each
+- Mix of narrow tests (2-5 steps) and comprehensive tests ({{MIN_COMPREHENSIVE_STEPS}}+ steps)
+- At least **{{COMPREHENSIVE_COUNT}}** tests MUST have {{MIN_COMPREHENSIVE_STEPS}}+ steps each (comprehensive tests)
 - Order features by priority: fundamental features first
 - ALL tests start with "passes": false
 - Cover every feature in the spec exhaustively
+- Scale test granularity based on target count (more tests = more granular coverage)
 
 **CRITICAL INSTRUCTION:**
 IT IS CATASTROPHIC TO REMOVE OR EDIT FEATURES IN FUTURE SESSIONS.
@@ -70,7 +70,7 @@ Base the script on the technology stack specified in `app_spec.txt`.
 ### THIRD TASK: Initialize Git
 
 Create a git repository and make your first commit with:
-- feature_list.json (complete with all 200+ features)
+- feature_list.json (complete with all {{TEST_COUNT}} tests)
 - init.sh (environment setup script)
 - README.md (project overview and setup instructions)
 

@@ -26,7 +26,7 @@ cat claude-progress.txt
 # 6. Check recent git history
 git log --oneline -20
 
-# 7. Count remaining tests
+# 7. Count remaining tests (target: {{TEST_COUNT}} total)
 cat feature_list.json | grep '"passes": false' | wc -l
 ```
 
@@ -146,7 +146,7 @@ Update `claude-progress.txt` with:
 - Which test(s) you completed
 - Any issues discovered or fixed
 - What should be worked on next
-- Current completion status (e.g., "45/200 tests passing")
+- Current completion status (e.g., "X/{{TEST_COUNT}} tests passing")
 
 ### STEP 10: END SESSION CLEANLY
 
@@ -177,7 +177,7 @@ Don't use the puppeteer "active tab" tool.
 
 ## IMPORTANT REMINDERS
 
-**Your Goal:** Production-quality application with all 200+ tests passing
+**Your Goal:** Production-quality application with all {{TEST_COUNT}} tests passing
 
 **This Session's Goal:** Complete at least one feature perfectly
 
