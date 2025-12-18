@@ -1,3 +1,6 @@
 export { ShortcutEditor } from './ShortcutEditor'
 export { BlueprintManager } from './BlueprintManager'
 export { SettingsPanel } from './SettingsPanel'
+export { GeneralSettings } from './GeneralSettings'
+export { TerminalSettings } from './TerminalSettings'
+export { AISettings } from './AISettings'

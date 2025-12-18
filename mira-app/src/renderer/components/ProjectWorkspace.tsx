@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useCallback, useState, useRef, useMemo, memo } from 'react'
-import { IconTag, IconPlus, IconX } from '@tabler/icons-react'
+import { IconTag, IconPlus, IconX, IconSettings } from '@tabler/icons-react'
 import type {
   ImperativePanelGroupHandle,
   ImperativePanelHandle,
@@ -73,6 +73,7 @@ interface WorkspaceHeaderProps {
   onToggleZenMode: () => void
   onToggleSidebar: () => void
   onToggleAgentPanel: () => void
+  onOpenSettings: () => void
   onAddTag: (tagId: string) => void
   onRemoveTag: (tagId: string) => void
 }
@@ -90,6 +91,7 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
   onToggleZenMode,
   onToggleSidebar,
   onToggleAgentPanel,
+  onOpenSettings,
   onAddTag,
   onRemoveTag,
 }: WorkspaceHeaderProps) {
@@ -148,7 +150,9 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
                   <span
                     className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm bg-primary/20 text-primary"
                     key={tag.id}
-                    style={tag.color ? { backgroundColor: tag.color } : undefined}
+                    style={
+                      tag.color ? { backgroundColor: tag.color } : undefined
+                    }
                   >
                     {tag.name}
                     <button
@@ -236,6 +240,13 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
               </button>
             </>
           )}
+          <button
+            className="p-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-sm"
+            onClick={onOpenSettings}
+            title="Settings (Mod+,)"
+          >
+            <IconSettings size={18} />
+          </button>
         </div>
       </div>
     </header>
@@ -256,7 +267,9 @@ const AgentPanel = memo(function AgentPanel({
   isVisible,
   onTogglePanel,
 }: AgentPanelProps) {
-  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>('list')
+  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>(
+    'list'
+  )
   const [showTaskCreation, setShowTaskCreation] = useState(false)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
 
@@ -425,7 +438,10 @@ export function ProjectWorkspace({
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
   const toggleAgentPanel = useAppStore(state => state.toggleAgentPanel)
   const toggleZenMode = useAppStore(state => state.toggleZenMode)
-  const hydrateWorkspaceState = useAppStore(state => state.hydrateWorkspaceState)
+  const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
+  const hydrateWorkspaceState = useAppStore(
+    state => state.hydrateWorkspaceState
+  )
 
   const addTerminal = useTerminalStore(state => state.addTerminal)
   const clearProject = useTerminalStore(state => state.clearProject)
@@ -464,7 +480,9 @@ export function ProjectWorkspace({
 
   // Build session state - memoized to prevent recreation
   const buildSessionState = useCallback((): SessionState => {
-    const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+    const terminals = useTerminalStore
+      .getState()
+      .getTerminalsByProject(projectId)
     const appState = useAppStore.getState()
     const layout =
       panelGroupRef.current?.getLayout() ??
@@ -553,7 +571,8 @@ export function ProjectWorkspace({
         agentPanelCollapsed: session.workspace.agentPanelCollapsed ?? false,
         zenMode: session.workspace.zenMode ?? false,
         previousSidebarState: session.workspace.previousSidebarState ?? false,
-        previousAgentPanelState: session.workspace.previousAgentPanelState ?? false,
+        previousAgentPanelState:
+          session.workspace.previousAgentPanelState ?? false,
       })
     }
 
@@ -561,8 +580,10 @@ export function ProjectWorkspace({
     if (session?.workspace?.panelLayout?.length) {
       lastKnownLayoutRef.current = session.workspace.panelLayout
       const [left, , right] = session.workspace.panelLayout
-      if (typeof left === 'number' && left > 0) lastExpandedSizesRef.current.left = left
-      if (typeof right === 'number' && right > 0) lastExpandedSizesRef.current.right = right
+      if (typeof left === 'number' && left > 0)
+        lastExpandedSizesRef.current.left = left
+      if (typeof right === 'number' && right > 0)
+        lastExpandedSizesRef.current.right = right
 
       try {
         panelGroupRef.current?.setLayout(session.workspace.panelLayout)
@@ -599,7 +620,14 @@ export function ProjectWorkspace({
         createDefaultTerminal()
       }
     }
-  }, [session, sessionLoading, projectId, addTerminal, createDefaultTerminal, hydrateWorkspaceState])
+  }, [
+    session,
+    sessionLoading,
+    projectId,
+    addTerminal,
+    createDefaultTerminal,
+    hydrateWorkspaceState,
+  ])
 
   // Panel collapse sync - only runs when collapse state changes
   useEffect(() => {
@@ -646,7 +674,9 @@ export function ProjectWorkspace({
         saveDebounceTimerRef.current = null
       }
 
-      const terminals = useTerminalStore.getState().getTerminalsByProject(projectId)
+      const terminals = useTerminalStore
+        .getState()
+        .getTerminalsByProject(projectId)
       saveSession({ projectId, state: buildSessionState() })
 
       terminals.forEach((terminal: { isPinned: boolean; ptyId: string }) => {
@@ -737,38 +767,39 @@ export function ProjectWorkspace({
   return (
     <div className="flex flex-col h-screen bg-background">
       <WorkspaceHeader
+        agentPanelCollapsed={agentPanelCollapsed}
+        availableTags={availableTags}
+        gitTelemetry={gitTelemetryData}
+        onAddTag={handleAddTag}
+        onBackToDashboard={handleBackToDashboard}
+        onOpenSettings={openSettingsPanel}
+        onRemoveTag={handleRemoveTag}
+        onToggleAgentPanel={toggleAgentPanel}
+        onToggleSidebar={toggleSidebar}
+        onToggleZenMode={toggleZenMode}
         projectName={project.name}
         projectPath={project.path}
         projectTags={project.tags}
-        gitTelemetry={gitTelemetryData}
-        availableTags={availableTags}
-        zenMode={zenMode}
         sidebarCollapsed={sidebarCollapsed}
-        agentPanelCollapsed={agentPanelCollapsed}
-        onBackToDashboard={handleBackToDashboard}
-        onToggleZenMode={toggleZenMode}
-        onToggleSidebar={toggleSidebar}
-        onToggleAgentPanel={toggleAgentPanel}
-        onAddTag={handleAddTag}
-        onRemoveTag={handleRemoveTag}
+        zenMode={zenMode}
       />
 
       <ResizablePanelGroup
-        ref={panelGroupRef}
+        autoSaveId={`project-workspace-${projectId}`}
         className="flex-1"
         direction="horizontal"
-        autoSaveId={`project-workspace-${projectId}`}
         onLayout={handleLayoutChange}
+        ref={panelGroupRef}
       >
         <ResizablePanel
-          ref={leftPanelRef}
-          id="project-workspace-left"
           className="bg-card"
-          collapsible
           collapsedSize={0}
+          collapsible
           defaultSize={15}
+          id="project-workspace-left"
           maxSize={30}
           minSize={10}
+          ref={leftPanelRef}
         >
           {isLeftPanelVisible && (
             <aside className="h-full overflow-y-auto">
@@ -777,31 +808,41 @@ export function ProjectWorkspace({
           )}
         </ResizablePanel>
 
-        <ResizableHandle withHandle className={!isLeftPanelVisible ? 'hidden' : undefined} />
+        <ResizableHandle
+          className={!isLeftPanelVisible ? 'hidden' : undefined}
+          withHandle
+        />
 
-        <ResizablePanel id="project-workspace-center" defaultSize={70} minSize={20}>
+        <ResizablePanel
+          defaultSize={70}
+          id="project-workspace-center"
+          minSize={20}
+        >
           <main className="h-full overflow-hidden">
             <Terminal projectId={projectId} projectPath={project.path} />
           </main>
         </ResizablePanel>
 
-        <ResizableHandle withHandle className={!isRightPanelVisible ? 'hidden' : undefined} />
+        <ResizableHandle
+          className={!isRightPanelVisible ? 'hidden' : undefined}
+          withHandle
+        />
 
         <ResizablePanel
-          ref={rightPanelRef}
-          id="project-workspace-right"
           className="bg-card"
-          collapsible
           collapsedSize={0}
+          collapsible
           defaultSize={15}
+          id="project-workspace-right"
           maxSize={40}
           minSize={10}
+          ref={rightPanelRef}
         >
           <AgentPanel
-            projectId={projectId}
-            projectPath={project.path}
             isVisible={isRightPanelVisible}
             onTogglePanel={toggleAgentPanel}
+            projectId={projectId}
+            projectPath={project.path}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

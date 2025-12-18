@@ -6,7 +6,13 @@
  */
 
 import { useState, useMemo } from 'react'
-import { IconPlus, IconFolderPlus, IconTag, IconFolderOpen } from '@tabler/icons-react'
+import {
+  IconPlus,
+  IconFolderPlus,
+  IconTag,
+  IconFolderOpen,
+  IconSettings,
+} from '@tabler/icons-react'
 import {
   useProjects,
   useCreateProject,
@@ -52,6 +58,7 @@ export function ProjectDashboard(): React.JSX.Element {
   const [newTagColor, setNewTagColor] = useState('')
 
   const setActiveProject = useAppStore(state => state.setActiveProject)
+  const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
   const createTag = useCreateTag()
@@ -186,10 +193,10 @@ export function ProjectDashboard(): React.JSX.Element {
             Filter by Tags
           </h2>
           <Button
-            variant="ghost"
-            size="icon"
             onClick={() => setShowAddTagDialog(true)}
+            size="icon"
             title="Add new tag"
+            variant="ghost"
           >
             <IconPlus size={16} />
           </Button>
@@ -199,11 +206,13 @@ export function ProjectDashboard(): React.JSX.Element {
           <p className="text-sm text-muted-foreground">Loading tags...</p>
         ) : tags.length === 0 ? (
           <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground mb-2">No tags available</p>
+            <p className="text-sm text-muted-foreground mb-2">
+              No tags available
+            </p>
             <Button
-              variant="link"
-              size="sm"
               onClick={() => setShowAddTagDialog(true)}
+              size="sm"
+              variant="link"
             >
               Create your first tag
             </Button>
@@ -234,10 +243,10 @@ export function ProjectDashboard(): React.JSX.Element {
 
         {selectedTagIds.length > 0 && (
           <Button
-            variant="link"
-            size="sm"
             className="mt-4 w-full"
             onClick={() => setSelectedTagIds([])}
+            size="sm"
+            variant="link"
           >
             Clear filters
           </Button>
@@ -251,10 +260,20 @@ export function ProjectDashboard(): React.JSX.Element {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-              <Button onClick={() => setShowAddProjectDialog(true)}>
-                <IconFolderPlus size={18} className="mr-2" />
-                Add Project
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => setShowAddProjectDialog(true)}>
+                  <IconFolderPlus className="mr-2" size={18} />
+                  Add Project
+                </Button>
+                <Button
+                  onClick={openSettingsPanel}
+                  size="icon"
+                  title="Settings (Mod+,)"
+                  variant="outline"
+                >
+                  <IconSettings size={18} />
+                </Button>
+              </div>
             </div>
             <Input
               className="w-full max-w-md"
@@ -282,8 +301,8 @@ export function ProjectDashboard(): React.JSX.Element {
                 </p>
               ) : (
                 <Button
-                  variant="link"
                   onClick={() => setShowAddProjectDialog(true)}
+                  variant="link"
                 >
                   Add your first project
                 </Button>
@@ -305,7 +324,10 @@ export function ProjectDashboard(): React.JSX.Element {
       </main>
 
       {/* Add Project Dialog */}
-      <Dialog open={showAddProjectDialog} onOpenChange={setShowAddProjectDialog}>
+      <Dialog
+        onOpenChange={setShowAddProjectDialog}
+        open={showAddProjectDialog}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Project</DialogTitle>
@@ -339,12 +361,12 @@ export function ProjectDashboard(): React.JSX.Element {
                   value={newProjectPath}
                 />
                 <Button
-                  variant="outline"
                   onClick={handleBrowsePath}
                   title="Browse for directory"
                   type="button"
+                  variant="outline"
                 >
-                  <IconFolderOpen size={16} className="mr-2" />
+                  <IconFolderOpen className="mr-2" size={16} />
                   Browse
                 </Button>
               </div>
@@ -356,12 +378,12 @@ export function ProjectDashboard(): React.JSX.Element {
 
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setShowAddProjectDialog(false)
                 setNewProjectName('')
                 setNewProjectPath('')
               }}
+              variant="outline"
             >
               Cancel
             </Button>
@@ -380,7 +402,7 @@ export function ProjectDashboard(): React.JSX.Element {
       </Dialog>
 
       {/* Add Tag Dialog */}
-      <Dialog open={showAddTagDialog} onOpenChange={setShowAddTagDialog}>
+      <Dialog onOpenChange={setShowAddTagDialog} open={showAddTagDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -406,10 +428,10 @@ export function ProjectDashboard(): React.JSX.Element {
             <div className="space-y-2">
               <Label htmlFor="new-tag-category">Category</Label>
               <Select
-                value={newTagCategory}
                 onValueChange={value =>
                   setNewTagCategory(value as 'tech_stack' | 'status')
                 }
+                value={newTagCategory}
               >
                 <SelectTrigger id="new-tag-category">
                   <SelectValue />
@@ -435,13 +457,13 @@ export function ProjectDashboard(): React.JSX.Element {
 
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setShowAddTagDialog(false)
                 setNewTagName('')
                 setNewTagCategory('tech_stack')
                 setNewTagColor('')
               }}
+              variant="outline"
             >
               Cancel
             </Button>
