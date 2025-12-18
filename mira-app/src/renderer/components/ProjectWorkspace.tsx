@@ -35,8 +35,7 @@ import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
-import { CommandLibrary } from 'renderer/components/CommandLibrary'
-import { ProjectScripts } from 'renderer/components/ProjectScripts'
+import { LeftSidebar } from 'renderer/components/LeftSidebar'
 import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
 import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
 import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
@@ -832,16 +831,15 @@ export function ProjectWorkspace({
           className="bg-card"
           collapsedSize={0}
           collapsible
-          defaultSize={15}
+          defaultSize={20}
           id="project-workspace-left"
-          maxSize={30}
-          minSize={10}
+          maxSize={35}
+          minSize={15}
           ref={leftPanelRef}
         >
           {isLeftPanelVisible && (
-            <aside className="h-full overflow-y-auto">
-              <ProjectScripts projectId={projectId} projectPath={project.path} />
-              <CommandLibrary projectId={projectId} />
+            <aside className="h-full overflow-hidden">
+              <LeftSidebar projectId={projectId} projectPath={project.path} />
             </aside>
           )}
         </ResizablePanel>
