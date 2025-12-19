@@ -37,7 +37,9 @@ import {
   IconTerminal2,
   IconCode,
   IconSettings,
+  IconWand,
 } from '@tabler/icons-react'
+import { useCLIDetection } from 'renderer/hooks/use-cli-detection'
 import type {
   AgentEnvironmentConfig,
   AgentConfigValidationError,
@@ -121,6 +123,179 @@ function ServiceCard({
           >
             <IconExternalLink className="h-4 w-4" />
           </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * Python Configuration Card with auto-detection
+ */
+function PythonConfigCard({
+  config,
+  setConfig,
+}: {
+  config: AgentEnvironmentConfig
+  setConfig: React.Dispatch<React.SetStateAction<AgentEnvironmentConfig>>
+}): React.JSX.Element {
+  const {
+    data: pythonDetection,
+    isLoading: isDetecting,
+    refetch: detectPython,
+  } = useCLIDetection('python', { enabled: false })
+
+  const [showInstallations, setShowInstallations] = useState(false)
+
+  const handleAutoDetect = async (): Promise<void> => {
+    const result = await detectPython()
+    if (result.data?.result.recommended?.path) {
+      setConfig(prev => ({
+        ...prev,
+        pythonPath: result.data.result.recommended!.path,
+      }))
+    }
+  }
+
+  const handleSelectInstallation = (path: string): void => {
+    setConfig(prev => ({ ...prev, pythonPath: path }))
+    setShowInstallations(false)
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Python Configuration</CardTitle>
+        <CardDescription>
+          Path to Python executable for running agents
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="python-path">Python Path</Label>
+          <div className="flex gap-2">
+            <Input
+              className="flex-1"
+              id="python-path"
+              onChange={e =>
+                setConfig(prev => ({ ...prev, pythonPath: e.target.value }))
+              }
+              placeholder="python"
+              type="text"
+              value={config.pythonPath}
+            />
+            <Button
+              disabled={isDetecting}
+              onClick={handleAutoDetect}
+              size="sm"
+              title="Auto-detect Python"
+              variant="outline"
+            >
+              {isDetecting ? (
+                <IconLoader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <IconWand className="h-4 w-4" />
+              )}
+              <span className="ml-1.5">Detect</span>
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Path to Python 3.x executable (e.g., python, python3,
+            /usr/bin/python3)
+          </p>
+        </div>
+
+        {/* Detection results */}
+        {pythonDetection?.result && (
+          <div className="space-y-2">
+            {pythonDetection.result.found ? (
+              <>
+                {pythonDetection.result.recommended && (
+                  <Alert className="border-green-500/30 bg-green-500/5 py-2">
+                    <IconCheck className="h-4 w-4 text-green-500" />
+                    <AlertDescription className="text-sm">
+                      <span className="font-medium">Detected:</span>{' '}
+                      <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                        {pythonDetection.result.recommended.path}
+                      </code>
+                      {pythonDetection.result.recommended.version && (
+                        <span className="ml-2 text-muted-foreground">
+                          (v{pythonDetection.result.recommended.version})
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {pythonDetection.result.installations.length > 1 && (
+                  <div>
+                    <Button
+                      className="h-auto p-0 text-xs"
+                      onClick={() => setShowInstallations(!showInstallations)}
+                      variant="link"
+                    >
+                      {showInstallations ? 'Hide' : 'Show'}{' '}
+                      {pythonDetection.result.installations.length}{' '}
+                      installations found
+                    </Button>
+
+                    {showInstallations && (
+                      <div className="mt-2 space-y-1 rounded-md border p-2">
+                        {pythonDetection.result.installations.map(
+                          (installation, index) => (
+                            <div
+                              className="flex items-center justify-between rounded px-2 py-1 text-xs hover:bg-muted"
+                              key={index}
+                            >
+                              <div className="flex items-center gap-2">
+                                <code className="text-muted-foreground">
+                                  {installation.path}
+                                </code>
+                                {installation.version && (
+                                  <Badge
+                                    className="text-[10px]"
+                                    variant="secondary"
+                                  >
+                                    v{installation.version}
+                                  </Badge>
+                                )}
+                                {installation.isDefault && (
+                                  <Badge
+                                    className="text-[10px]"
+                                    variant="outline"
+                                  >
+                                    recommended
+                                  </Badge>
+                                )}
+                              </div>
+                              <Button
+                                className="h-6 px-2 text-xs"
+                                onClick={() =>
+                                  handleSelectInstallation(installation.path)
+                                }
+                                size="sm"
+                                variant="ghost"
+                              >
+                                Use
+                              </Button>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <Alert className="border-yellow-500/30 bg-yellow-500/5 py-2">
+                <IconAlertTriangle className="h-4 w-4 text-yellow-500" />
+                <AlertDescription className="text-sm text-muted-foreground">
+                  Python not found. Please install Python 3.x or enter the path
+                  manually.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -741,34 +916,7 @@ export function AgentConfigPanel(): React.JSX.Element {
   }
 
   function renderPythonConfig(): React.JSX.Element {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Python Configuration</CardTitle>
-          <CardDescription>
-            Path to Python executable for running agents
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="python-path">Python Path</Label>
-            <Input
-              id="python-path"
-              onChange={e =>
-                setConfig({ ...config, pythonPath: e.target.value })
-              }
-              placeholder="python"
-              type="text"
-              value={config.pythonPath}
-            />
-            <p className="text-xs text-muted-foreground">
-              Path to Python 3.x executable (e.g., python, python3,
-              /usr/bin/python3)
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    )
+    return <PythonConfigCard config={config} setConfig={setConfig} />
   }
 
   function renderEnvVarsConfig(): React.JSX.Element {

@@ -96,7 +96,14 @@ import type {
   FilesListShallowRequest,
   FilesReadRequest,
   FilesWriteRequest,
+  CLIDetectRequest,
+  CLIDetectAllRequest,
+  CLIGetRecommendedRequest,
+  CLIVerifyPathRequest,
+  CLIClearCacheRequest,
+  CLIType,
 } from 'shared/ipc-types'
+import { getCLIDetectorService } from 'main/services/cli-detector-service'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -174,6 +181,7 @@ export class IPCHandlers {
     this.registerAgentConfigHandlers()
     this.registerJulesHandlers()
     this.registerJulesEventForwarding()
+    this.registerCLIDetectorHandlers()
   }
 
   /**
@@ -1760,6 +1768,95 @@ export class IPCHandlers {
           const message =
             error instanceof Error ? error.message : 'Unknown error'
           return { activities: [], error: message }
+        }
+      }
+    )
+  }
+
+  /**
+   * CLI Detection operation handlers
+   */
+  private registerCLIDetectorHandlers(): void {
+    const cliDetector = getCLIDetectorService()
+
+    // Detect a specific CLI
+    ipcMain.handle(
+      IPC_CHANNELS.CLI_DETECT,
+      async (_event, request: CLIDetectRequest) => {
+        try {
+          const result = await cliDetector.detect(
+            request.cliType,
+            request.useCache ?? true
+          )
+          return { result }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Detect all supported CLIs
+    ipcMain.handle(
+      IPC_CHANNELS.CLI_DETECT_ALL,
+      async (_event, _request: CLIDetectAllRequest) => {
+        try {
+          const resultsMap = await cliDetector.detectAll()
+          // Convert Map to plain object for IPC serialization
+          const results: Record<
+            CLIType,
+            import('shared/ipc-types').CLIDetectionResult
+          > = {} as Record<
+            CLIType,
+            import('shared/ipc-types').CLIDetectionResult
+          >
+          for (const [key, value] of resultsMap) {
+            results[key] = value
+          }
+          return { results }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get recommended path for a CLI
+    ipcMain.handle(
+      IPC_CHANNELS.CLI_GET_RECOMMENDED,
+      async (_event, request: CLIGetRecommendedRequest) => {
+        try {
+          const path = await cliDetector.getRecommendedPath(request.cliType)
+          return { path: path ?? null }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Verify a specific path is valid for a CLI type
+    ipcMain.handle(
+      IPC_CHANNELS.CLI_VERIFY_PATH,
+      async (_event, request: CLIVerifyPathRequest) => {
+        try {
+          const valid = await cliDetector.verifyPath(
+            request.cliType,
+            request.path
+          )
+          return { valid }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Clear the detection cache
+    ipcMain.handle(
+      IPC_CHANNELS.CLI_CLEAR_CACHE,
+      async (_event, _request: CLIClearCacheRequest) => {
+        try {
+          cliDetector.clearCache()
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
         }
       }
     )

@@ -157,6 +157,13 @@ export const IPC_CHANNELS = {
 
   // Dialog operations
   DIALOG_OPEN_DIRECTORY: 'dialog:openDirectory',
+
+  // CLI Detection operations
+  CLI_DETECT: 'cli:detect',
+  CLI_DETECT_ALL: 'cli:detectAll',
+  CLI_GET_RECOMMENDED: 'cli:getRecommended',
+  CLI_VERIFY_PATH: 'cli:verifyPath',
+  CLI_CLEAR_CACHE: 'cli:clearCache',
 } as const
 
 // Project Request/Response Types
@@ -1021,4 +1028,89 @@ export interface JulesGetActivitiesResponse {
 export interface JulesStatusUpdateData {
   taskId: string
   status: import('./notification-types').JulesSessionStatus
+}
+
+// ============================================================================
+// CLI Detection Request/Response Types
+// ============================================================================
+
+/**
+ * Supported CLI types for detection
+ */
+export type CLIType =
+  | 'python'
+  | 'node'
+  | 'git'
+  | 'npm'
+  | 'pnpm'
+  | 'yarn'
+  | 'bun'
+  | 'claude-code'
+  | 'uv'
+  | 'uvx'
+
+/**
+ * Information about a detected CLI/executable
+ */
+export interface DetectedCLI {
+  /** Name of the CLI (e.g., 'python', 'node') */
+  name: string
+  /** Full path to the executable */
+  path: string
+  /** Version string if available */
+  version?: string
+  /** Whether this is the recommended/default option */
+  isDefault: boolean
+}
+
+/**
+ * Result of CLI detection for a specific tool
+ */
+export interface CLIDetectionResult {
+  /** Whether the CLI was found */
+  found: boolean
+  /** All detected installations */
+  installations: DetectedCLI[]
+  /** The recommended installation to use */
+  recommended?: DetectedCLI
+  /** Error message if detection failed */
+  error?: string
+}
+
+export interface CLIDetectRequest {
+  cliType: CLIType
+  useCache?: boolean
+}
+
+export interface CLIDetectResponse {
+  result: CLIDetectionResult
+}
+
+export interface CLIDetectAllRequest {}
+
+export interface CLIDetectAllResponse {
+  results: Record<CLIType, CLIDetectionResult>
+}
+
+export interface CLIGetRecommendedRequest {
+  cliType: CLIType
+}
+
+export interface CLIGetRecommendedResponse {
+  path: string | null
+}
+
+export interface CLIVerifyPathRequest {
+  cliType: CLIType
+  path: string
+}
+
+export interface CLIVerifyPathResponse {
+  valid: boolean
+}
+
+export interface CLIClearCacheRequest {}
+
+export interface CLIClearCacheResponse {
+  success: boolean
 }

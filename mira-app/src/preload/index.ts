@@ -181,6 +181,17 @@ import type {
   JulesGetActivitiesRequest,
   JulesGetActivitiesResponse,
   JulesStatusUpdateData,
+  // CLI Detection types
+  CLIDetectRequest,
+  CLIDetectResponse,
+  CLIDetectAllRequest,
+  CLIDetectAllResponse,
+  CLIGetRecommendedRequest,
+  CLIGetRecommendedResponse,
+  CLIVerifyPathRequest,
+  CLIVerifyPathResponse,
+  CLIClearCacheRequest,
+  CLIClearCacheResponse,
 } from 'shared/ipc-types'
 
 /**
@@ -585,6 +596,26 @@ const api = {
       return () =>
         ipcRenderer.removeListener(IPC_CHANNELS.JULES_STATUS_UPDATE, listener)
     },
+  },
+
+  // CLI Detection operations
+  cli: {
+    detect: (request: CLIDetectRequest): Promise<CLIDetectResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT, request),
+    detectAll: (request: CLIDetectAllRequest): Promise<CLIDetectAllResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT_ALL, request),
+    getRecommended: (
+      request: CLIGetRecommendedRequest
+    ): Promise<CLIGetRecommendedResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_GET_RECOMMENDED, request),
+    verifyPath: (
+      request: CLIVerifyPathRequest
+    ): Promise<CLIVerifyPathResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_VERIFY_PATH, request),
+    clearCache: (
+      request: CLIClearCacheRequest
+    ): Promise<CLIClearCacheResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_CLEAR_CACHE, request),
   },
 }
 
