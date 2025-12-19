@@ -38,6 +38,8 @@ export const SETTING_KEYS = {
 
   // Tasks
   TASKS_AUTO_RESUME: 'tasks.autoResume',
+  TASKS_DEFAULT_PLANNING_MODE: 'tasks.defaultPlanningMode',
+  TASKS_DEPENDENCY_BLOCKING_ENABLED: 'tasks.dependencyBlockingEnabled',
 
   // Workspace
   LAST_OPENED_PROJECT: 'workspace.lastOpenedProject',
@@ -70,6 +72,8 @@ export const DEFAULT_SETTINGS: Record<SettingKey, string> = {
   [SETTING_KEYS.AI_MAX_TOKENS]: '4096',
 
   [SETTING_KEYS.TASKS_AUTO_RESUME]: 'false',
+  [SETTING_KEYS.TASKS_DEFAULT_PLANNING_MODE]: 'skip',
+  [SETTING_KEYS.TASKS_DEPENDENCY_BLOCKING_ENABLED]: 'true',
 
   [SETTING_KEYS.LAST_OPENED_PROJECT]: '',
 }

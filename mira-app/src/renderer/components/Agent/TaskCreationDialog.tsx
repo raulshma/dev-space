@@ -58,11 +58,17 @@ import {
   IconCheck,
 } from '@tabler/icons-react'
 import { useCreateAgentTask } from 'renderer/hooks/use-agent-tasks'
+import { useTaskList } from 'renderer/stores/agent-task-store'
+import { useSetting, SETTING_KEYS } from 'renderer/hooks/use-settings'
+import { PlanningModeSelector } from './PlanningModeSelector'
+import { DependencySelector } from './DependencySelector'
+import { BranchInput } from './BranchInput'
 import type {
   AgentType,
   AgentParameters,
   TaskServiceType,
   JulesParameters,
+  PlanningMode,
 } from 'shared/ai-types'
 import { TASK_SERVICE_TYPES } from 'shared/ai-types'
 
@@ -95,6 +101,11 @@ export function TaskCreationDialog({
   defaultDirectory = '',
   onTaskCreated,
 }: TaskCreationDialogProps): React.JSX.Element {
+  // Get default planning mode from settings
+  const { data: defaultPlanningModeSetting } = useSetting(
+    SETTING_KEYS.TASKS_DEFAULT_PLANNING_MODE
+  )
+
   // Service selection state
   const [serviceType, setServiceType] = useState<TaskServiceType>('claude-code')
 
@@ -110,6 +121,20 @@ export function TaskCreationDialog({
     taskFile: '',
     customEnv: {},
   })
+
+  // Planning mode state (for Claude Code) - initialized from settings
+  const [planningMode, setPlanningMode] = useState<PlanningMode>(
+    (defaultPlanningModeSetting as PlanningMode) || 'skip'
+  )
+  const [requirePlanApproval, setRequirePlanApproval] = useState(false)
+
+  // Dependencies state
+  const [selectedDependencies, setSelectedDependencies] = useState<string[]>([])
+
+  // Branch/worktree state (for Claude Code)
+  const [branchName, setBranchName] = useState('')
+  // Get available tasks for dependency selection
+  const availableTasks = useTaskList()
 
   // Jules-specific state
   const [julesParams, setJulesParams] = useState<JulesParameters>({
@@ -185,6 +210,13 @@ export function TaskCreationDialog({
     }
   }, [serviceType, selectedService, agentType])
 
+  // Sync planning mode with default setting when dialog opens
+  useEffect(() => {
+    if (open && defaultPlanningModeSetting) {
+      setPlanningMode(defaultPlanningModeSetting as PlanningMode)
+    }
+  }, [open, defaultPlanningModeSetting])
+
   // Update Jules title when description changes
   useEffect(() => {
     if (serviceType === 'google-jules' && !julesParams.title) {
@@ -256,6 +288,10 @@ export function TaskCreationDialog({
       taskFile: '',
       customEnv: {},
     })
+    setPlanningMode((defaultPlanningModeSetting as PlanningMode) || 'skip')
+    setRequirePlanApproval(false)
+    setSelectedDependencies([])
+    setBranchName('')
     setJulesParams({
       source: '',
       startingBranch: 'main',
@@ -267,7 +303,7 @@ export function TaskCreationDialog({
     setAvailableSources([])
     setSourceSearchQuery('')
     setIsSourceDropdownOpen(false)
-  }, [defaultDirectory])
+  }, [defaultDirectory, defaultPlanningModeSetting])
 
   const handleClose = useCallback(() => {
     resetForm()
@@ -413,6 +449,15 @@ Respond with JSON only:
         parameters: serviceType === 'claude-code' ? parameters : undefined,
         serviceType,
         julesParams: serviceType === 'google-jules' ? julesParams : undefined,
+        planningMode: serviceType === 'claude-code' ? planningMode : undefined,
+        requirePlanApproval:
+          serviceType === 'claude-code' && planningMode !== 'skip'
+            ? requirePlanApproval
+            : undefined,
+        branchName:
+          serviceType === 'claude-code' && branchName.trim()
+            ? branchName.trim()
+            : undefined,
       })
 
       onTaskCreated?.(result.id)
@@ -834,6 +879,44 @@ Respond with JSON only:
                       Optional file containing detailed task instructions
                     </p>
                   </div>
+
+                  {/* Planning Mode */}
+                  <div className="border-t pt-4">
+                    <PlanningModeSelector
+                      onChange={setPlanningMode}
+                      onRequireApprovalChange={setRequirePlanApproval}
+                      requireApproval={requirePlanApproval}
+                      value={planningMode}
+                    />
+                  </div>
+
+                  {/* Task Dependencies */}
+                  {availableTasks.length > 0 && (
+                    <div className="border-t pt-4 space-y-2">
+                      <Label>Task Dependencies (optional)</Label>
+                      <DependencySelector
+                        availableTasks={availableTasks}
+                        onDependenciesChange={setSelectedDependencies}
+                        placeholder="Select tasks this depends on..."
+                        selectedDependencies={selectedDependencies}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This task will wait for selected dependencies to
+                        complete before starting
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Branch/Worktree Isolation */}
+                  <div className="border-t pt-4">
+                    <BranchInput
+                      autoSuggest
+                      helperText="Specify a branch name to isolate this task's changes in a separate worktree."
+                      onChange={setBranchName}
+                      taskDescription={description}
+                      value={branchName}
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -974,6 +1057,46 @@ Respond with JSON only:
                       <p className="text-sm font-mono text-xs">
                         {parameters.taskFile}
                       </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        Planning Mode
+                      </Label>
+                      <p className="text-sm capitalize">{planningMode}</p>
+                    </div>
+                    {planningMode !== 'skip' && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">
+                          Plan Approval
+                        </Label>
+                        <p className="text-sm">
+                          {requirePlanApproval ? 'Required' : 'Auto-approved'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedDependencies.length > 0 && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        Dependencies
+                      </Label>
+                      <p className="text-sm">
+                        {selectedDependencies.length} task
+                        {selectedDependencies.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  )}
+
+                  {branchName && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        Branch / Worktree
+                      </Label>
+                      <p className="text-sm font-mono text-xs">{branchName}</p>
                     </div>
                   )}
                 </>

@@ -4,6 +4,7 @@ import { PTYManager } from './pty-manager'
 // Mock node-pty
 vi.mock('@lydell/node-pty', () => ({
   spawn: vi.fn(() => ({
+    pid: 12345,
     onData: vi.fn(),
     onExit: vi.fn(),
     write: vi.fn(),

@@ -142,6 +142,9 @@ export function useCreateAgentTask() {
       priority,
       serviceType,
       julesParams,
+      planningMode,
+      requirePlanApproval,
+      branchName,
     }: {
       description: string
       agentType: AgentType
@@ -150,6 +153,9 @@ export function useCreateAgentTask() {
       priority?: number
       serviceType?: import('shared/ai-types').TaskServiceType
       julesParams?: import('shared/ai-types').JulesParameters
+      planningMode?: import('shared/ai-types').PlanningMode
+      requirePlanApproval?: boolean
+      branchName?: string
     }) => {
       const response = await window.api.agentTasks.create({
         description,
@@ -159,6 +165,9 @@ export function useCreateAgentTask() {
         priority,
         serviceType,
         julesParams,
+        planningMode,
+        requirePlanApproval,
+        branchName,
       })
 
       const task = {

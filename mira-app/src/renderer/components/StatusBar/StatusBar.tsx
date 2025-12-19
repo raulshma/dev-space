@@ -32,6 +32,7 @@ import {
   IconExternalLink,
 } from '@tabler/icons-react'
 import { RunningProjectsIndicator } from './RunningProjectsIndicator'
+import { RunningAgentsIndicator } from './RunningAgentsIndicator'
 import { DevToolsTrigger } from 'renderer/components/DevTools'
 import {
   useNotificationStore,
@@ -385,6 +386,9 @@ export function StatusBar(): React.JSX.Element {
         <div className="flex items-center gap-1">
           {/* Developer tools */}
           <DevToolsTrigger />
+
+          {/* Running agents indicator */}
+          <RunningAgentsIndicator />
 
           {/* Running projects indicator */}
           <RunningProjectsIndicator />

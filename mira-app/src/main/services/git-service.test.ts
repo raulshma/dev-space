@@ -76,6 +76,7 @@ describe('GitService', () => {
         modified: 0,
         staged: 0,
         untracked: 0,
+        files: [],
       })
     })
 
@@ -98,6 +99,7 @@ describe('GitService', () => {
         modified: 0,
         staged: 0,
         untracked: 0,
+        files: [],
       })
     })
 

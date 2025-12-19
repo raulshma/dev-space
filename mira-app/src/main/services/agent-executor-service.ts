@@ -58,6 +58,7 @@ import type {
   OutputLine,
   ExecutionStep,
 } from 'shared/ai-types'
+import { getPlanningPromptPrefix, hasPlanGenerated, needsPlanApproval, extractTaskProgress, updateTaskStatuses } from './agent/planning-prompts'
 import type { WorkingDirectoryService } from './agent/working-directory-service'
 import type {
   JulesSessionStatus,
@@ -102,8 +103,9 @@ export class AgentExecutorError extends Error {
 const VALID_STATE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   pending: ['queued', 'stopped', 'completed'],
   queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
-  running: ['paused', 'completed', 'failed', 'stopped'],
+  running: ['paused', 'awaiting_approval', 'completed', 'failed', 'stopped'],
   paused: ['running', 'stopped', 'completed'],
+  awaiting_approval: ['running', 'stopped', 'failed'],
   completed: ['pending', 'archived'],
   failed: ['pending', 'queued', 'archived'],
   stopped: ['pending', 'queued', 'archived'],
@@ -135,6 +137,10 @@ export interface IAgentExecutorService {
   resumeTask(taskId: string): Promise<void>
   stopTask(taskId: string): Promise<void>
 
+  // Plan approval workflow
+  approvePlan(taskId: string): Promise<AgentTask>
+  rejectPlan(taskId: string, feedback: string): Promise<AgentTask>
+
   // Output streaming
   getTaskOutput(taskId: string): OutputLine[]
   subscribeToOutput(taskId: string, callback: OutputCallback): () => void
@@ -157,6 +163,9 @@ export interface AgentExecutorEvents {
   taskStopped: (task: AgentTask) => void
   taskCompleted: (task: AgentTask) => void
   taskFailed: (task: AgentTask, error: string) => void
+  taskAwaitingApproval: (task: AgentTask) => void
+  planApproved: (task: AgentTask) => void
+  planRejected: (task: AgentTask, feedback: string) => void
   outputReceived: (taskId: string, line: OutputLine) => void
 }
 
@@ -750,12 +759,13 @@ export class AgentExecutorService
       )
     }
 
-    // Can stop from pending, queued, running, or paused states
+    // Can stop from pending, queued, running, paused, or awaiting_approval states
     const stoppableStates: TaskStatus[] = [
       'pending',
       'queued',
       'running',
       'paused',
+      'awaiting_approval',
     ]
     if (!stoppableStates.includes(task.status)) {
       throw new AgentExecutorError(
@@ -799,6 +809,198 @@ export class AgentExecutorService
 
     // Process next task in queue
     await this.processNextTask()
+  }
+
+  // ============================================================================
+  // PLAN APPROVAL WORKFLOW
+  // ============================================================================
+
+  /**
+   * Approve a generated plan and continue execution
+   *
+   * When a task is in 'awaiting_approval' status, this method approves the plan
+   * and resumes execution. The agent will receive an 'approved' message to continue.
+   *
+   * @param taskId - The task ID
+   * @returns The updated task
+   * @throws AgentExecutorError if task not found or not awaiting approval
+   */
+  async approvePlan(taskId: string): Promise<AgentTask> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      throw new AgentExecutorError(
+        `Task not found: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
+    if (task.status !== 'awaiting_approval') {
+      throw new AgentExecutorError(
+        `Cannot approve plan for task in ${task.status} state`,
+        AgentExecutorErrorCode.INVALID_STATE_TRANSITION,
+        taskId
+      )
+    }
+
+    // Update plan spec status to approved
+    const updatedPlanSpec = task.planSpec
+      ? {
+          ...task.planSpec,
+          status: 'approved' as const,
+          approvedAt: new Date(),
+        }
+      : undefined
+
+    // Update task status back to running
+    await this.updateTask(taskId, {
+      status: 'running',
+      planSpec: updatedPlanSpec,
+    })
+
+    // Add approval message to output
+    const line = this.outputBuffer.append(
+      taskId,
+      '\n[Mira] Plan approved. Proceeding with implementation...\napproved\n',
+      'stdout'
+    )
+    this.emit('outputReceived', taskId, line)
+
+    const updatedTask = this.db.getAgentTask(taskId)!
+    this.emit('planApproved', updatedTask)
+
+    return updatedTask
+  }
+
+  /**
+   * Reject a generated plan with feedback
+   *
+   * When a task is in 'awaiting_approval' status, this method rejects the plan
+   * and sends feedback to the agent for regeneration.
+   *
+   * @param taskId - The task ID
+   * @param feedback - Feedback for plan revision
+   * @returns The updated task
+   * @throws AgentExecutorError if task not found or not awaiting approval
+   */
+  async rejectPlan(taskId: string, feedback: string): Promise<AgentTask> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      throw new AgentExecutorError(
+        `Task not found: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
+    if (task.status !== 'awaiting_approval') {
+      throw new AgentExecutorError(
+        `Cannot reject plan for task in ${task.status} state`,
+        AgentExecutorErrorCode.INVALID_STATE_TRANSITION,
+        taskId
+      )
+    }
+
+    // Update plan spec with rejection feedback and increment version
+    const updatedPlanSpec = task.planSpec
+      ? {
+          ...task.planSpec,
+          status: 'rejected' as const,
+          feedback,
+          version: task.planSpec.version + 1,
+        }
+      : {
+          status: 'rejected' as const,
+          feedback,
+          version: 1,
+        }
+
+    // Update task - keep status as running so agent can regenerate
+    await this.updateTask(taskId, {
+      status: 'running',
+      planSpec: updatedPlanSpec,
+    })
+
+    // Add rejection message with feedback to output
+    const line = this.outputBuffer.append(
+      taskId,
+      `\n[Mira] Plan rejected. Please revise based on feedback:\n${feedback}\n`,
+      'stdout'
+    )
+    this.emit('outputReceived', taskId, line)
+
+    const updatedTask = this.db.getAgentTask(taskId)!
+    this.emit('planRejected', updatedTask, feedback)
+
+    return updatedTask
+  }
+
+  /**
+   * Set task to awaiting approval status
+   *
+   * Called when a plan is generated and approval is required.
+   *
+   * @param taskId - The task ID
+   * @param planContent - The generated plan content
+   */
+  async setAwaitingApproval(taskId: string, planContent: string): Promise<void> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      return
+    }
+
+    // Parse tasks from the plan content
+    const { parseTasksFromSpec } = await import('./agent/planning-prompts')
+    const parsedTasks = parseTasksFromSpec(planContent)
+
+    // Create plan spec
+    const planSpec = {
+      status: 'generated' as const,
+      content: planContent,
+      version: task.planSpec?.version ?? 1,
+      generatedAt: new Date(),
+      tasks: parsedTasks,
+    }
+
+    // Update task status to awaiting approval
+    await this.updateTask(taskId, {
+      status: 'awaiting_approval',
+      planSpec,
+    })
+
+    const updatedTask = this.db.getAgentTask(taskId)!
+    this.emit('taskAwaitingApproval', updatedTask)
+  }
+
+  /**
+   * Update task progress based on task markers in output
+   *
+   * Called when TASK_START, TASK_COMPLETE, or PHASE_COMPLETE markers are detected.
+   *
+   * @param taskId - The task ID
+   * @param progress - The extracted progress information
+   */
+  private async updateTaskProgress(
+    taskId: string,
+    progress: ReturnType<typeof extractTaskProgress>
+  ): Promise<void> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task || !task.planSpec?.tasks) {
+      return
+    }
+
+    // Update task statuses based on progress
+    const updatedTasks = updateTaskStatuses(task.planSpec.tasks, progress)
+
+    // Update plan spec with new task statuses
+    const updatedPlanSpec = {
+      ...task.planSpec,
+      tasks: updatedTasks,
+    }
+
+    await this.updateTask(taskId, {
+      planSpec: updatedPlanSpec,
+    })
   }
 
   // ============================================================================
@@ -1471,6 +1673,11 @@ export class AgentExecutorService
     )
 
     // Spawn process
+    // Track accumulated output for plan detection
+    let accumulatedOutput = ''
+    let planDetected = false
+    let lastTaskProgress = { startedTasks: [] as string[], completedTasks: [] as string[], completedPhases: [] as string[] }
+
     const spawnConfig: SpawnConfig = {
       script: scriptPath,
       args,
@@ -1479,6 +1686,53 @@ export class AgentExecutorService
       onStdout: (data: string) => {
         const line = this.outputBuffer.append(task.id, data, 'stdout')
         this.emit('outputReceived', task.id, line)
+
+        // Accumulate output for plan detection
+        accumulatedOutput += data
+
+        // Check for plan generation if approval is required and not yet detected
+        if (
+          !planDetected &&
+          task.requirePlanApproval &&
+          task.planningMode !== 'skip' &&
+          hasPlanGenerated(accumulatedOutput)
+        ) {
+          planDetected = true
+
+          // Check if this plan needs approval (has SPEC_GENERATED marker)
+          if (needsPlanApproval(accumulatedOutput)) {
+            // Pause the process and set task to awaiting approval
+            const process = this.taskProcesses.get(task.id)
+            if (process) {
+              process.pause()
+            }
+
+            // Set task to awaiting approval with the plan content
+            this.setAwaitingApproval(task.id, accumulatedOutput).catch(err => {
+              console.error('Failed to set awaiting approval:', err)
+            })
+          }
+        }
+
+        // Track task progress if we have a plan with tasks
+        if (planDetected || task.planSpec?.tasks) {
+          const currentProgress = extractTaskProgress(accumulatedOutput)
+
+          // Check if progress has changed
+          const hasNewProgress =
+            currentProgress.startedTasks.length > lastTaskProgress.startedTasks.length ||
+            currentProgress.completedTasks.length > lastTaskProgress.completedTasks.length ||
+            currentProgress.completedPhases.length > lastTaskProgress.completedPhases.length
+
+          if (hasNewProgress) {
+            lastTaskProgress = currentProgress
+
+            // Update task's plan spec with progress
+            this.updateTaskProgress(task.id, currentProgress).catch(err => {
+              console.error('Failed to update task progress:', err)
+            })
+          }
+        }
       },
       onStderr: (data: string) => {
         const line = this.outputBuffer.append(task.id, data, 'stderr')
@@ -1506,6 +1760,28 @@ export class AgentExecutorService
   }
 
   /**
+   * Build the task description with planning prompt prefix if applicable
+   *
+   * @param task - The task
+   * @returns The task description with planning prompt prefix
+   */
+  private buildTaskDescription(task: AgentTask): string {
+    const planningMode = task.planningMode ?? 'skip'
+    const requirePlanApproval = task.requirePlanApproval ?? false
+
+    // Get planning prompt prefix based on mode
+    const planningPrefix = getPlanningPromptPrefix(planningMode, requirePlanApproval)
+
+    // If no planning prefix, return original description
+    if (!planningPrefix) {
+      return task.description
+    }
+
+    // Prepend planning prompt to description
+    return planningPrefix + task.description
+  }
+
+  /**
    * Build command line arguments for the agent
    *
    * @param task - The task
@@ -1514,8 +1790,11 @@ export class AgentExecutorService
   private buildAgentArgs(task: AgentTask): string[] {
     const args: string[] = []
 
+    // Build description with planning prompt prefix if applicable
+    const description = this.buildTaskDescription(task)
+
     // Add task description
-    args.push('--description', task.description)
+    args.push('--description', description)
 
     // Add target directory
     args.push('--target', task.targetDirectory)

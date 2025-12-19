@@ -1,10 +1,11 @@
 /**
  * Tasks Filters Component
  *
- * Filter bar for the tasks page with status, type, and search filters
+ * Filter bar for the tasks page with status, type, branch, and search filters
+ * Requirements: 4.4 (branch filter)
  */
 
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Input } from 'renderer/components/ui/input'
 import { Button } from 'renderer/components/ui/button'
 import {
@@ -20,7 +21,9 @@ import {
   IconSortAscending,
   IconSortDescending,
   IconX,
+  IconGitBranch,
 } from '@tabler/icons-react'
+import { useTaskList } from 'renderer/stores/agent-task-store'
 import type { TasksFilter } from 'renderer/screens/tasks'
 
 interface TasksFiltersProps {
@@ -32,9 +35,23 @@ export const TasksFilters = memo(function TasksFilters({
   filters,
   onFilterChange,
 }: TasksFiltersProps): React.JSX.Element {
+  const tasks = useTaskList()
+
+  // Get unique branches from tasks
+  const availableBranches = useMemo(() => {
+    const branches = new Set<string>()
+    for (const task of tasks) {
+      if (task.branchName) {
+        branches.add(task.branchName)
+      }
+    }
+    return Array.from(branches).sort()
+  }, [tasks])
+
   const hasActiveFilters =
     filters.status !== 'all' ||
     filters.agentType !== 'all' ||
+    filters.branch !== 'all' ||
     (filters.searchQuery && filters.searchQuery.length > 0)
 
   const handleClearFilters = () => {
@@ -42,6 +59,7 @@ export const TasksFilters = memo(function TasksFilters({
       status: 'all',
       agentType: 'all',
       searchQuery: '',
+      branch: 'all',
     })
   }
 
@@ -100,6 +118,33 @@ export const TasksFilters = memo(function TasksFilters({
             <SelectItem value="feature">Feature</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Branch filter */}
+        {availableBranches.length > 0 && (
+          <Select
+            onValueChange={value =>
+              onFilterChange({ branch: value as TasksFilter['branch'] })
+            }
+            value={filters.branch || 'all'}
+          >
+            <SelectTrigger className="w-[180px]">
+              <div className="flex items-center gap-2">
+                <IconGitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {availableBranches.map(branch => (
+                <SelectItem key={branch} value={branch}>
+                  <span className="font-mono text-xs truncate max-w-[140px]">
+                    {branch}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Sort */}
         <Select

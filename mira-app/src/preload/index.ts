@@ -209,6 +209,64 @@ import type {
   RunningProjectGetDevCommandResponse,
   RunningProjectStatusUpdateData,
   RunningProjectOutputData,
+  // Auto-Mode types
+  AutoModeStartRequest,
+  AutoModeStartResponse,
+  AutoModeStopRequest,
+  AutoModeStopResponse,
+  AutoModeGetStateRequest,
+  AutoModeGetStateResponse,
+  AutoModeSetConcurrencyRequest,
+  AutoModeSetConcurrencyResponse,
+  AutoModeStateChangedData,
+  // Running Tasks types
+  RunningTasksGetAllResponse,
+  RunningTasksStopRequest,
+  RunningTasksStopResponse,
+  RunningTasksUpdatedData,
+  // Planning types
+  TaskApprovePlanRequest,
+  TaskApprovePlanResponse,
+  TaskRejectPlanRequest,
+  TaskRejectPlanResponse,
+  TaskPlanGeneratedData,
+  // Worktree types
+  WorktreeCreateRequest,
+  WorktreeCreateResponse,
+  WorktreeDeleteRequest,
+  WorktreeDeleteResponse,
+  WorktreeListRequest,
+  WorktreeListResponse,
+  WorktreeGetForTaskRequest,
+  WorktreeGetForTaskResponse,
+  // Dependency types
+  TaskSetDependenciesRequest,
+  TaskSetDependenciesResponse,
+  TaskGetDependenciesRequest,
+  TaskGetDependenciesResponse,
+  TaskGetBlockingStatusRequest,
+  TaskGetBlockingStatusResponse,
+  // Agent Session types
+  AgentSessionCreateRequest,
+  AgentSessionCreateResponse,
+  AgentSessionGetRequest,
+  AgentSessionGetResponse,
+  AgentSessionListRequest,
+  AgentSessionListResponse,
+  AgentSessionUpdateRequest,
+  AgentSessionUpdateResponse,
+  AgentSessionArchiveRequest,
+  AgentSessionArchiveResponse,
+  AgentSessionDeleteRequest,
+  AgentSessionDeleteResponse,
+  AgentSessionAddMessageRequest,
+  AgentSessionAddMessageResponse,
+  AgentSessionGetMessagesRequest,
+  AgentSessionGetMessagesResponse,
+  AgentSessionGetLastRequest,
+  AgentSessionGetLastResponse,
+  AgentSessionSetLastRequest,
+  AgentSessionSetLastResponse,
 } from 'shared/ipc-types'
 
 /**
@@ -713,6 +771,150 @@ const api = {
           listener
         )
     },
+  },
+
+  // Auto-Mode operations
+  autoMode: {
+    start: (request: AutoModeStartRequest): Promise<AutoModeStartResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_START, request),
+    stop: (request: AutoModeStopRequest): Promise<AutoModeStopResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_STOP, request),
+    getState: (
+      request: AutoModeGetStateRequest
+    ): Promise<AutoModeGetStateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_GET_STATE, request),
+    setConcurrency: (
+      request: AutoModeSetConcurrencyRequest
+    ): Promise<AutoModeSetConcurrencyResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_SET_CONCURRENCY, request),
+    onStateChanged: (
+      callback: (data: AutoModeStateChangedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeStateChangedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_STATE_CHANGED, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_STATE_CHANGED,
+          listener
+        )
+    },
+  },
+
+  // Running Tasks Global View operations
+  runningTasks: {
+    getAll: (): Promise<RunningTasksGetAllResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_TASKS_GET_ALL, {}),
+    stop: (request: RunningTasksStopRequest): Promise<RunningTasksStopResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_TASKS_STOP, request),
+    onUpdated: (
+      callback: (data: RunningTasksUpdatedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: RunningTasksUpdatedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.RUNNING_TASKS_UPDATED, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.RUNNING_TASKS_UPDATED, listener)
+    },
+  },
+
+  // Planning Mode operations
+  planning: {
+    approvePlan: (
+      request: TaskApprovePlanRequest
+    ): Promise<TaskApprovePlanResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TASK_APPROVE_PLAN, request),
+    rejectPlan: (
+      request: TaskRejectPlanRequest
+    ): Promise<TaskRejectPlanResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TASK_REJECT_PLAN, request),
+    onPlanGenerated: (
+      callback: (data: TaskPlanGeneratedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: TaskPlanGeneratedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.TASK_PLAN_GENERATED, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.TASK_PLAN_GENERATED, listener)
+    },
+  },
+
+  // Worktree operations
+  worktrees: {
+    create: (request: WorktreeCreateRequest): Promise<WorktreeCreateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKTREE_CREATE, request),
+    delete: (request: WorktreeDeleteRequest): Promise<WorktreeDeleteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKTREE_DELETE, request),
+    list: (request: WorktreeListRequest): Promise<WorktreeListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKTREE_LIST, request),
+    getForTask: (
+      request: WorktreeGetForTaskRequest
+    ): Promise<WorktreeGetForTaskResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKTREE_GET_FOR_TASK, request),
+  },
+
+  // Task Dependency operations
+  dependencies: {
+    set: (
+      request: TaskSetDependenciesRequest
+    ): Promise<TaskSetDependenciesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TASK_SET_DEPENDENCIES, request),
+    get: (
+      request: TaskGetDependenciesRequest
+    ): Promise<TaskGetDependenciesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TASK_GET_DEPENDENCIES, request),
+    getBlockingStatus: (
+      request: TaskGetBlockingStatusRequest
+    ): Promise<TaskGetBlockingStatusResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TASK_GET_BLOCKING_STATUS, request),
+  },
+
+  // Agent Session Persistence operations
+  agentSessions: {
+    create: (
+      request: AgentSessionCreateRequest
+    ): Promise<AgentSessionCreateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_CREATE, request),
+    get: (request: AgentSessionGetRequest): Promise<AgentSessionGetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_GET, request),
+    list: (
+      request: AgentSessionListRequest
+    ): Promise<AgentSessionListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_LIST, request),
+    update: (
+      request: AgentSessionUpdateRequest
+    ): Promise<AgentSessionUpdateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_UPDATE, request),
+    archive: (
+      request: AgentSessionArchiveRequest
+    ): Promise<AgentSessionArchiveResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_ARCHIVE, request),
+    delete: (
+      request: AgentSessionDeleteRequest
+    ): Promise<AgentSessionDeleteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_DELETE, request),
+    addMessage: (
+      request: AgentSessionAddMessageRequest
+    ): Promise<AgentSessionAddMessageResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_ADD_MESSAGE, request),
+    getMessages: (
+      request: AgentSessionGetMessagesRequest
+    ): Promise<AgentSessionGetMessagesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_GET_MESSAGES, request),
+    getLast: (
+      request: AgentSessionGetLastRequest
+    ): Promise<AgentSessionGetLastResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_GET_LAST, request),
+    setLast: (
+      request: AgentSessionSetLastRequest
+    ): Promise<AgentSessionSetLastResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SESSION_SET_LAST, request),
   },
 }
 

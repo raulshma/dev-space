@@ -36,6 +36,7 @@ import {
   IconGripVertical,
 } from '@tabler/icons-react'
 import { VALID_DROP_TARGETS } from 'renderer/hooks/use-kanban-dnd'
+import { InlineBlockedIndicator } from 'renderer/components/Agent/BlockedIndicator'
 import type { AgentTask, TaskStatus } from 'shared/ai-types'
 
 interface KanbanCardProps {
@@ -43,6 +44,8 @@ interface KanbanCardProps {
   status: TaskStatus
   isSelected: boolean
   isDragging: boolean
+  isBlocked?: boolean
+  hasFailedDependencies?: boolean
   onSelect: (taskId: string) => void
   onStart: (taskId: string) => void
   onPause: (taskId: string) => void
@@ -59,6 +62,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   queued: 'border-l-blue-500',
   running: 'border-l-green-500',
   paused: 'border-l-yellow-500',
+  awaiting_approval: 'border-l-orange-500',
   completed: 'border-l-emerald-500',
   failed: 'border-l-red-500',
   stopped: 'border-l-gray-500',
@@ -83,6 +87,8 @@ export const KanbanCard = memo(function KanbanCard({
   status,
   isSelected,
   isDragging,
+  isBlocked = false,
+  hasFailedDependencies = false,
   onSelect,
   onStart,
   onPause,
@@ -276,12 +282,20 @@ export const KanbanCard = memo(function KanbanCard({
           <IconClock className="h-3 w-3" />
           {formatRelativeTime(task.createdAt)}
         </div>
-        {task.status === 'running' && (
-          <div className="ml-auto flex items-center gap-1 text-green-500">
-            <IconLoader2 className="h-3 w-3 animate-spin" />
-            Running
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {isBlocked && (
+            <InlineBlockedIndicator
+              hasFailedDependencies={hasFailedDependencies}
+              isBlocked={isBlocked}
+            />
+          )}
+          {task.status === 'running' && (
+            <div className="flex items-center gap-1 text-green-500">
+              <IconLoader2 className="h-3 w-3 animate-spin" />
+              Running
+            </div>
+          )}
+        </div>
       </CardFooter>
     </Card>
   )

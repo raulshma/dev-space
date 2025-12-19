@@ -2,7 +2,8 @@
  * Agent Task Store - Zustand state management for agent task operations
  *
  * Manages task list, current task, output buffer, and task status updates.
- * Requirements: 7.1, 9.2
+ * Extended with planning mode, plan spec, dependencies, and blocking status.
+ * Requirements: 7.1, 9.2, 3.1, 5.2
  */
 
 import { create } from 'zustand'
@@ -12,6 +13,8 @@ import type {
   TaskStatus,
   OutputLine,
   AgentType,
+  PlanningMode,
+  PlanSpec,
 } from 'shared/ai-types'
 
 // ============================================================================
@@ -21,6 +24,26 @@ import type {
 export interface TaskFilter {
   status?: TaskStatus
   agentType?: AgentType
+  planningMode?: PlanningMode
+  branchName?: string
+}
+
+/**
+ * Dependency status for a task
+ */
+export interface TaskDependencyStatus {
+  taskId: string
+  isBlocked: boolean
+  blockingTasks: string[]
+  failedDependencies: string[]
+}
+
+/**
+ * Extended task with dependency information
+ */
+export interface TaskWithDependencies extends AgentTask {
+  dependencies?: string[]
+  dependencyStatus?: TaskDependencyStatus
 }
 
 export interface AgentTaskState {
@@ -40,6 +63,11 @@ export interface AgentTaskState {
 
   // Subscription state
   subscribedTaskIds: Set<string>
+
+  // Dependency state (per task)
+  dependencies: Map<string, string[]>
+  dependencyStatuses: Map<string, TaskDependencyStatus>
+  isLoadingDependencies: boolean
 
   // Actions - Task management
   setTasks: (tasks: AgentTask[]) => void
@@ -64,6 +92,22 @@ export interface AgentTaskState {
   addSubscription: (taskId: string) => void
   removeSubscription: (taskId: string) => void
 
+  // Actions - Dependencies
+  setDependencies: (taskId: string, dependsOn: string[]) => void
+  setDependencyStatus: (taskId: string, status: TaskDependencyStatus) => void
+  clearDependencies: (taskId: string) => void
+  setLoadingDependencies: (loading: boolean) => void
+
+  // Actions - Planning
+  updatePlanSpec: (taskId: string, planSpec: PlanSpec | null) => void
+  approvePlan: (taskId: string) => Promise<void>
+  rejectPlan: (taskId: string, feedback: string) => Promise<void>
+
+  // Async Actions - Dependencies
+  loadDependencies: (taskId: string) => Promise<void>
+  loadBlockingStatus: (taskId: string) => Promise<void>
+  saveDependencies: (taskId: string, dependsOn: string[]) => Promise<void>
+
   // Selectors
   getTask: (taskId: string) => AgentTask | undefined
   getTasksByStatus: (status: TaskStatus) => AgentTask[]
@@ -71,6 +115,10 @@ export interface AgentTaskState {
   getPendingTasks: () => AgentTask[]
   getRunningTask: () => AgentTask | undefined
   getQueuedTasks: () => AgentTask[]
+  getBlockedTasks: () => AgentTask[]
+  getTasksAwaitingApproval: () => AgentTask[]
+  getTasksByPlanningMode: (mode: PlanningMode) => AgentTask[]
+  getTasksByBranch: (branchName: string) => AgentTask[]
 }
 
 // ============================================================================
@@ -91,6 +139,11 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
   isAutoScrollEnabled: true,
 
   subscribedTaskIds: new Set(),
+
+  // Dependency state
+  dependencies: new Map(),
+  dependencyStatuses: new Map(),
+  isLoadingDependencies: false,
 
   // Task management actions
   setTasks: tasks =>
@@ -286,6 +339,125 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
       return { subscribedTaskIds: newSubscriptions }
     }),
 
+  // Dependency actions
+  setDependencies: (taskId, dependsOn) =>
+    set(state => {
+      const newDependencies = new Map(state.dependencies)
+      newDependencies.set(taskId, dependsOn)
+      return { dependencies: newDependencies }
+    }),
+
+  setDependencyStatus: (taskId, status) =>
+    set(state => {
+      const newStatuses = new Map(state.dependencyStatuses)
+      newStatuses.set(taskId, status)
+      return { dependencyStatuses: newStatuses }
+    }),
+
+  clearDependencies: taskId =>
+    set(state => {
+      const newDependencies = new Map(state.dependencies)
+      newDependencies.delete(taskId)
+      const newStatuses = new Map(state.dependencyStatuses)
+      newStatuses.delete(taskId)
+      return { dependencies: newDependencies, dependencyStatuses: newStatuses }
+    }),
+
+  setLoadingDependencies: loading => set({ isLoadingDependencies: loading }),
+
+  // Planning actions
+  updatePlanSpec: (taskId, planSpec) =>
+    set(state => {
+      const task = state.tasks.get(taskId)
+      if (!task) return state
+
+      const newTasks = new Map(state.tasks)
+      newTasks.set(taskId, {
+        ...task,
+        planSpec: planSpec ?? undefined,
+      })
+      return { tasks: newTasks }
+    }),
+
+  approvePlan: async taskId => {
+    const { updateTask, setTasksError } = get()
+    try {
+      const response = await window.api.planning.approvePlan({ taskId })
+      updateTask(taskId, {
+        planSpec: response.task.planSpec,
+        status: response.task.status,
+      })
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to approve plan'
+      setTasksError(message)
+      throw err
+    }
+  },
+
+  rejectPlan: async (taskId, feedback) => {
+    const { updateTask, setTasksError } = get()
+    try {
+      const response = await window.api.planning.rejectPlan({ taskId, feedback })
+      updateTask(taskId, {
+        planSpec: response.task.planSpec,
+        status: response.task.status,
+      })
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to reject plan'
+      setTasksError(message)
+      throw err
+    }
+  },
+
+  // Async dependency actions
+  loadDependencies: async taskId => {
+    const { setDependencies, setLoadingDependencies, setTasksError } = get()
+    setLoadingDependencies(true)
+    try {
+      const response = await window.api.dependencies.get({ taskId })
+      setDependencies(taskId, response.dependencies)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load dependencies'
+      setTasksError(message)
+    } finally {
+      setLoadingDependencies(false)
+    }
+  },
+
+  loadBlockingStatus: async taskId => {
+    const { setDependencyStatus, setLoadingDependencies, setTasksError } = get()
+    setLoadingDependencies(true)
+    try {
+      const response = await window.api.dependencies.getBlockingStatus({ taskId })
+      setDependencyStatus(taskId, response.status)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load blocking status'
+      setTasksError(message)
+    } finally {
+      setLoadingDependencies(false)
+    }
+  },
+
+  saveDependencies: async (taskId, dependsOn) => {
+    const { setDependencies, setLoadingDependencies, setTasksError } = get()
+    setLoadingDependencies(true)
+    try {
+      await window.api.dependencies.set({ taskId, dependsOn })
+      setDependencies(taskId, dependsOn)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to save dependencies'
+      setTasksError(message)
+      throw err
+    } finally {
+      setLoadingDependencies(false)
+    }
+  },
+
   // Selectors
   getTask: taskId => {
     return get().tasks.get(taskId)
@@ -317,6 +489,41 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
 
   getQueuedTasks: () => {
     return get().getTasksByStatus('queued')
+  },
+
+  getBlockedTasks: () => {
+    const state = get()
+    return state.taskOrder
+      .map(id => state.tasks.get(id))
+      .filter((task): task is AgentTask => {
+        if (!task) return false
+        const status = state.dependencyStatuses.get(task.id)
+        return status?.isBlocked ?? false
+      })
+  },
+
+  getTasksAwaitingApproval: () => {
+    return get().getTasksByStatus('awaiting_approval')
+  },
+
+  getTasksByPlanningMode: (mode: PlanningMode) => {
+    const state = get()
+    return state.taskOrder
+      .map(id => state.tasks.get(id))
+      .filter(
+        (task): task is AgentTask =>
+          task !== undefined && task.planningMode === mode
+      )
+  },
+
+  getTasksByBranch: (branchName: string) => {
+    const state = get()
+    return state.taskOrder
+      .map(id => state.tasks.get(id))
+      .filter(
+        (task): task is AgentTask =>
+          task !== undefined && task.branchName === branchName
+      )
   },
 }))
 
@@ -408,4 +615,211 @@ export const useAutoScroll = (): boolean => {
  */
 export const useIsSubscribed = (taskId: string): boolean => {
   return useAgentTaskStore(state => state.subscribedTaskIds.has(taskId))
+}
+
+// ============================================================================
+// Dependency Hooks
+// ============================================================================
+
+/**
+ * Hook to get dependencies for a task
+ */
+export const useTaskDependencies = (taskId: string): string[] => {
+  return useAgentTaskStore(
+    useShallow(state => state.dependencies.get(taskId) || [])
+  )
+}
+
+/**
+ * Hook to get dependency status for a task
+ */
+export const useTaskDependencyStatus = (
+  taskId: string
+): TaskDependencyStatus | undefined => {
+  return useAgentTaskStore(state => state.dependencyStatuses.get(taskId))
+}
+
+/**
+ * Hook to check if a task is blocked
+ */
+export const useIsTaskBlocked = (taskId: string): boolean => {
+  return useAgentTaskStore(
+    state => state.dependencyStatuses.get(taskId)?.isBlocked ?? false
+  )
+}
+
+/**
+ * Hook to get all blocked tasks
+ */
+export const useBlockedTasks = (): AgentTask[] => {
+  return useAgentTaskStore(
+    useShallow(state =>
+      state.taskOrder
+        .map(id => state.tasks.get(id))
+        .filter((task): task is AgentTask => {
+          if (!task) return false
+          const status = state.dependencyStatuses.get(task.id)
+          return status?.isBlocked ?? false
+        })
+    )
+  )
+}
+
+/**
+ * Hook to check if dependencies are loading
+ */
+export const useDependenciesLoading = (): boolean => {
+  return useAgentTaskStore(state => state.isLoadingDependencies)
+}
+
+// ============================================================================
+// Planning Hooks
+// ============================================================================
+
+/**
+ * Hook to get tasks awaiting plan approval
+ */
+export const useTasksAwaitingApproval = (): AgentTask[] => {
+  return useAgentTaskStore(
+    useShallow(state =>
+      state.taskOrder
+        .map(id => state.tasks.get(id))
+        .filter(
+          (task): task is AgentTask =>
+            task !== undefined && task.status === 'awaiting_approval'
+        )
+    )
+  )
+}
+
+/**
+ * Hook to get tasks by planning mode
+ */
+export const useTasksByPlanningMode = (mode: PlanningMode): AgentTask[] => {
+  return useAgentTaskStore(
+    useShallow(state =>
+      state.taskOrder
+        .map(id => state.tasks.get(id))
+        .filter(
+          (task): task is AgentTask =>
+            task !== undefined && task.planningMode === mode
+        )
+    )
+  )
+}
+
+/**
+ * Hook to get a task's plan spec
+ */
+export const useTaskPlanSpec = (taskId: string): PlanSpec | undefined => {
+  return useAgentTaskStore(state => state.tasks.get(taskId)?.planSpec)
+}
+
+/**
+ * Hook to check if a task requires plan approval
+ */
+export const useRequiresPlanApproval = (taskId: string): boolean => {
+  return useAgentTaskStore(
+    state => state.tasks.get(taskId)?.requirePlanApproval ?? false
+  )
+}
+
+// ============================================================================
+// Branch/Worktree Hooks
+// ============================================================================
+
+/**
+ * Hook to get tasks by branch name
+ */
+export const useTasksByBranch = (branchName: string): AgentTask[] => {
+  return useAgentTaskStore(
+    useShallow(state =>
+      state.taskOrder
+        .map(id => state.tasks.get(id))
+        .filter(
+          (task): task is AgentTask =>
+            task !== undefined && task.branchName === branchName
+        )
+    )
+  )
+}
+
+/**
+ * Hook to get all unique branch names from tasks
+ */
+export const useTaskBranches = (): string[] => {
+  return useAgentTaskStore(
+    useShallow(state => {
+      const branches = new Set<string>()
+      for (const task of state.tasks.values()) {
+        if (task.branchName) {
+          branches.add(task.branchName)
+        }
+      }
+      return Array.from(branches)
+    })
+  )
+}
+
+/**
+ * Hook to get a task's worktree path
+ */
+export const useTaskWorktreePath = (taskId: string): string | undefined => {
+  return useAgentTaskStore(state => state.tasks.get(taskId)?.worktreePath)
+}
+
+// ============================================================================
+// Action Hooks
+// ============================================================================
+
+/**
+ * Hook to get dependency actions
+ */
+export const useDependencyActions = () => {
+  return useAgentTaskStore(
+    useShallow(state => ({
+      loadDependencies: state.loadDependencies,
+      loadBlockingStatus: state.loadBlockingStatus,
+      saveDependencies: state.saveDependencies,
+      setDependencies: state.setDependencies,
+      setDependencyStatus: state.setDependencyStatus,
+      clearDependencies: state.clearDependencies,
+    }))
+  )
+}
+
+/**
+ * Hook to get planning actions
+ */
+export const usePlanningActions = () => {
+  return useAgentTaskStore(
+    useShallow(state => ({
+      updatePlanSpec: state.updatePlanSpec,
+      approvePlan: state.approvePlan,
+      rejectPlan: state.rejectPlan,
+    }))
+  )
+}
+
+/**
+ * Hook to get all task actions
+ */
+export const useTaskActions = () => {
+  return useAgentTaskStore(
+    useShallow(state => ({
+      setTasks: state.setTasks,
+      addTask: state.addTask,
+      updateTask: state.updateTask,
+      removeTask: state.removeTask,
+      reorderTasks: state.reorderTasks,
+      setCurrentTask: state.setCurrentTask,
+      setSelectedTask: state.setSelectedTask,
+      appendOutput: state.appendOutput,
+      setOutput: state.setOutput,
+      clearOutput: state.clearOutput,
+      setAutoScroll: state.setAutoScroll,
+      addSubscription: state.addSubscription,
+      removeSubscription: state.removeSubscription,
+    }))
+  )
 }

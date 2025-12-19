@@ -3,7 +3,7 @@
 
 import { create } from 'zustand'
 
-export type ActiveView = 'dashboard' | 'workspace' | 'tasks'
+export type ActiveView = 'dashboard' | 'workspace' | 'tasks' | 'running-agents'
 
 export interface AppState {
   // UI State

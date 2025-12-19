@@ -119,7 +119,42 @@ import type {
   DevToolsPortKillRequest,
   DevToolsTaskListRequest,
   DevToolsTaskKillRequest,
+  // Auto-Mode types
+  AutoModeStartRequest,
+  AutoModeStopRequest,
+  AutoModeGetStateRequest,
+  AutoModeSetConcurrencyRequest,
+  // Running Tasks types
+  RunningTasksStopRequest,
+  // Planning types
+  TaskApprovePlanRequest,
+  TaskRejectPlanRequest,
+  // Worktree types
+  WorktreeCreateRequest,
+  WorktreeDeleteRequest,
+  WorktreeListRequest,
+  WorktreeGetForTaskRequest,
+  // Dependency types
+  TaskSetDependenciesRequest,
+  TaskGetDependenciesRequest,
+  TaskGetBlockingStatusRequest,
+  // Agent Session types
+  AgentSessionCreateRequest,
+  AgentSessionGetRequest,
+  AgentSessionListRequest,
+  AgentSessionUpdateRequest,
+  AgentSessionArchiveRequest,
+  AgentSessionDeleteRequest,
+  AgentSessionAddMessageRequest,
+  AgentSessionGetMessagesRequest,
+  AgentSessionGetLastRequest,
+  AgentSessionSetLastRequest,
 } from 'shared/ipc-types'
+import type { AutoModeService } from 'main/services/auto-mode-service'
+import type { GlobalProcessService } from 'main/services/global-process-service'
+import type { WorktreeService } from 'main/services/worktree-service'
+import type { DependencyManager } from 'main/services/dependency-manager'
+import type { SessionService } from 'main/services/session-service'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -145,6 +180,11 @@ export class IPCHandlers {
   private julesService?: JulesService
   private requestLogger?: RequestLogger
   private runningProjectsService?: RunningProjectsService
+  private autoModeService?: AutoModeService
+  private globalProcessService?: GlobalProcessService
+  private worktreeService?: WorktreeService
+  private dependencyManager?: DependencyManager
+  private sessionService?: SessionService
 
   constructor(
     db: DatabaseService,
@@ -157,7 +197,12 @@ export class IPCHandlers {
     agentConfigService?: AgentConfigService,
     julesService?: JulesService,
     requestLogger?: RequestLogger,
-    runningProjectsService?: RunningProjectsService
+    runningProjectsService?: RunningProjectsService,
+    autoModeService?: AutoModeService,
+    globalProcessService?: GlobalProcessService,
+    worktreeService?: WorktreeService,
+    dependencyManager?: DependencyManager,
+    sessionService?: SessionService
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -173,6 +218,11 @@ export class IPCHandlers {
     this.julesService = julesService
     this.requestLogger = requestLogger
     this.runningProjectsService = runningProjectsService
+    this.autoModeService = autoModeService
+    this.globalProcessService = globalProcessService
+    this.worktreeService = worktreeService
+    this.dependencyManager = dependencyManager
+    this.sessionService = sessionService
   }
 
   /**
@@ -203,6 +253,13 @@ export class IPCHandlers {
     this.registerCLIDetectorHandlers()
     this.registerRunningProjectsHandlers()
     this.registerDevToolsHandlers()
+    // Agent enhancement handlers
+    this.registerAutoModeHandlers()
+    this.registerRunningTasksHandlers()
+    this.registerPlanningHandlers()
+    this.registerWorktreeHandlers()
+    this.registerDependencyHandlers()
+    this.registerAgentSessionHandlers()
   }
 
   /**
@@ -1313,6 +1370,8 @@ export class IPCHandlers {
             priority: request.priority,
             serviceType: request.serviceType,
             julesParams: request.julesParams,
+            planningMode: request.planningMode,
+            requirePlanApproval: request.requirePlanApproval,
           })
           return { task }
         } catch (error) {
@@ -2091,6 +2150,642 @@ export class IPCHandlers {
       async (_event, request: DevToolsTaskKillRequest) => {
         try {
           return await devToolsService.killTask(request.pid, request.force)
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Auto-Mode operation handlers
+   * Requirements: 1.1, 1.3, 1.5
+   */
+  private registerAutoModeHandlers(): void {
+    // Start auto-mode
+    ipcMain.handle(
+      IPC_CHANNELS.AUTO_MODE_START,
+      async (_event, request: AutoModeStartRequest) => {
+        try {
+          if (!this.autoModeService) {
+            return {
+              error: 'Auto-mode service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.autoModeService.start(
+            request.projectPath,
+            request.concurrencyLimit
+          )
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stop auto-mode
+    ipcMain.handle(
+      IPC_CHANNELS.AUTO_MODE_STOP,
+      async (_event, request: AutoModeStopRequest) => {
+        try {
+          if (!this.autoModeService) {
+            return {
+              error: 'Auto-mode service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.autoModeService.stop(request.projectPath)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get auto-mode state
+    ipcMain.handle(
+      IPC_CHANNELS.AUTO_MODE_GET_STATE,
+      async (_event, request: AutoModeGetStateRequest) => {
+        try {
+          if (!this.autoModeService) {
+            return {
+              error: 'Auto-mode service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const state = this.autoModeService.getState(request.projectPath)
+          return { state }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set concurrency limit
+    ipcMain.handle(
+      IPC_CHANNELS.AUTO_MODE_SET_CONCURRENCY,
+      async (_event, request: AutoModeSetConcurrencyRequest) => {
+        try {
+          if (!this.autoModeService) {
+            return {
+              error: 'Auto-mode service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          this.autoModeService.setConcurrencyLimit(
+            request.projectPath,
+            request.limit
+          )
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set up event forwarding for auto-mode state changes
+    if (this.autoModeService) {
+      this.autoModeService.on(
+        'stateChanged',
+        (
+          projectPath: string,
+          state: {
+            isRunning: boolean
+            runningTaskCount: number
+            concurrencyLimit: number
+            lastStartedTaskId: string | null
+          }
+        ) => {
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_STATE_CHANGED, {
+              projectPath,
+              state,
+            })
+          }
+        }
+      )
+    }
+  }
+
+  /**
+   * Running Tasks Global View operation handlers
+   * Requirements: 2.1, 2.4
+   */
+  private registerRunningTasksHandlers(): void {
+    // Get all running tasks
+    ipcMain.handle(IPC_CHANNELS.RUNNING_TASKS_GET_ALL, async () => {
+      try {
+        if (!this.globalProcessService) {
+          return {
+            error: 'Global process service not initialized',
+            code: 'SERVICE_NOT_INITIALIZED',
+          }
+        }
+        const tasks = this.globalProcessService.getRunningTasks()
+        return { tasks }
+      } catch (error) {
+        return this.handleError(error)
+      }
+    })
+
+    // Stop a running task
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_TASKS_STOP,
+      async (_event, request: RunningTasksStopRequest) => {
+        try {
+          if (!this.globalProcessService) {
+            return {
+              error: 'Global process service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.globalProcessService.stopTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set up event forwarding for running tasks updates
+    if (this.globalProcessService) {
+      this.globalProcessService.on(
+        'tasksUpdated',
+        (
+          tasks: Array<{
+            taskId: string
+            projectPath: string
+            projectName: string
+            description: string
+            status: import('shared/ai-types').TaskStatus
+            startedAt: Date
+            isAutoMode: boolean
+          }>
+        ) => {
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.RUNNING_TASKS_UPDATED, {
+              tasks,
+            })
+          }
+        }
+      )
+    }
+  }
+
+  /**
+   * Planning Mode operation handlers
+   * Requirements: 3.7, 3.8
+   */
+  private registerPlanningHandlers(): void {
+    // Approve plan
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_APPROVE_PLAN,
+      async (_event, request: TaskApprovePlanRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const task = await this.agentExecutorService.approvePlan(
+            request.taskId
+          )
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Reject plan
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_REJECT_PLAN,
+      async (_event, request: TaskRejectPlanRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const task = await this.agentExecutorService.rejectPlan(
+            request.taskId,
+            request.feedback
+          )
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set up event forwarding for plan generation
+    if (this.agentExecutorService) {
+      this.agentExecutorService.on(
+        'planGenerated',
+        (taskId: string, plan: import('shared/ai-types').PlanSpec) => {
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.TASK_PLAN_GENERATED, {
+              taskId,
+              plan,
+            })
+          }
+        }
+      )
+    }
+  }
+
+  /**
+   * Worktree operation handlers
+   * Requirements: 4.2, 4.3, 4.6
+   */
+  private registerWorktreeHandlers(): void {
+    // Create worktree
+    ipcMain.handle(
+      IPC_CHANNELS.WORKTREE_CREATE,
+      async (_event, request: WorktreeCreateRequest) => {
+        try {
+          if (!this.worktreeService) {
+            return {
+              error: 'Worktree service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const worktree = await this.worktreeService.createWorktree(
+            request.projectPath,
+            request.branchName,
+            request.taskId
+          )
+          return { worktree }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Delete worktree
+    ipcMain.handle(
+      IPC_CHANNELS.WORKTREE_DELETE,
+      async (_event, request: WorktreeDeleteRequest) => {
+        try {
+          if (!this.worktreeService) {
+            return {
+              error: 'Worktree service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.worktreeService.deleteWorktree(request.worktreePath)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List worktrees
+    ipcMain.handle(
+      IPC_CHANNELS.WORKTREE_LIST,
+      async (_event, request: WorktreeListRequest) => {
+        try {
+          if (!this.worktreeService) {
+            return {
+              error: 'Worktree service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const worktrees = await this.worktreeService.listWorktrees(
+            request.projectPath
+          )
+          return { worktrees }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get worktree for task
+    ipcMain.handle(
+      IPC_CHANNELS.WORKTREE_GET_FOR_TASK,
+      async (_event, request: WorktreeGetForTaskRequest) => {
+        try {
+          if (!this.worktreeService) {
+            return {
+              error: 'Worktree service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const worktree = this.worktreeService.getWorktreeForTask(
+            request.taskId
+          )
+          return { worktree }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Task Dependency operation handlers
+   * Requirements: 5.1, 5.2
+   */
+  private registerDependencyHandlers(): void {
+    // Set dependencies
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_SET_DEPENDENCIES,
+      async (_event, request: TaskSetDependenciesRequest) => {
+        try {
+          if (!this.dependencyManager) {
+            return {
+              error: 'Dependency manager not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          this.dependencyManager.setDependencies(
+            request.taskId,
+            request.dependsOn
+          )
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get dependencies
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_GET_DEPENDENCIES,
+      async (_event, request: TaskGetDependenciesRequest) => {
+        try {
+          if (!this.dependencyManager) {
+            return {
+              error: 'Dependency manager not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const dependencies = this.dependencyManager.getDependencies(
+            request.taskId
+          )
+          return { dependencies }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get blocking status
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_GET_BLOCKING_STATUS,
+      async (_event, request: TaskGetBlockingStatusRequest) => {
+        try {
+          if (!this.dependencyManager) {
+            return {
+              error: 'Dependency manager not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+
+          // Check if dependency blocking is enabled in settings
+          const dependencyBlockingEnabled = this.db.getSetting(
+            'tasks.dependencyBlockingEnabled'
+          )
+
+          // If blocking is disabled, return not blocked
+          if (dependencyBlockingEnabled === 'false') {
+            return {
+              status: {
+                taskId: request.taskId,
+                isBlocked: false,
+                blockingTasks: [],
+                failedDependencies: [],
+              },
+            }
+          }
+
+          const status = this.dependencyManager.getBlockingStatus(
+            request.taskId
+          )
+          return { status }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Agent Session Persistence operation handlers
+   * Requirements: 6.1, 6.3, 6.4, 6.8, 6.9, 6.10
+   */
+  private registerAgentSessionHandlers(): void {
+    // Create session
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_CREATE,
+      async (_event, request: AgentSessionCreateRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const session = await this.sessionService.createSession(
+            request.projectPath,
+            request.name,
+            request.modelId
+          )
+          return { session }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get session
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_GET,
+      async (_event, request: AgentSessionGetRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const session = this.sessionService.getSession(request.sessionId)
+          return { session }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List sessions
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_LIST,
+      async (_event, request: AgentSessionListRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const sessions = this.sessionService.getSessions(
+            request.projectPath,
+            request.includeArchived
+          )
+          return { sessions }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Update session
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_UPDATE,
+      async (_event, request: AgentSessionUpdateRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const session = await this.sessionService.updateSession(
+            request.sessionId,
+            request.updates
+          )
+          return { session }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Archive session
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_ARCHIVE,
+      async (_event, request: AgentSessionArchiveRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.sessionService.archiveSession(request.sessionId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Delete session
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_DELETE,
+      async (_event, request: AgentSessionDeleteRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.sessionService.deleteSession(request.sessionId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Add message
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_ADD_MESSAGE,
+      async (_event, request: AgentSessionAddMessageRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const message = await this.sessionService.addMessage(
+            request.sessionId,
+            request.role,
+            request.content
+          )
+          return { message }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get messages
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_GET_MESSAGES,
+      async (_event, request: AgentSessionGetMessagesRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const messages = this.sessionService.getMessages(request.sessionId)
+          return { messages }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get last session ID
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_GET_LAST,
+      async (_event, request: AgentSessionGetLastRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const sessionId = this.sessionService.getLastSessionId(
+            request.projectPath
+          )
+          return { sessionId }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set last session ID
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_SESSION_SET_LAST,
+      async (_event, request: AgentSessionSetLastRequest) => {
+        try {
+          if (!this.sessionService) {
+            return {
+              error: 'Session service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          this.sessionService.setLastSessionId(
+            request.projectPath,
+            request.sessionId
+          )
+          return { success: true }
         } catch (error) {
           return this.handleError(error)
         }

@@ -167,13 +167,19 @@ export function TasksTable({
       result = result.filter(t => t.agentType === filters.agentType)
     }
 
+    // Branch filter
+    if (filters.branch && filters.branch !== 'all') {
+      result = result.filter(t => t.branchName === filters.branch)
+    }
+
     // Search filter
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase()
       result = result.filter(
         t =>
           t.description.toLowerCase().includes(query) ||
-          t.targetDirectory.toLowerCase().includes(query)
+          t.targetDirectory.toLowerCase().includes(query) ||
+          (t.branchName && t.branchName.toLowerCase().includes(query))
       )
     }
 

@@ -181,6 +181,46 @@ export const IPC_CHANNELS = {
   DEVTOOLS_PORT_KILL: 'devtools:port:kill',
   DEVTOOLS_TASK_LIST: 'devtools:task:list',
   DEVTOOLS_TASK_KILL: 'devtools:task:kill',
+
+  // Auto-Mode operations
+  AUTO_MODE_START: 'autoMode:start',
+  AUTO_MODE_STOP: 'autoMode:stop',
+  AUTO_MODE_GET_STATE: 'autoMode:getState',
+  AUTO_MODE_SET_CONCURRENCY: 'autoMode:setConcurrency',
+  AUTO_MODE_STATE_CHANGED: 'autoMode:stateChanged', // event
+
+  // Running Tasks Global View operations
+  RUNNING_TASKS_GET_ALL: 'runningTasks:getAll',
+  RUNNING_TASKS_STOP: 'runningTasks:stop',
+  RUNNING_TASKS_UPDATED: 'runningTasks:updated', // event
+
+  // Planning Mode operations
+  TASK_APPROVE_PLAN: 'task:approvePlan',
+  TASK_REJECT_PLAN: 'task:rejectPlan',
+  TASK_PLAN_GENERATED: 'task:planGenerated', // event
+
+  // Worktree operations
+  WORKTREE_CREATE: 'worktree:create',
+  WORKTREE_DELETE: 'worktree:delete',
+  WORKTREE_LIST: 'worktree:list',
+  WORKTREE_GET_FOR_TASK: 'worktree:getForTask',
+
+  // Task Dependency operations
+  TASK_SET_DEPENDENCIES: 'task:setDependencies',
+  TASK_GET_DEPENDENCIES: 'task:getDependencies',
+  TASK_GET_BLOCKING_STATUS: 'task:getBlockingStatus',
+
+  // Agent Session operations (new session persistence)
+  AGENT_SESSION_CREATE: 'agentSession:create',
+  AGENT_SESSION_GET: 'agentSession:get',
+  AGENT_SESSION_LIST: 'agentSession:list',
+  AGENT_SESSION_UPDATE: 'agentSession:update',
+  AGENT_SESSION_ARCHIVE: 'agentSession:archive',
+  AGENT_SESSION_DELETE: 'agentSession:delete',
+  AGENT_SESSION_ADD_MESSAGE: 'agentSession:addMessage',
+  AGENT_SESSION_GET_MESSAGES: 'agentSession:getMessages',
+  AGENT_SESSION_GET_LAST: 'agentSession:getLast',
+  AGENT_SESSION_SET_LAST: 'agentSession:setLast',
 } as const
 
 // Project Request/Response Types
@@ -797,6 +837,9 @@ export interface AgentTaskCreateRequest {
   priority?: number
   serviceType?: import('./ai-types').TaskServiceType
   julesParams?: import('./ai-types').JulesParameters
+  planningMode?: import('./ai-types').PlanningMode
+  requirePlanApproval?: boolean
+  branchName?: string
 }
 
 export interface AgentTaskCreateResponse {
@@ -1256,4 +1299,308 @@ export interface DevToolsTaskKillRequest {
 export interface DevToolsTaskKillResponse {
   success: boolean
   error?: string
+}
+
+// ============================================================================
+// Auto-Mode Request/Response Types
+// ============================================================================
+
+export interface AutoModeStartRequest {
+  projectPath: string
+  concurrencyLimit?: number
+}
+
+export interface AutoModeStartResponse {
+  success: boolean
+}
+
+export interface AutoModeStopRequest {
+  projectPath: string
+}
+
+export interface AutoModeStopResponse {
+  success: boolean
+}
+
+export interface AutoModeGetStateRequest {
+  projectPath: string
+}
+
+export interface AutoModeGetStateResponse {
+  state: {
+    isRunning: boolean
+    runningTaskCount: number
+    concurrencyLimit: number
+    lastStartedTaskId: string | null
+  } | null
+}
+
+export interface AutoModeSetConcurrencyRequest {
+  projectPath: string
+  limit: number
+}
+
+export interface AutoModeSetConcurrencyResponse {
+  success: boolean
+}
+
+export interface AutoModeStateChangedData {
+  projectPath: string
+  state: {
+    isRunning: boolean
+    runningTaskCount: number
+    concurrencyLimit: number
+    lastStartedTaskId: string | null
+  }
+}
+
+// ============================================================================
+// Running Tasks Global View Request/Response Types
+// ============================================================================
+
+export interface RunningTaskInfo {
+  taskId: string
+  projectPath: string
+  projectName: string
+  description: string
+  status: import('./ai-types').TaskStatus
+  startedAt: Date
+  isAutoMode: boolean
+}
+
+export interface RunningTasksGetAllRequest {}
+
+export interface RunningTasksGetAllResponse {
+  tasks: RunningTaskInfo[]
+}
+
+export interface RunningTasksStopRequest {
+  taskId: string
+}
+
+export interface RunningTasksStopResponse {
+  success: boolean
+}
+
+export interface RunningTasksUpdatedData {
+  tasks: RunningTaskInfo[]
+}
+
+// ============================================================================
+// Planning Mode Request/Response Types
+// ============================================================================
+
+export interface TaskApprovePlanRequest {
+  taskId: string
+}
+
+export interface TaskApprovePlanResponse {
+  task: import('./ai-types').AgentTask
+}
+
+export interface TaskRejectPlanRequest {
+  taskId: string
+  feedback: string
+}
+
+export interface TaskRejectPlanResponse {
+  task: import('./ai-types').AgentTask
+}
+
+export interface TaskPlanGeneratedData {
+  taskId: string
+  plan: import('./ai-types').PlanSpec
+}
+
+// ============================================================================
+// Worktree Request/Response Types
+// ============================================================================
+
+export interface WorktreeInfo {
+  path: string
+  projectPath: string
+  branch: string
+  taskId: string | null
+  createdAt: Date
+}
+
+export interface WorktreeCreateRequest {
+  projectPath: string
+  branchName: string
+  taskId?: string
+}
+
+export interface WorktreeCreateResponse {
+  worktree: WorktreeInfo
+}
+
+export interface WorktreeDeleteRequest {
+  worktreePath: string
+}
+
+export interface WorktreeDeleteResponse {
+  success: boolean
+}
+
+export interface WorktreeListRequest {
+  projectPath: string
+}
+
+export interface WorktreeListResponse {
+  worktrees: WorktreeInfo[]
+}
+
+export interface WorktreeGetForTaskRequest {
+  taskId: string
+}
+
+export interface WorktreeGetForTaskResponse {
+  worktree: WorktreeInfo | null
+}
+
+// ============================================================================
+// Task Dependency Request/Response Types
+// ============================================================================
+
+export interface TaskSetDependenciesRequest {
+  taskId: string
+  dependsOn: string[]
+}
+
+export interface TaskSetDependenciesResponse {
+  success: boolean
+}
+
+export interface TaskGetDependenciesRequest {
+  taskId: string
+}
+
+export interface TaskGetDependenciesResponse {
+  dependencies: string[]
+}
+
+export interface TaskGetBlockingStatusRequest {
+  taskId: string
+}
+
+export interface TaskGetBlockingStatusResponse {
+  status: {
+    taskId: string
+    isBlocked: boolean
+    blockingTasks: string[]
+    failedDependencies: string[]
+  }
+}
+
+// ============================================================================
+// Agent Session Persistence Request/Response Types
+// ============================================================================
+
+export interface AgentSessionInfo {
+  id: string
+  projectPath: string
+  name: string
+  modelId: string
+  createdAt: Date
+  updatedAt: Date
+  isArchived: boolean
+  messageCount: number
+}
+
+export interface AgentSessionMessageInfo {
+  id: string
+  sessionId: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
+}
+
+export interface AgentSessionCreateRequest {
+  projectPath: string
+  name: string
+  modelId: string
+}
+
+export interface AgentSessionCreateResponse {
+  session: AgentSessionInfo
+}
+
+export interface AgentSessionGetRequest {
+  sessionId: string
+}
+
+export interface AgentSessionGetResponse {
+  session: AgentSessionInfo | null
+}
+
+export interface AgentSessionListRequest {
+  projectPath: string
+  includeArchived?: boolean
+}
+
+export interface AgentSessionListResponse {
+  sessions: AgentSessionInfo[]
+}
+
+export interface AgentSessionUpdateRequest {
+  sessionId: string
+  updates: {
+    name?: string
+    modelId?: string
+  }
+}
+
+export interface AgentSessionUpdateResponse {
+  session: AgentSessionInfo
+}
+
+export interface AgentSessionArchiveRequest {
+  sessionId: string
+}
+
+export interface AgentSessionArchiveResponse {
+  success: boolean
+}
+
+export interface AgentSessionDeleteRequest {
+  sessionId: string
+}
+
+export interface AgentSessionDeleteResponse {
+  success: boolean
+}
+
+export interface AgentSessionAddMessageRequest {
+  sessionId: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AgentSessionAddMessageResponse {
+  message: AgentSessionMessageInfo
+}
+
+export interface AgentSessionGetMessagesRequest {
+  sessionId: string
+}
+
+export interface AgentSessionGetMessagesResponse {
+  messages: AgentSessionMessageInfo[]
+}
+
+export interface AgentSessionGetLastRequest {
+  projectPath: string
+}
+
+export interface AgentSessionGetLastResponse {
+  sessionId: string | null
+}
+
+export interface AgentSessionSetLastRequest {
+  projectPath: string
+  sessionId: string
+}
+
+export interface AgentSessionSetLastResponse {
+  success: boolean
 }

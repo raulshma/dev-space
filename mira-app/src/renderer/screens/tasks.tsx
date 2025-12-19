@@ -7,14 +7,16 @@
  * - Task execution monitoring
  * - Task creation and management
  * - Output streaming and history
+ * - Auto-mode toggle for continuous task execution
  *
- * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 8.1, 9.2, 10.1, 11.1
+ * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 8.1, 9.2, 10.1, 11.1, 1.6
  */
 
 import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
+import { useProject } from 'renderer/hooks/use-projects'
 import { ErrorBoundary } from 'renderer/components/ErrorBoundary'
 import {
   TasksHeader,
@@ -41,6 +43,7 @@ export interface TasksFilter {
   searchQuery?: string
   sortBy?: 'createdAt' | 'status' | 'priority'
   sortOrder?: 'asc' | 'desc'
+  branch?: string | 'all'
 }
 
 function TasksScreenContent(): React.JSX.Element {
@@ -48,6 +51,9 @@ function TasksScreenContent(): React.JSX.Element {
   const activeProjectId = useAppStore(state => state.activeProjectId)
   const previousView = useAppStore(state => state.previousView)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
+
+  // Get project data to access the path
+  const { data: project } = useProject(activeProjectId)
 
   // View mode state (kanban is default)
   const [viewMode, setViewMode] = useState<TasksViewMode>('kanban')
@@ -59,6 +65,7 @@ function TasksScreenContent(): React.JSX.Element {
     searchQuery: '',
     sortBy: 'createdAt',
     sortOrder: 'desc',
+    branch: 'all',
   })
 
   // Dialog state
@@ -146,6 +153,7 @@ function TasksScreenContent(): React.JSX.Element {
         onCreateTask={handleOpenTaskCreation}
         onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}
         onViewModeChange={setViewMode}
+        projectPath={project?.path}
         viewMode={viewMode}
       />
 

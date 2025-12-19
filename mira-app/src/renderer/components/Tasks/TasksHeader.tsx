@@ -2,6 +2,7 @@
  * Tasks Header Component
  *
  * Header for the tasks page with navigation and actions
+ * Requirements: 1.6 (auto-mode visual indicator)
  */
 
 import { memo } from 'react'
@@ -18,6 +19,7 @@ import {
   IconFolderOpen,
 } from '@tabler/icons-react'
 import { useTaskList, useCurrentTask } from 'renderer/stores/agent-task-store'
+import { AutoModeToggle } from 'renderer/components/Agent/AutoModeToggle'
 
 export type TasksViewMode = 'table' | 'kanban'
 
@@ -27,6 +29,8 @@ interface TasksHeaderProps {
   onGoToWorkspace?: () => void
   viewMode?: TasksViewMode
   onViewModeChange?: (mode: TasksViewMode) => void
+  /** Project path for auto-mode operations */
+  projectPath?: string
 }
 
 export const TasksHeader = memo(function TasksHeader({
@@ -35,6 +39,7 @@ export const TasksHeader = memo(function TasksHeader({
   onGoToWorkspace,
   viewMode = 'kanban',
   onViewModeChange,
+  projectPath,
 }: TasksHeaderProps): React.JSX.Element {
   const tasks = useTaskList()
   const currentTask = useCurrentTask()
@@ -73,6 +78,16 @@ export const TasksHeader = memo(function TasksHeader({
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Auto-mode toggle */}
+          {projectPath && (
+            <AutoModeToggle projectPath={projectPath} />
+          )}
+
+          {/* Separator */}
+          {projectPath && (
+            <div className="h-6 w-px bg-border" />
+          )}
+
           {/* Task stats */}
           <div className="flex items-center gap-2">
             {runningCount > 0 && (

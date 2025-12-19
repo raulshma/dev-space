@@ -101,6 +101,63 @@ interface AgentTaskRow {
   jules_params_json: string | null
   working_directory: string | null
   execution_step: string | null
+  // New columns for agent enhancements
+  planning_mode: string | null
+  plan_spec: string | null
+  require_plan_approval: number | null
+  branch_name: string | null
+  worktree_path: string | null
+}
+
+// Auto-mode state row interface
+interface AutoModeStateRow {
+  project_path: string
+  enabled: number
+  concurrency_limit: number
+  last_started_task_id: string | null
+  updated_at: number
+}
+
+// Task dependency row interface
+interface TaskDependencyRow {
+  task_id: string
+  depends_on_task_id: string
+  created_at: number
+}
+
+// Agent session row interface
+interface AgentSessionRow {
+  id: string
+  project_path: string
+  name: string
+  model_id: string
+  created_at: number
+  updated_at: number
+  is_archived: number
+}
+
+// Session message row interface
+interface SessionMessageRow {
+  id: string
+  session_id: string
+  role: string
+  content: string
+  timestamp: number
+}
+
+// Project session state row interface
+interface ProjectSessionStateRow {
+  project_path: string
+  last_session_id: string | null
+}
+
+// Worktree row interface
+interface WorktreeRow {
+  path: string
+  project_path: string
+  branch: string
+  task_id: string | null
+  created_at: number
 }
 
 // Agent Task Output row interface
@@ -424,6 +481,103 @@ export class DatabaseService {
         FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
       )
     `)
+
+    // ============================================================================
+    // AGENT ENHANCEMENT TABLES
+    // ============================================================================
+
+    // Auto-mode state per project
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS auto_mode_state (
+        project_path TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        concurrency_limit INTEGER NOT NULL DEFAULT 1,
+        last_started_task_id TEXT,
+        updated_at INTEGER NOT NULL
+      )
+    `)
+
+    // Task dependencies
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        task_id TEXT NOT NULL,
+        depends_on_task_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (task_id, depends_on_task_id),
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (depends_on_task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Task dependencies indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
+    `)
+
+    // Agent sessions
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_sessions (
+        id TEXT PRIMARY KEY,
+        project_path TEXT NOT NULL,
+        name TEXT NOT NULL,
+        model_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        is_archived INTEGER NOT NULL DEFAULT 0
+      )
+    `)
+
+    // Agent sessions indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_agent_sessions_project ON agent_sessions(project_path);
+      CREATE INDEX IF NOT EXISTS idx_agent_sessions_updated ON agent_sessions(updated_at);
+    `)
+
+    // Session messages
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS session_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+        content TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Session messages indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_session_messages_session ON session_messages(session_id);
+      CREATE INDEX IF NOT EXISTS idx_session_messages_timestamp ON session_messages(timestamp);
+    `)
+
+    // Last selected session per project
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS project_session_state (
+        project_path TEXT PRIMARY KEY,
+        last_session_id TEXT,
+        FOREIGN KEY (last_session_id) REFERENCES agent_sessions(id) ON DELETE SET NULL
+      )
+    `)
+
+    // Worktree tracking
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS worktrees (
+        path TEXT PRIMARY KEY,
+        project_path TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        task_id TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE SET NULL
+      )
+    `)
+
+    // Worktrees indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_worktrees_project ON worktrees(project_path);
+      CREATE INDEX IF NOT EXISTS idx_worktrees_task ON worktrees(task_id);
+    `)
   }
 
   /**
@@ -494,10 +648,47 @@ export class DatabaseService {
       }
     }
 
+    // Migration 3: Add agent enhancement columns to agent_tasks table
+    if (currentVersion < 4) {
+      try {
+        const tableInfo = this.db
+          .prepare('PRAGMA table_info(agent_tasks)')
+          .all() as Array<{ name: string }>
+        const columnNames = tableInfo.map(col => col.name)
+
+        // Add planning_mode column
+        if (!columnNames.includes('planning_mode')) {
+          this.db.exec(
+            "ALTER TABLE agent_tasks ADD COLUMN planning_mode TEXT DEFAULT 'skip'"
+          )
+        }
+        // Add plan_spec column (JSON blob)
+        if (!columnNames.includes('plan_spec')) {
+          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN plan_spec TEXT')
+        }
+        // Add require_plan_approval column
+        if (!columnNames.includes('require_plan_approval')) {
+          this.db.exec(
+            'ALTER TABLE agent_tasks ADD COLUMN require_plan_approval INTEGER DEFAULT 0'
+          )
+        }
+        // Add branch_name column
+        if (!columnNames.includes('branch_name')) {
+          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN branch_name TEXT')
+        }
+        // Add worktree_path column
+        if (!columnNames.includes('worktree_path')) {
+          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN worktree_path TEXT')
+        }
+      } catch (error) {
+        console.error('Migration 3 (agent enhancements) failed:', error)
+      }
+    }
+
     // Set schema version
     this.db
       .prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-      .run('schema_version', '3')
+      .run('schema_version', '4')
   }
 
   /**
@@ -1275,8 +1466,8 @@ export class DatabaseService {
     const now = Date.now()
 
     const stmt = db.prepare(`
-      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at, service_type, jules_params_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at, service_type, jules_params_json, planning_mode, plan_spec, require_plan_approval, branch_name, worktree_path)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     stmt.run(
@@ -1289,7 +1480,12 @@ export class DatabaseService {
       data.priority ?? 0,
       now,
       data.serviceType ?? 'claude-code',
-      data.julesParams ? JSON.stringify(data.julesParams) : null
+      data.julesParams ? JSON.stringify(data.julesParams) : null,
+      data.planningMode ?? 'skip',
+      data.planSpec ? JSON.stringify(data.planSpec) : null,
+      data.requirePlanApproval ? 1 : 0,
+      data.branchName ?? null,
+      data.worktreePath ?? null
     )
 
     return {
@@ -1303,6 +1499,11 @@ export class DatabaseService {
       createdAt: new Date(now),
       serviceType: data.serviceType ?? 'claude-code',
       julesParams: data.julesParams,
+      planningMode: data.planningMode ?? 'skip',
+      planSpec: data.planSpec,
+      requirePlanApproval: data.requirePlanApproval ?? false,
+      branchName: data.branchName,
+      worktreePath: data.worktreePath,
     }
   }
 
@@ -1431,6 +1632,32 @@ export class DatabaseService {
       params.push(data.executionStep)
     }
 
+    // Agent enhancement fields
+    if (data.planningMode !== undefined) {
+      updates.push('planning_mode = ?')
+      params.push(data.planningMode)
+    }
+
+    if (data.planSpec !== undefined) {
+      updates.push('plan_spec = ?')
+      params.push(data.planSpec ? JSON.stringify(data.planSpec) : null)
+    }
+
+    if (data.requirePlanApproval !== undefined) {
+      updates.push('require_plan_approval = ?')
+      params.push(data.requirePlanApproval ? 1 : 0)
+    }
+
+    if (data.branchName !== undefined) {
+      updates.push('branch_name = ?')
+      params.push(data.branchName)
+    }
+
+    if (data.worktreePath !== undefined) {
+      updates.push('worktree_path = ?')
+      params.push(data.worktreePath)
+    }
+
     if (updates.length === 0) {
       return this.getAgentTask(id)
     }
@@ -1488,6 +1715,13 @@ export class DatabaseService {
       workingDirectory: row.working_directory ?? undefined,
       executionStep:
         (row.execution_step as AgentTask['executionStep']) ?? undefined,
+      // Agent enhancement fields
+      planningMode:
+        (row.planning_mode as AgentTask['planningMode']) ?? 'skip',
+      planSpec: row.plan_spec ? JSON.parse(row.plan_spec) : undefined,
+      requirePlanApproval: row.require_plan_approval === 1,
+      branchName: row.branch_name ?? undefined,
+      worktreePath: row.worktree_path ?? undefined,
     }
   }
 
@@ -1988,5 +2222,916 @@ export class DatabaseService {
 
     const stmt = db.prepare('DELETE FROM ai_settings WHERE key = ?')
     stmt.run(key)
+  }
+
+  // ============================================================================
+  // TASK DEPENDENCY OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get dependencies for a task
+   * @param taskId - The task ID to get dependencies for
+   * @returns Array of task IDs this task depends on
+   */
+  getTaskDependencies(taskId: string): string[] {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT depends_on_task_id FROM task_dependencies WHERE task_id = ?'
+    )
+    const rows = stmt.all(taskId) as TaskDependencyRow[]
+
+    return rows.map(row => row.depends_on_task_id)
+  }
+
+  /**
+   * Get tasks that depend on a given task
+   * @param taskId - The task ID to find dependents for
+   * @returns Array of task IDs that depend on this task
+   */
+  getTaskDependents(taskId: string): string[] {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT task_id FROM task_dependencies WHERE depends_on_task_id = ?'
+    )
+    const rows = stmt.all(taskId) as TaskDependencyRow[]
+
+    return rows.map(row => row.task_id)
+  }
+
+  /**
+   * Set dependencies for a task (replaces existing dependencies)
+   * @param taskId - The task ID to set dependencies for
+   * @param dependsOn - Array of task IDs this task depends on
+   */
+  setTaskDependencies(taskId: string, dependsOn: string[]): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    // Remove existing dependencies
+    const deleteStmt = db.prepare(
+      'DELETE FROM task_dependencies WHERE task_id = ?'
+    )
+    deleteStmt.run(taskId)
+
+    // Add new dependencies
+    if (dependsOn.length > 0) {
+      const insertStmt = db.prepare(`
+        INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id, created_at)
+        VALUES (?, ?, ?)
+      `)
+
+      for (const dependsOnId of dependsOn) {
+        insertStmt.run(taskId, dependsOnId, now)
+      }
+    }
+  }
+
+  /**
+   * Remove all dependencies for a task
+   * @param taskId - The task ID to remove dependencies for
+   */
+  removeTaskDependencies(taskId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM task_dependencies WHERE task_id = ?')
+    stmt.run(taskId)
+  }
+
+  /**
+   * Add a single dependency for a task
+   * @param taskId - The task ID to add dependency to
+   * @param dependsOnId - The task ID to depend on
+   */
+  addTaskDependency(taskId: string, dependsOnId: string): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id, created_at)
+      VALUES (?, ?, ?)
+    `)
+
+    stmt.run(taskId, dependsOnId, now)
+  }
+
+  /**
+   * Remove a single dependency for a task
+   * @param taskId - The task ID to remove dependency from
+   * @param dependsOnId - The task ID to remove as dependency
+   */
+  removeTaskDependency(taskId: string, dependsOnId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_task_id = ?'
+    )
+    stmt.run(taskId, dependsOnId)
+  }
+
+  /**
+   * Check if a dependency exists
+   * @param taskId - The task ID
+   * @param dependsOnId - The potential dependency task ID
+   * @returns True if the dependency exists
+   */
+  hasTaskDependency(taskId: string, dependsOnId: string): boolean {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT 1 FROM task_dependencies WHERE task_id = ? AND depends_on_task_id = ?'
+    )
+    const row = stmt.get(taskId, dependsOnId)
+
+    return row !== undefined
+  }
+
+  /**
+   * Get all task dependencies (for building dependency graph)
+   * @returns Array of all dependency relationships
+   */
+  getAllTaskDependencies(): Array<{
+    taskId: string
+    dependsOnTaskId: string
+    createdAt: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM task_dependencies')
+    const rows = stmt.all() as TaskDependencyRow[]
+
+    return rows.map(row => ({
+      taskId: row.task_id,
+      dependsOnTaskId: row.depends_on_task_id,
+      createdAt: new Date(row.created_at),
+    }))
+  }
+
+  // ============================================================================
+  // AGENT SESSION OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new agent session
+   * @param projectPath - The project path for the session
+   * @param name - The session name
+   * @param modelId - The AI model ID for the session
+   * @returns The created session
+   */
+  createAgentSession(
+    projectPath: string,
+    name: string,
+    modelId: string
+  ): {
+    id: string
+    projectPath: string
+    name: string
+    modelId: string
+    createdAt: Date
+    updatedAt: Date
+    isArchived: boolean
+    messageCount: number
+  } {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO agent_sessions (id, project_path, name, model_id, created_at, updated_at, is_archived)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(id, projectPath, name, modelId, now, now, 0)
+
+    return {
+      id,
+      projectPath,
+      name,
+      modelId,
+      createdAt: new Date(now),
+      updatedAt: new Date(now),
+      isArchived: false,
+      messageCount: 0,
+    }
+  }
+
+  /**
+   * Get a single agent session by ID
+   * @param sessionId - The session ID
+   * @returns The session or null if not found
+   */
+  getAgentSession(sessionId: string): {
+    id: string
+    projectPath: string
+    name: string
+    modelId: string
+    createdAt: Date
+    updatedAt: Date
+    isArchived: boolean
+    messageCount: number
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM agent_sessions WHERE id = ?')
+    const row = stmt.get(sessionId) as AgentSessionRow | undefined
+
+    if (!row) return null
+
+    // Get message count
+    const countStmt = db.prepare(
+      'SELECT COUNT(*) as count FROM session_messages WHERE session_id = ?'
+    )
+    const countResult = countStmt.get(sessionId) as { count: number }
+
+    return {
+      id: row.id,
+      projectPath: row.project_path,
+      name: row.name,
+      modelId: row.model_id,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+      isArchived: row.is_archived === 1,
+      messageCount: countResult.count,
+    }
+  }
+
+  /**
+   * Get all agent sessions for a project
+   * @param projectPath - The project path
+   * @param includeArchived - Whether to include archived sessions
+   * @returns Array of sessions
+   */
+  getAgentSessions(
+    projectPath: string,
+    includeArchived = false
+  ): Array<{
+    id: string
+    projectPath: string
+    name: string
+    modelId: string
+    createdAt: Date
+    updatedAt: Date
+    isArchived: boolean
+    messageCount: number
+  }> {
+    const db = this.getDb()
+
+    let query = 'SELECT * FROM agent_sessions WHERE project_path = ?'
+    const params: (string | number)[] = [projectPath]
+
+    if (!includeArchived) {
+      query += ' AND is_archived = 0'
+    }
+
+    query += ' ORDER BY updated_at DESC'
+
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as AgentSessionRow[]
+
+    return rows.map(row => {
+      // Get message count for each session
+      const countStmt = db.prepare(
+        'SELECT COUNT(*) as count FROM session_messages WHERE session_id = ?'
+      )
+      const countResult = countStmt.get(row.id) as { count: number }
+
+      return {
+        id: row.id,
+        projectPath: row.project_path,
+        name: row.name,
+        modelId: row.model_id,
+        createdAt: new Date(row.created_at),
+        updatedAt: new Date(row.updated_at),
+        isArchived: row.is_archived === 1,
+        messageCount: countResult.count,
+      }
+    })
+  }
+
+  /**
+   * Update an agent session
+   * @param sessionId - The session ID
+   * @param updates - The fields to update
+   * @returns The updated session or null if not found
+   */
+  updateAgentSession(
+    sessionId: string,
+    updates: {
+      name?: string
+      modelId?: string
+      isArchived?: boolean
+    }
+  ): {
+    id: string
+    projectPath: string
+    name: string
+    modelId: string
+    createdAt: Date
+    updatedAt: Date
+    isArchived: boolean
+    messageCount: number
+  } | null {
+    const db = this.getDb()
+
+    const updateFields: string[] = []
+    const params: (string | number)[] = []
+
+    if (updates.name !== undefined) {
+      updateFields.push('name = ?')
+      params.push(updates.name)
+    }
+
+    if (updates.modelId !== undefined) {
+      updateFields.push('model_id = ?')
+      params.push(updates.modelId)
+    }
+
+    if (updates.isArchived !== undefined) {
+      updateFields.push('is_archived = ?')
+      params.push(updates.isArchived ? 1 : 0)
+    }
+
+    // Always update updated_at
+    updateFields.push('updated_at = ?')
+    params.push(Date.now())
+
+    if (updateFields.length === 0) {
+      return this.getAgentSession(sessionId)
+    }
+
+    params.push(sessionId)
+
+    const stmt = db.prepare(`
+      UPDATE agent_sessions
+      SET ${updateFields.join(', ')}
+      WHERE id = ?
+    `)
+
+    stmt.run(...params)
+
+    return this.getAgentSession(sessionId)
+  }
+
+  /**
+   * Archive an agent session
+   * @param sessionId - The session ID
+   */
+  archiveAgentSession(sessionId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      UPDATE agent_sessions
+      SET is_archived = 1, updated_at = ?
+      WHERE id = ?
+    `)
+
+    stmt.run(Date.now(), sessionId)
+  }
+
+  /**
+   * Delete an agent session (cascade deletes messages)
+   * @param sessionId - The session ID
+   */
+  deleteAgentSession(sessionId: string): void {
+    const db = this.getDb()
+
+    // Messages are cascade deleted via foreign key
+    const stmt = db.prepare('DELETE FROM agent_sessions WHERE id = ?')
+    stmt.run(sessionId)
+  }
+
+  // ============================================================================
+  // SESSION MESSAGE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Add a message to a session
+   * @param sessionId - The session ID
+   * @param role - The message role ('user' or 'assistant')
+   * @param content - The message content
+   * @returns The created message
+   */
+  addSessionMessage(
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string
+  ): {
+    id: string
+    sessionId: string
+    role: 'user' | 'assistant'
+    content: string
+    timestamp: Date
+  } {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO session_messages (id, session_id, role, content, timestamp)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(id, sessionId, role, content, now)
+
+    // Update session's updated_at timestamp
+    const updateStmt = db.prepare(`
+      UPDATE agent_sessions SET updated_at = ? WHERE id = ?
+    `)
+    updateStmt.run(now, sessionId)
+
+    return {
+      id,
+      sessionId,
+      role,
+      content,
+      timestamp: new Date(now),
+    }
+  }
+
+  /**
+   * Get all messages for a session
+   * @param sessionId - The session ID
+   * @returns Array of messages ordered by timestamp
+   */
+  getSessionMessages(sessionId: string): Array<{
+    id: string
+    sessionId: string
+    role: 'user' | 'assistant'
+    content: string
+    timestamp: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM session_messages WHERE session_id = ? ORDER BY timestamp ASC'
+    )
+    const rows = stmt.all(sessionId) as SessionMessageRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      sessionId: row.session_id,
+      role: row.role as 'user' | 'assistant',
+      content: row.content,
+      timestamp: new Date(row.timestamp),
+    }))
+  }
+
+  /**
+   * Get message count for a session
+   * @param sessionId - The session ID
+   * @returns The number of messages
+   */
+  getSessionMessageCount(sessionId: string): number {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT COUNT(*) as count FROM session_messages WHERE session_id = ?'
+    )
+    const result = stmt.get(sessionId) as { count: number }
+
+    return result.count
+  }
+
+  // ============================================================================
+  // PROJECT SESSION STATE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get the last selected session ID for a project
+   * @param projectPath - The project path
+   * @returns The last session ID or null
+   */
+  getLastSessionId(projectPath: string): string | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT last_session_id FROM project_session_state WHERE project_path = ?'
+    )
+    const row = stmt.get(projectPath) as ProjectSessionStateRow | undefined
+
+    return row?.last_session_id ?? null
+  }
+
+  /**
+   * Set the last selected session ID for a project
+   * @param projectPath - The project path
+   * @param sessionId - The session ID (or null to clear)
+   */
+  setLastSessionId(projectPath: string, sessionId: string | null): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO project_session_state (project_path, last_session_id)
+      VALUES (?, ?)
+    `)
+
+    stmt.run(projectPath, sessionId)
+  }
+
+  // ============================================================================
+  // WORKTREE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a worktree record in the database
+   * @param worktreePath - The path to the worktree directory
+   * @param projectPath - The project path (main repository)
+   * @param branch - The branch name for the worktree
+   * @param taskId - Optional task ID associated with the worktree
+   * @returns The created worktree record
+   */
+  createWorktree(
+    worktreePath: string,
+    projectPath: string,
+    branch: string,
+    taskId?: string
+  ): {
+    path: string
+    projectPath: string
+    branch: string
+    taskId: string | null
+    createdAt: Date
+  } {
+    const db = this.getDb()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO worktrees (path, project_path, branch, task_id, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(worktreePath, projectPath, branch, taskId ?? null, now)
+
+    return {
+      path: worktreePath,
+      projectPath,
+      branch,
+      taskId: taskId ?? null,
+      createdAt: new Date(now),
+    }
+  }
+
+  /**
+   * Get a worktree by path
+   * @param worktreePath - The path to the worktree
+   * @returns The worktree record or null if not found
+   */
+  getWorktree(worktreePath: string): {
+    path: string
+    projectPath: string
+    branch: string
+    taskId: string | null
+    createdAt: Date
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM worktrees WHERE path = ?')
+    const row = stmt.get(worktreePath) as WorktreeRow | undefined
+
+    if (!row) return null
+
+    return {
+      path: row.path,
+      projectPath: row.project_path,
+      branch: row.branch,
+      taskId: row.task_id,
+      createdAt: new Date(row.created_at),
+    }
+  }
+
+  /**
+   * Get all worktrees for a project
+   * @param projectPath - The project path
+   * @returns Array of worktree records
+   */
+  getWorktrees(projectPath: string): Array<{
+    path: string
+    projectPath: string
+    branch: string
+    taskId: string | null
+    createdAt: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM worktrees WHERE project_path = ? ORDER BY created_at DESC'
+    )
+    const rows = stmt.all(projectPath) as WorktreeRow[]
+
+    return rows.map(row => ({
+      path: row.path,
+      projectPath: row.project_path,
+      branch: row.branch,
+      taskId: row.task_id,
+      createdAt: new Date(row.created_at),
+    }))
+  }
+
+  /**
+   * Get worktree by branch name for a project
+   * @param projectPath - The project path
+   * @param branch - The branch name
+   * @returns The worktree record or null if not found
+   */
+  getWorktreeByBranch(
+    projectPath: string,
+    branch: string
+  ): {
+    path: string
+    projectPath: string
+    branch: string
+    taskId: string | null
+    createdAt: Date
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM worktrees WHERE project_path = ? AND branch = ?'
+    )
+    const row = stmt.get(projectPath, branch) as WorktreeRow | undefined
+
+    if (!row) return null
+
+    return {
+      path: row.path,
+      projectPath: row.project_path,
+      branch: row.branch,
+      taskId: row.task_id,
+      createdAt: new Date(row.created_at),
+    }
+  }
+
+  /**
+   * Get worktree by task ID
+   * @param taskId - The task ID
+   * @returns The worktree record or null if not found
+   */
+  getWorktreeByTaskId(taskId: string): {
+    path: string
+    projectPath: string
+    branch: string
+    taskId: string | null
+    createdAt: Date
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM worktrees WHERE task_id = ?')
+    const row = stmt.get(taskId) as WorktreeRow | undefined
+
+    if (!row) return null
+
+    return {
+      path: row.path,
+      projectPath: row.project_path,
+      branch: row.branch,
+      taskId: row.task_id,
+      createdAt: new Date(row.created_at),
+    }
+  }
+
+  /**
+   * Update worktree task association
+   * @param worktreePath - The path to the worktree
+   * @param taskId - The task ID to associate (or null to clear)
+   */
+  updateWorktreeTaskId(worktreePath: string, taskId: string | null): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('UPDATE worktrees SET task_id = ? WHERE path = ?')
+    stmt.run(taskId, worktreePath)
+  }
+
+  /**
+   * Delete a worktree record from the database
+   * @param worktreePath - The path to the worktree
+   */
+  deleteWorktree(worktreePath: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM worktrees WHERE path = ?')
+    stmt.run(worktreePath)
+  }
+
+  /**
+   * Check if a worktree exists in the database
+   * @param worktreePath - The path to the worktree
+   * @returns True if the worktree exists
+   */
+  worktreeExists(worktreePath: string): boolean {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT 1 FROM worktrees WHERE path = ?')
+    const row = stmt.get(worktreePath)
+
+    return row !== undefined
+  }
+
+  // ============================================================================
+  // AUTO-MODE STATE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get auto-mode state for a project
+   * @param projectPath - The project path
+   * @returns The auto-mode state or null if not found
+   */
+  getAutoModeState(projectPath: string): {
+    projectPath: string
+    enabled: boolean
+    concurrencyLimit: number
+    lastStartedTaskId: string | null
+    updatedAt: Date
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM auto_mode_state WHERE project_path = ?'
+    )
+    const row = stmt.get(projectPath) as AutoModeStateRow | undefined
+
+    if (!row) return null
+
+    return {
+      projectPath: row.project_path,
+      enabled: row.enabled === 1,
+      concurrencyLimit: row.concurrency_limit,
+      lastStartedTaskId: row.last_started_task_id,
+      updatedAt: new Date(row.updated_at),
+    }
+  }
+
+  /**
+   * Save auto-mode state for a project
+   * @param projectPath - The project path
+   * @param enabled - Whether auto-mode is enabled
+   * @param concurrencyLimit - The concurrency limit
+   * @param lastStartedTaskId - The last started task ID (optional)
+   */
+  saveAutoModeState(
+    projectPath: string,
+    enabled: boolean,
+    concurrencyLimit: number,
+    lastStartedTaskId?: string | null
+  ): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO auto_mode_state (project_path, enabled, concurrency_limit, last_started_task_id, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      projectPath,
+      enabled ? 1 : 0,
+      concurrencyLimit,
+      lastStartedTaskId ?? null,
+      now
+    )
+  }
+
+  /**
+   * Update auto-mode enabled state for a project
+   * @param projectPath - The project path
+   * @param enabled - Whether auto-mode is enabled
+   */
+  setAutoModeEnabled(projectPath: string, enabled: boolean): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    // Check if state exists
+    const existing = this.getAutoModeState(projectPath)
+
+    if (existing) {
+      const stmt = db.prepare(`
+        UPDATE auto_mode_state
+        SET enabled = ?, updated_at = ?
+        WHERE project_path = ?
+      `)
+      stmt.run(enabled ? 1 : 0, now, projectPath)
+    } else {
+      // Create new state with defaults
+      this.saveAutoModeState(projectPath, enabled, 1, null)
+    }
+  }
+
+  /**
+   * Update auto-mode concurrency limit for a project
+   * @param projectPath - The project path
+   * @param concurrencyLimit - The concurrency limit
+   */
+  setAutoModeConcurrencyLimit(
+    projectPath: string,
+    concurrencyLimit: number
+  ): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    // Check if state exists
+    const existing = this.getAutoModeState(projectPath)
+
+    if (existing) {
+      const stmt = db.prepare(`
+        UPDATE auto_mode_state
+        SET concurrency_limit = ?, updated_at = ?
+        WHERE project_path = ?
+      `)
+      stmt.run(concurrencyLimit, now, projectPath)
+    } else {
+      // Create new state with defaults
+      this.saveAutoModeState(projectPath, false, concurrencyLimit, null)
+    }
+  }
+
+  /**
+   * Update the last started task ID for auto-mode
+   * @param projectPath - The project path
+   * @param taskId - The task ID
+   */
+  setAutoModeLastStartedTaskId(
+    projectPath: string,
+    taskId: string | null
+  ): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    // Check if state exists
+    const existing = this.getAutoModeState(projectPath)
+
+    if (existing) {
+      const stmt = db.prepare(`
+        UPDATE auto_mode_state
+        SET last_started_task_id = ?, updated_at = ?
+        WHERE project_path = ?
+      `)
+      stmt.run(taskId, now, projectPath)
+    } else {
+      // Create new state with defaults
+      this.saveAutoModeState(projectPath, false, 1, taskId)
+    }
+  }
+
+  /**
+   * Delete auto-mode state for a project
+   * @param projectPath - The project path
+   */
+  deleteAutoModeState(projectPath: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM auto_mode_state WHERE project_path = ?')
+    stmt.run(projectPath)
+  }
+
+  /**
+   * Get all auto-mode states (for restoring on startup)
+   * @returns Array of all auto-mode states
+   */
+  getAllAutoModeStates(): Array<{
+    projectPath: string
+    enabled: boolean
+    concurrencyLimit: number
+    lastStartedTaskId: string | null
+    updatedAt: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM auto_mode_state')
+    const rows = stmt.all() as AutoModeStateRow[]
+
+    return rows.map(row => ({
+      projectPath: row.project_path,
+      enabled: row.enabled === 1,
+      concurrencyLimit: row.concurrency_limit,
+      lastStartedTaskId: row.last_started_task_id,
+      updatedAt: new Date(row.updated_at),
+    }))
+  }
+
+  /**
+   * Get all enabled auto-mode states (for restoring on startup)
+   * @returns Array of enabled auto-mode states
+   */
+  getEnabledAutoModeStates(): Array<{
+    projectPath: string
+    enabled: boolean
+    concurrencyLimit: number
+    lastStartedTaskId: string | null
+    updatedAt: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM auto_mode_state WHERE enabled = 1')
+    const rows = stmt.all() as AutoModeStateRow[]
+
+    return rows.map(row => ({
+      projectPath: row.project_path,
+      enabled: row.enabled === 1,
+      concurrencyLimit: row.concurrency_limit,
+      lastStartedTaskId: row.last_started_task_id,
+      updatedAt: new Date(row.updated_at),
+    }))
   }
 }

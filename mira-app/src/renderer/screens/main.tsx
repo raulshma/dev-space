@@ -6,6 +6,7 @@ import { useNotificationStore } from 'renderer/stores/notification-store'
 import { ProjectDashboard } from 'renderer/components/ProjectDashboard'
 import { ProjectWorkspace } from 'renderer/components/ProjectWorkspace'
 import { TasksScreen } from 'renderer/screens/tasks'
+import { RunningAgentsView } from 'renderer/components/Agent'
 import { CommandPalette } from 'renderer/components/CommandPalette'
 import { SettingsPanel } from 'renderer/components/Settings'
 import { StatusBar } from 'renderer/components/StatusBar'
@@ -15,6 +16,7 @@ import { keyboardManager } from 'renderer/lib/keyboard-manager'
 import { useShortcuts } from 'renderer/hooks/use-shortcuts'
 import { SETTING_KEYS } from 'renderer/hooks/use-settings'
 import { useRunningProjectsInit } from 'renderer/hooks/use-running-projects'
+import { useRunningTasksInit } from 'renderer/hooks/use-running-tasks'
 
 // The "api" type comes from preload/index.d.ts which declares Window.api globally
 
@@ -37,6 +39,9 @@ export function MainScreen() {
 
   // Initialize running projects subscriptions (call once at app root)
   useRunningProjectsInit()
+
+  // Initialize running tasks subscriptions (call once at app root)
+  useRunningTasksInit()
 
   // Restore last opened project on startup
   useEffect(() => {
@@ -133,6 +138,8 @@ export function MainScreen() {
     switch (activeView) {
       case 'tasks':
         return <TasksScreen />
+      case 'running-agents':
+        return <RunningAgentsView />
       case 'workspace':
         if (activeProjectId) {
           // Key ensures component remounts when project changes, resetting all refs and state
