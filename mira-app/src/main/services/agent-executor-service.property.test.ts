@@ -335,6 +335,7 @@ describe('Agent Executor Service Property Tests', () => {
       queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
       running: ['paused', 'completed', 'failed', 'stopped'],
       paused: ['running', 'stopped', 'completed'],
+      awaiting_approval: ['running', 'stopped', 'completed'],
       completed: ['pending', 'archived'],
       failed: ['pending', 'queued', 'archived'],
       stopped: ['pending', 'queued', 'archived'],

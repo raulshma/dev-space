@@ -12,7 +12,6 @@ import { DatabaseService } from 'main/services/database'
 import { PTYManager } from 'main/services/pty-manager'
 import { GitService } from 'main/services/git-service'
 import { KeychainService } from 'main/services/keychain-service'
-import { AgentService } from 'main/services/agent-service'
 import { IPCHandlers } from 'main/ipc/handlers'
 
 // AI Service imports
@@ -30,6 +29,11 @@ import { OutputBuffer } from 'main/services/agent/output-buffer'
 import { JulesService } from 'main/services/agent/jules-service'
 import { WorkingDirectoryService } from 'main/services/agent/working-directory-service'
 
+// V2 Services (Claude SDK integration)
+import { AgentServiceV2 } from 'main/services/agent-service-v2'
+import { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
+import { FeatureLoader } from 'main/services/feature-loader'
+
 // Running Projects import
 import { RunningProjectsService } from 'main/services/running-projects-service'
 
@@ -38,7 +42,6 @@ const db = new DatabaseService()
 const ptyManager = new PTYManager()
 const gitService = new GitService()
 const keychainService = new KeychainService()
-const agentService = new AgentService(keychainService)
 
 // Initialize AI services
 const providerRegistry = new ProviderRegistry()
@@ -76,6 +79,11 @@ const agentExecutorService = new AgentExecutorService(
   workingDirectoryService
 )
 
+// Initialize V2 Services (Claude SDK integration)
+const agentServiceV2 = new AgentServiceV2()
+const featureLoader = new FeatureLoader()
+const autoModeServiceV2 = new AutoModeServiceV2(featureLoader)
+
 // Initialize Running Projects service
 const runningProjectsService = new RunningProjectsService(ptyManager, db)
 
@@ -85,13 +93,14 @@ const ipcHandlers = new IPCHandlers(
   ptyManager,
   gitService,
   keychainService,
-  agentService,
   aiService,
   agentExecutorService,
   agentConfigService,
   julesService,
   requestLogger,
-  runningProjectsService
+  runningProjectsService,
+  agentServiceV2,
+  autoModeServiceV2
 )
 
 makeAppWithSingleInstanceLock(async () => {

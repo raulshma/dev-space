@@ -46,7 +46,7 @@ export function TerminalView({
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const [terminalBuffer, setTerminalBuffer] = useState<string>('')
+  const [_terminalBuffer, setTerminalBuffer] = useState<string>('')
   const [isContainerReady, setIsContainerReady] = useState(false)
 
   const addError = useErrorStore(state => state.addError)
@@ -259,7 +259,7 @@ export function TerminalView({
                 console.error('Failed to resize PTY:', error)
               })
           }
-        } catch (error) {
+        } catch {
           // Ignore resize errors during initialization
         }
       }

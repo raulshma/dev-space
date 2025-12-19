@@ -94,6 +94,11 @@ const STATUS_CONFIG: Record<
     variant: 'secondary',
     icon: <IconPlayerPause className="h-3 w-3" />,
   },
+  awaiting_approval: {
+    label: 'Awaiting Approval',
+    variant: 'secondary',
+    icon: <IconClock className="h-3 w-3" />,
+  },
   completed: {
     label: 'Completed',
     variant: 'secondary',

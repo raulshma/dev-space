@@ -70,6 +70,11 @@ const COLUMN_CONFIG: Record<
     icon: <IconPlayerPause className="h-4 w-4" />,
     headerClass: 'bg-yellow-500/10',
   },
+  awaiting_approval: {
+    label: 'Awaiting Approval',
+    icon: <IconClock className="h-4 w-4" />,
+    headerClass: 'bg-yellow-500/10',
+  },
   completed: {
     label: 'Done',
     icon: <IconCheck className="h-4 w-4" />,

@@ -1716,8 +1716,7 @@ export class DatabaseService {
       executionStep:
         (row.execution_step as AgentTask['executionStep']) ?? undefined,
       // Agent enhancement fields
-      planningMode:
-        (row.planning_mode as AgentTask['planningMode']) ?? 'skip',
+      planningMode: (row.planning_mode as AgentTask['planningMode']) ?? 'skip',
       planSpec: row.plan_spec ? JSON.parse(row.plan_spec) : undefined,
       requirePlanApproval: row.require_plan_approval === 1,
       branchName: row.branch_name ?? undefined,
@@ -3081,7 +3080,9 @@ export class DatabaseService {
   deleteAutoModeState(projectPath: string): void {
     const db = this.getDb()
 
-    const stmt = db.prepare('DELETE FROM auto_mode_state WHERE project_path = ?')
+    const stmt = db.prepare(
+      'DELETE FROM auto_mode_state WHERE project_path = ?'
+    )
     stmt.run(projectPath)
   }
 

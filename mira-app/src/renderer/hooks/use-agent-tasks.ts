@@ -10,7 +10,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef } from 'react'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import type {
-  AgentTask,
   AgentType,
   TaskStatus,
   AgentParameters,

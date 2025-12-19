@@ -398,7 +398,10 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
   rejectPlan: async (taskId, feedback) => {
     const { updateTask, setTasksError } = get()
     try {
-      const response = await window.api.planning.rejectPlan({ taskId, feedback })
+      const response = await window.api.planning.rejectPlan({
+        taskId,
+        feedback,
+      })
       updateTask(taskId, {
         planSpec: response.task.planSpec,
         status: response.task.status,
@@ -431,7 +434,9 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
     const { setDependencyStatus, setLoadingDependencies, setTasksError } = get()
     setLoadingDependencies(true)
     try {
-      const response = await window.api.dependencies.getBlockingStatus({ taskId })
+      const response = await window.api.dependencies.getBlockingStatus({
+        taskId,
+      })
       setDependencyStatus(taskId, response.status)
     } catch (err) {
       const message =

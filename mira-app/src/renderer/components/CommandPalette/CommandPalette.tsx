@@ -5,7 +5,7 @@
  * Requirements: 13.1, 13.2, 13.3, 13.4
  */
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { IconFolder, IconTerminal, IconBolt } from '@tabler/icons-react'
 import {
   CommandDialog,

@@ -399,7 +399,7 @@ describe('Process Manager Property Tests', () => {
     it('pause on paused process has no effect', () => {
       // Pausing an already paused process should keep it paused
       const initialState: ProcessStatus = 'paused'
-      const action = 'pause'
+      // action would be 'pause' but we're testing the logical property
       const expectedState: ProcessStatus = 'paused'
 
       // This is a logical property - pause on paused = paused
@@ -413,7 +413,7 @@ describe('Process Manager Property Tests', () => {
     it('resume on running process has no effect', () => {
       // Resuming an already running process should keep it running
       const initialState: ProcessStatus = 'running'
-      const action = 'resume'
+      // action would be 'resume' but we're testing the logical property
       const expectedState: ProcessStatus = 'running'
 
       // This is a logical property - resume on running = running

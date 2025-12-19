@@ -79,14 +79,10 @@ export const TasksHeader = memo(function TasksHeader({
 
         <div className="flex items-center gap-4">
           {/* Auto-mode toggle */}
-          {projectPath && (
-            <AutoModeToggle projectPath={projectPath} />
-          )}
+          {projectPath && <AutoModeToggle projectPath={projectPath} />}
 
           {/* Separator */}
-          {projectPath && (
-            <div className="h-6 w-px bg-border" />
-          )}
+          {projectPath && <div className="h-6 w-px bg-border" />}
 
           {/* Task stats */}
           <div className="flex items-center gap-2">

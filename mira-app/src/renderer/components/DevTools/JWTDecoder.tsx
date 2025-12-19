@@ -46,12 +46,18 @@ export function JWTDecoder(): React.JSX.Element {
               {/* Status badges */}
               <div className="flex items-center gap-2">
                 {decoded.isExpired ? (
-                  <Badge className="bg-destructive/10 text-destructive border-destructive/30" variant="outline">
+                  <Badge
+                    className="bg-destructive/10 text-destructive border-destructive/30"
+                    variant="outline"
+                  >
                     <IconAlertCircle className="h-3 w-3 mr-1" />
                     Expired
                   </Badge>
                 ) : decoded.expiresAt ? (
-                  <Badge className="bg-green-500/10 text-green-600 border-green-500/30" variant="outline">
+                  <Badge
+                    className="bg-green-500/10 text-green-600 border-green-500/30"
+                    variant="outline"
+                  >
                     <IconCheck className="h-3 w-3 mr-1" />
                     Valid
                   </Badge>
@@ -90,13 +96,17 @@ export function JWTDecoder(): React.JSX.Element {
                   {decoded.issuedAt && (
                     <div>
                       <span className="text-muted-foreground">Issued At:</span>
-                      <div className="font-mono">{formatDate(decoded.issuedAt)}</div>
+                      <div className="font-mono">
+                        {formatDate(decoded.issuedAt)}
+                      </div>
                     </div>
                   )}
                   {decoded.expiresAt && (
                     <div>
                       <span className="text-muted-foreground">Expires At:</span>
-                      <div className="font-mono">{formatDate(decoded.expiresAt)}</div>
+                      <div className="font-mono">
+                        {formatDate(decoded.expiresAt)}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -22,12 +22,6 @@ import { Spinner } from 'renderer/components/ui/spinner'
 import { Input } from 'renderer/components/ui/input'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from 'renderer/components/ui/tabs'
-import {
   IconAlertTriangle,
   IconRefresh,
   IconCpu,
@@ -37,7 +31,6 @@ import {
   IconCheck,
   IconSettings,
   IconChevronRight,
-  IconExternalLink,
 } from '@tabler/icons-react'
 import type { AIModel, AIAction } from 'shared/ai-types'
 import {
@@ -122,32 +115,11 @@ function groupModelsByProvider(models: AIModel[]): Map<string, AIModel[]> {
   return grouped
 }
 
-/**
- * Groups models by free/paid status
- */
-function groupModelsByPricing(models: AIModel[]): {
-  free: AIModel[]
-  paid: AIModel[]
-} {
-  const free: AIModel[] = []
-  const paid: AIModel[] = []
-
-  for (const model of models) {
-    if (model.isFree === true) {
-      free.push(model)
-    } else {
-      paid.push(model)
-    }
-  }
-
-  return { free, paid }
-}
-
 export function ModelSelector({
   onModelChange,
   showActionModels = false,
 }: ModelSelectorProps): React.JSX.Element {
-  const { data: models, isLoading, error, refetch } = useAIModels()
+  const { isLoading, error, refetch } = useAIModels()
   const setDefaultModelMutation = useSetDefaultModel()
   const setActionModelMutation = useSetActionModel()
   const isUsingCachedModels = useUsingCachedModels()
@@ -239,8 +211,7 @@ export function ModelSelector({
         const matchesSearch =
           model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           model.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (model.description &&
-            model.description.toLowerCase().includes(searchQuery.toLowerCase()))
+          model.description?.toLowerCase().includes(searchQuery.toLowerCase())
 
         const matchesTab =
           filterTab === 'all' ||
@@ -261,7 +232,6 @@ export function ModelSelector({
             return b.contextLength - a.contextLength
           case 'price':
             return (a.pricing.prompt || 0) - (b.pricing.prompt || 0)
-          case 'name':
           default:
             return a.name.localeCompare(b.name)
         }
@@ -468,7 +438,7 @@ function TargetItem({
   onClick,
 }: {
   label: string
-  description: string
+  description?: string
   icon: React.ReactNode
   isActive: boolean
   selectedModelName: string
@@ -483,6 +453,7 @@ function TargetItem({
           : 'hover:bg-accent hover:text-accent-foreground border border-transparent'
       )}
       onClick={onClick}
+      type="button"
     >
       <div className="flex items-center gap-2 w-full text-left">
         {icon}
@@ -515,16 +486,18 @@ function ModelCard({
   isProcessing?: boolean
 }) {
   return (
-    <div
+    <button
       className={cn(
-        'group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer',
+        'group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer text-left w-full',
         isSelected
           ? 'border-primary bg-primary/3 ring-1 ring-primary'
           : 'bg-background hover:bg-accent/50 hover:border-accent-foreground/20',
         !model.isConfigured && 'opacity-60 grayscale-[0.5]',
         isProcessing && 'pointer-events-none'
       )}
-      onClick={!isProcessing ? onClick : undefined}
+      disabled={isProcessing}
+      onClick={onClick}
+      type="button"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
@@ -612,7 +585,7 @@ function ModelCard({
           <div className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
         </div>
       )}
-    </div>
+    </button>
   )
 }
 

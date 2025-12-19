@@ -94,6 +94,11 @@ const STATUS_CONFIG: Record<
     variant: 'secondary',
     icon: <IconPlayerPause className="h-3 w-3" />,
   },
+  awaiting_approval: {
+    label: 'Awaiting Approval',
+    variant: 'secondary',
+    icon: <IconClock className="h-3 w-3" />,
+  },
   completed: {
     label: 'Completed',
     variant: 'secondary',
@@ -179,7 +184,7 @@ export function TasksTable({
         t =>
           t.description.toLowerCase().includes(query) ||
           t.targetDirectory.toLowerCase().includes(query) ||
-          (t.branchName && t.branchName.toLowerCase().includes(query))
+          t.branchName?.toLowerCase().includes(query)
       )
     }
 

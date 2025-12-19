@@ -199,8 +199,7 @@ export function PlanApprovalDialog({
             {/* Plan metadata */}
             {planSpec.generatedAt && (
               <p className="text-xs text-muted-foreground">
-                Generated at:{' '}
-                {new Date(planSpec.generatedAt).toLocaleString()}
+                Generated at: {new Date(planSpec.generatedAt).toLocaleString()}
                 {planSpec.version > 1 && ` (Version ${planSpec.version})`}
               </p>
             )}

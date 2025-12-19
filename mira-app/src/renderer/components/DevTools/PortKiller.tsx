@@ -46,7 +46,8 @@ export function PortKiller(): React.JSX.Element {
   const killMutation = useMutation({
     mutationFn: async (port: number) => {
       const result = await window.api.devTools.killPort({ port })
-      if (!result.success) throw new Error(result.error || 'Failed to kill port')
+      if (!result.success)
+        throw new Error(result.error || 'Failed to kill port')
       return result
     },
     onSuccess: () => {

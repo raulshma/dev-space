@@ -1,25 +1,34 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import * as path from 'node:path'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+
+// Mock Electron app module - must be before other imports that use electron
+vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn().mockImplementation(() => os.tmpdir()),
+  },
+}))
+
 import { DatabaseService } from '../services/database'
 import { PTYManager } from '../services/pty-manager'
 import { GitService } from '../services/git-service'
 import { KeychainService } from '../services/keychain-service'
-import { AgentService } from '../services/agent-service'
 import { IPCHandlers } from './handlers'
 import type { AIService } from '../services/ai-service'
 import type { AgentExecutorService } from '../services/agent-executor-service'
 import type { AgentConfigService } from '../services/agent/agent-config-service'
 import type { JulesService } from '../services/agent/jules-service'
 import type { RequestLogger } from '../services/ai/request-logger'
-import * as path from 'node:path'
-import * as fs from 'node:fs'
-import * as os from 'node:os'
+import type { RunningProjectsService } from '../services/running-projects-service'
+import type { AgentServiceV2 } from '../services/agent-service-v2'
+import type { AutoModeServiceV2 } from '../services/auto-mode-service-v2'
 
 describe('IPCHandlers', () => {
   let db: DatabaseService
   let ptyManager: PTYManager
   let gitService: GitService
   let keychainService: KeychainService
-  let agentService: AgentService
   let ipcHandlers: IPCHandlers
   let tempDbPath: string
 
@@ -35,16 +44,9 @@ describe('IPCHandlers', () => {
     ptyManager = new PTYManager()
     gitService = new GitService()
     keychainService = new KeychainService()
-    agentService = new AgentService(keychainService)
 
-    // Create IPC handlers
-    ipcHandlers = new IPCHandlers(
-      db,
-      ptyManager,
-      gitService,
-      keychainService,
-      agentService
-    )
+    // Create IPC handlers (without optional services)
+    ipcHandlers = new IPCHandlers(db, ptyManager, gitService, keychainService)
   })
 
   afterEach(async () => {
@@ -135,7 +137,6 @@ describe('IPCHandlers', () => {
         ptyManager,
         gitService,
         keychainService,
-        agentService,
         mockAIService
       )
 
@@ -164,8 +165,7 @@ describe('IPCHandlers', () => {
         ptyManager,
         gitService,
         keychainService,
-        agentService,
-        undefined,
+        undefined, // aiService
         mockAgentExecutor
       )
 
@@ -191,9 +191,8 @@ describe('IPCHandlers', () => {
         ptyManager,
         gitService,
         keychainService,
-        agentService,
-        undefined,
-        undefined,
+        undefined, // aiService
+        undefined, // agentExecutorService
         mockAgentConfig
       )
 
@@ -216,11 +215,10 @@ describe('IPCHandlers', () => {
         ptyManager,
         gitService,
         keychainService,
-        agentService,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
+        undefined, // aiService
+        undefined, // agentExecutorService
+        undefined, // agentConfigService
+        undefined, // julesService
         mockRequestLogger
       )
 
@@ -292,17 +290,23 @@ describe('IPCHandlers', () => {
         activitiesToOutputLines: vi.fn().mockReturnValue([]),
       } as unknown as JulesService
 
+      const mockRunningProjectsService = {} as unknown as RunningProjectsService
+      const mockAgentServiceV2 = {} as unknown as AgentServiceV2
+      const mockAutoModeServiceV2 = {} as unknown as AutoModeServiceV2
+
       const handlers = new IPCHandlers(
         db,
         ptyManager,
         gitService,
         keychainService,
-        agentService,
         mockAIService,
         mockAgentExecutor,
         mockAgentConfig,
         mockJulesService,
-        mockRequestLogger
+        mockRequestLogger,
+        mockRunningProjectsService,
+        mockAgentServiceV2,
+        mockAutoModeServiceV2
       )
 
       expect(handlers).toBeDefined()

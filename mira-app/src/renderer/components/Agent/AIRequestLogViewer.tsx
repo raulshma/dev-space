@@ -1,11 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from 'renderer/components/ui/card'
+import { Card, CardContent } from 'renderer/components/ui/card'
 import { Input } from 'renderer/components/ui/input'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
@@ -41,7 +35,6 @@ import {
   IconAlertCircle,
   IconChevronRight,
   IconCopy,
-  IconExternalLink,
 } from '@tabler/icons-react'
 import type {
   AIRequestLog,
@@ -114,7 +107,7 @@ function formatLatency(ms: number): string {
  */
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + '...'
+  return `${text.slice(0, maxLength)}...`
 }
 
 export function AIRequestLogViewer(): React.JSX.Element {
@@ -432,7 +425,10 @@ function LogDetailDialog({
                       <h4 className="text-sm font-medium mb-2">Messages</h4>
                       <div className="space-y-2">
                         {log.input.messages.map((msg, idx) => (
-                          <div className="rounded-lg bg-muted p-3" key={idx}>
+                          <div
+                            className="rounded-lg bg-muted p-3"
+                            key={`${msg.role}-${idx}-${msg.content.slice(0, 20)}`}
+                          >
                             <div className="flex items-center gap-2 mb-1">
                               <Badge className="text-xs" variant="outline">
                                 {msg.role}

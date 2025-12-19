@@ -11,7 +11,6 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useAIStore } from 'renderer/stores/ai-store'
 import type {
   AIAction,
-  AIModel,
   ConversationMessage,
   AILogFilter,
 } from 'shared/ai-types'
@@ -432,7 +431,6 @@ export function useAgentConfigStatus() {
  */
 export function useUpdateAgentConfig() {
   const queryClient = useQueryClient()
-  const { setAgentConfig } = useAIStore()
 
   return useMutation({
     mutationFn: async (

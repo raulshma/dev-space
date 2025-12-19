@@ -5,7 +5,7 @@
  * model data and ensures display completeness.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, beforeEach, afterEach } from 'vitest'
 import * as fc from 'fast-check'
 import { ModelRegistry } from './model-registry'
 import { DatabaseService } from '../database'

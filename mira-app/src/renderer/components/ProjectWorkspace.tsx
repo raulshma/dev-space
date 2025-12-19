@@ -28,7 +28,6 @@ import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProce
 import { LeftSidebar } from 'renderer/components/LeftSidebar'
 import { CodeEditorPanel } from 'renderer/components/CodeEditor'
 import { useEditorStore } from 'renderer/stores/editor-store'
-import { ContextShredder } from 'renderer/components/Agent/ContextShredder'
 import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
 import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
 import { TaskCompletionView } from 'renderer/components/Agent/TaskCompletionView'
@@ -258,7 +257,6 @@ interface AgentPanelProps {
 }
 
 const AgentPanel = memo(function AgentPanel({
-  projectId,
   projectPath,
   isVisible,
   onTogglePanel,
@@ -314,10 +312,6 @@ const AgentPanel = memo(function AgentPanel({
         >
           ✕
         </button>
-      </div>
-
-      <div className="h-48 border-b border-border">
-        <ContextShredder projectId={projectId} />
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">

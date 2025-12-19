@@ -6,7 +6,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import type { TaskGetBlockingStatusResponse } from 'shared/ipc-types'
 
 /**
  * Blocking status for a task
@@ -77,9 +76,8 @@ export function useTaskDependencies(taskId: string | null) {
         if (response.success) {
           setDependencies(dependsOn)
           // Refresh blocking status after updating dependencies
-          const statusResponse = await window.api.dependencies.getBlockingStatus(
-            { taskId }
-          )
+          const statusResponse =
+            await window.api.dependencies.getBlockingStatus({ taskId })
           setBlockingStatus(statusResponse.status)
         }
 
@@ -123,9 +121,7 @@ export function useTaskDependencies(taskId: string | null) {
       setBlockingStatus(response.status)
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : 'Failed to refresh blocking status'
+        err instanceof Error ? err.message : 'Failed to refresh blocking status'
       setError(message)
     }
   }, [taskId])
@@ -148,7 +144,9 @@ export function useTaskDependencies(taskId: string | null) {
 /**
  * Hook to get blocking status for a task (read-only)
  */
-export function useBlockingStatus(taskId: string | null): BlockingStatus | null {
+export function useBlockingStatus(
+  taskId: string | null
+): BlockingStatus | null {
   const [status, setStatus] = useState<BlockingStatus | null>(null)
 
   useEffect(() => {

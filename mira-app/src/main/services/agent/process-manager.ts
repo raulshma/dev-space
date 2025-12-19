@@ -112,7 +112,7 @@ class ProcessWrapper implements ManagedProcess {
 
   constructor(process: ChildProcess, emitter: EventEmitter) {
     this.process = process
-    this.pid = process.pid!
+    this.pid = process.pid ?? 0
     this.startTime = new Date()
     this.emitter = emitter
   }

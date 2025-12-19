@@ -44,7 +44,8 @@ export function TaskKiller(): React.JSX.Element {
   const killMutation = useMutation({
     mutationFn: async ({ pid, force }: { pid: number; force: boolean }) => {
       const result = await window.api.devTools.killTask({ pid, force })
-      if (!result.success) throw new Error(result.error || 'Failed to kill task')
+      if (!result.success)
+        throw new Error(result.error || 'Failed to kill task')
       return result
     },
     onSuccess: () => {
@@ -54,7 +55,11 @@ export function TaskKiller(): React.JSX.Element {
 
   const handleKill = useCallback(
     (pid: number, name: string, force = false) => {
-      if (confirm(`Kill process "${name}" (PID: ${pid})${force ? ' forcefully' : ''}?`)) {
+      if (
+        confirm(
+          `Kill process "${name}" (PID: ${pid})${force ? ' forcefully' : ''}?`
+        )
+      ) {
         killMutation.mutate({ pid, force })
       }
     },

@@ -14,7 +14,6 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardContent,
 } from 'renderer/components/ui/card'
 import { Button } from 'renderer/components/ui/button'
@@ -47,12 +46,7 @@ import {
   IconExternalLink,
 } from '@tabler/icons-react'
 import { useTask, useTaskOutput } from 'renderer/stores/agent-task-store'
-import type {
-  AgentTask,
-  TaskStatus,
-  FileChangeSummary,
-  OutputLine,
-} from 'shared/ai-types'
+import type { FileChangeSummary, OutputLine, TaskStatus } from 'shared/ai-types'
 
 interface TaskCompletionViewProps {
   taskId: string
@@ -138,10 +132,10 @@ function FileChangeList({
           {files.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2">{emptyMessage}</p>
           ) : (
-            files.map((file, index) => (
+            files.map(file => (
               <div
                 className="flex items-center gap-2 rounded-md px-2 py-1 text-xs font-mono hover:bg-muted/50"
-                key={index}
+                key={file}
               >
                 <span className="truncate">{file}</span>
               </div>
@@ -231,7 +225,7 @@ function OutputSummary({
               className={`whitespace-pre-wrap break-all ${
                 line.stream === 'stderr' ? 'text-destructive' : ''
               }`}
-              key={index}
+              key={`${line.stream}-${index}-${line.content.slice(0, 20)}`}
             >
               {line.content}
             </div>
@@ -244,7 +238,6 @@ function OutputSummary({
 
 export function TaskCompletionView({
   taskId,
-  onBack,
   onViewOutput,
 }: TaskCompletionViewProps): React.JSX.Element {
   const task = useTask(taskId)

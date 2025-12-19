@@ -5,7 +5,7 @@
  * maintain data integrity across all valid inputs.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it } from 'vitest'
 import * as fc from 'fast-check'
 import {
   type ConversationMessage,

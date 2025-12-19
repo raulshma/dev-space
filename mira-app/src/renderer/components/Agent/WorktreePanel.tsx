@@ -12,7 +12,12 @@
 import { memo, useCallback, useState } from 'react'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from 'renderer/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from 'renderer/components/ui/card'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
 import {
   AlertDialog,
@@ -125,7 +130,7 @@ const WorktreeItem = memo(function WorktreeItem({
               </div>
             }
           />
-          <TooltipContent side="bottom" className="max-w-md">
+          <TooltipContent className="max-w-md" side="bottom">
             <p className="font-mono text-xs break-all">{worktree.path}</p>
           </TooltipContent>
         </Tooltip>
@@ -136,9 +141,11 @@ const WorktreeItem = memo(function WorktreeItem({
             <IconLink className="h-3 w-3 text-muted-foreground" />
             {taskDescription ? (
               <button
-                type="button"
-                onClick={() => onTaskClick?.(worktree.taskId!)}
                 className="text-xs text-primary hover:underline truncate max-w-[200px]"
+                onClick={() =>
+                  worktree.taskId && onTaskClick?.(worktree.taskId)
+                }
+                type="button"
               >
                 {taskDescription}
               </button>
@@ -161,11 +168,11 @@ const WorktreeItem = memo(function WorktreeItem({
         <TooltipTrigger
           render={
             <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => onDelete(worktree)}
-              disabled={isDeleting}
               className="shrink-0 text-muted-foreground hover:text-destructive"
+              disabled={isDeleting}
+              onClick={() => onDelete(worktree)}
+              size="icon-sm"
+              variant="ghost"
             >
               {isDeleting ? (
                 <IconLoader2 className="h-4 w-4 animate-spin" />
@@ -184,10 +191,10 @@ const WorktreeItem = memo(function WorktreeItem({
 export const WorktreePanel = memo(function WorktreePanel({
   projectPath,
   className,
-  onWorktreeSelect,
   onTaskClick,
 }: WorktreePanelProps): React.JSX.Element {
-  const { worktrees, isLoading, error, deleteWorktree, refreshWorktrees } = useWorktrees(projectPath)
+  const { worktrees, isLoading, error, deleteWorktree, refreshWorktrees } =
+    useWorktrees(projectPath)
   const tasks = useTaskList()
 
   const [deleteConfirm, setDeleteConfirm] = useState<WorktreeInfo | null>(null)
@@ -250,26 +257,26 @@ export const WorktreePanel = memo(function WorktreePanel({
               <IconGitFork className="h-4 w-4" />
               Worktrees
               {worktrees.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
+                <Badge className="ml-1" variant="secondary">
                   {worktrees.length}
                 </Badge>
               )}
             </CardTitle>
             <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={refreshWorktrees}
               disabled={isLoading}
+              onClick={refreshWorktrees}
+              size="icon-sm"
+              variant="ghost"
             >
-              <IconRefresh className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              <IconRefresh
+                className={cn('h-4 w-4', isLoading && 'animate-spin')}
+              />
             </Button>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           {error && (
-            <div className="text-sm text-destructive mb-3">
-              {error}
-            </div>
+            <div className="text-sm text-destructive mb-3">{error}</div>
           )}
 
           {isLoading && worktrees.length === 0 ? (
@@ -291,12 +298,12 @@ export const WorktreePanel = memo(function WorktreePanel({
               <div className="space-y-2">
                 {worktrees.map(worktree => (
                   <WorktreeItem
+                    isDeleting={deletingPath === worktree.path}
                     key={worktree.path}
-                    worktree={worktree}
-                    taskDescription={getTaskDescription(worktree.taskId)}
                     onDelete={handleDeleteClick}
                     onTaskClick={onTaskClick}
-                    isDeleting={deletingPath === worktree.path}
+                    taskDescription={getTaskDescription(worktree.taskId)}
+                    worktree={worktree}
                   />
                 ))}
               </div>
@@ -306,17 +313,21 @@ export const WorktreePanel = memo(function WorktreePanel({
       </Card>
 
       {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && handleCancelDelete()}>
+      <AlertDialog
+        onOpenChange={open => !open && handleCancelDelete()}
+        open={!!deleteConfirm}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Worktree</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this worktree? This will remove the worktree
-              directory and its git tracking. Any uncommitted changes will be lost.
+              Are you sure you want to delete this worktree? This will remove
+              the worktree directory and its git tracking. Any uncommitted
+              changes will be lost.
               {deleteConfirm?.taskId && (
                 <span className="block mt-2 text-amber-600">
-                  This worktree is associated with a task. The task will be updated to remove
-                  the worktree association.
+                  This worktree is associated with a task. The task will be
+                  updated to remove the worktree association.
                 </span>
               )}
             </AlertDialogDescription>
@@ -333,8 +344,8 @@ export const WorktreePanel = memo(function WorktreePanel({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleConfirmDelete}
             >
               Delete Worktree
             </AlertDialogAction>

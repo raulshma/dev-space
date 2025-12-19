@@ -52,9 +52,6 @@ const KANBAN_COLUMNS: TaskStatus[] = [
 // Simplified columns for a cleaner view (can be toggled)
 const SIMPLIFIED_COLUMNS: TaskStatus[] = ['pending', 'running', 'completed']
 
-// All columns including archived (for filter view)
-const ALL_COLUMNS: TaskStatus[] = [...KANBAN_COLUMNS, 'archived']
-
 export function KanbanBoard({
   filters,
   selectedTaskId,
@@ -106,7 +103,7 @@ export function KanbanBoard({
         t =>
           t.description.toLowerCase().includes(query) ||
           t.targetDirectory.toLowerCase().includes(query) ||
-          (t.branchName && t.branchName.toLowerCase().includes(query))
+          t.branchName?.toLowerCase().includes(query)
       )
     }
 
@@ -120,6 +117,7 @@ export function KanbanBoard({
       queued: [],
       running: [],
       paused: [],
+      awaiting_approval: [],
       completed: [],
       failed: [],
       stopped: [],

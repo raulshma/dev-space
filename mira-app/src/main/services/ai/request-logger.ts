@@ -14,7 +14,6 @@ import type {
   CreateAIRequestLogInput,
   AIResponseLog,
   AIErrorLog,
-  AIAction,
   AIRequestInput,
   AIRequestMetadata,
 } from 'shared/ai-types'

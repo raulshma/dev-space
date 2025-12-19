@@ -93,8 +93,7 @@ export function formatJSON(
 
     return { formatted, valid: true }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Invalid JSON'
+    const errorMessage = error instanceof Error ? error.message : 'Invalid JSON'
     const position = parseJSONErrorPosition(errorMessage)
 
     return {
@@ -124,8 +123,7 @@ export function validateJSON(input: string): JSONFormatResult {
     JSON.parse(input)
     return { formatted: input, valid: true }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Invalid JSON'
+    const errorMessage = error instanceof Error ? error.message : 'Invalid JSON'
     return {
       formatted: input,
       valid: false,

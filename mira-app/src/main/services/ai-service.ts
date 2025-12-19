@@ -8,7 +8,6 @@
  */
 
 import { generateText, streamText } from 'ai'
-import type { LanguageModel } from 'ai'
 import type {
   AIAction,
   AIModel,
@@ -18,8 +17,6 @@ import type {
   StreamTextParams,
   StreamTextChunk,
   TokenUsage,
-  SerializedMessage,
-  serializeMessage,
 } from 'shared/ai-types'
 import type { KeychainService } from './keychain-service'
 import type {
@@ -330,7 +327,8 @@ export class AIService implements IAIService {
         finishReason: result.finishReason || 'stop',
       }
     } catch (error) {
-      const latencyMs = Date.now() - startTime
+      // Calculate latency for potential future logging
+      const _latencyMs = Date.now() - startTime
       const aiError = this.classifyError(error)
 
       // Log error
@@ -473,7 +471,8 @@ export class AIService implements IAIService {
         finishReason: 'stop',
       })
     } catch (error) {
-      const latencyMs = Date.now() - startTime
+      // Calculate latency for potential future logging
+      const _latencyMs = Date.now() - startTime
       const aiError = this.classifyError(error)
 
       // Log error
@@ -542,7 +541,7 @@ export class AIService implements IAIService {
    */
   private buildMessages(
     context: ProjectContext,
-    systemPrompt?: string
+    _systemPrompt?: string
   ): ConversationMessage[] {
     const messages: ConversationMessage[] = []
 
@@ -610,7 +609,6 @@ export class AIService implements IAIService {
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : undefined
 
     // Check for rate limiting
     if (

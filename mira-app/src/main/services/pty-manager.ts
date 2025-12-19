@@ -128,29 +128,30 @@ export class PTYManager {
 
       // Any other exit code is a real error
       const stderr = result.stderr?.toString() || ''
-      throw new Error(`Failed to kill process ${pid}: ${stderr || `exit code ${result.status}`}`)
-    } else {
-      try {
-        // Try to kill process group first
-        process.kill(-pid, 'SIGKILL')
-        return true
-      } catch (err: unknown) {
-        const error = err as NodeJS.ErrnoException
-        if (error.code === 'ESRCH') {
-          // Process not found - already dead
-          try {
-            process.kill(pid, 'SIGKILL')
-            return true
-          } catch (innerErr: unknown) {
-            const innerError = innerErr as NodeJS.ErrnoException
-            if (innerError.code === 'ESRCH') {
-              return false // Already dead
-            }
-            throw innerError
+      throw new Error(
+        `Failed to kill process ${pid}: ${stderr || `exit code ${result.status}`}`
+      )
+    }
+    try {
+      // Try to kill process group first
+      process.kill(-pid, 'SIGKILL')
+      return true
+    } catch (err: unknown) {
+      const error = err as NodeJS.ErrnoException
+      if (error.code === 'ESRCH') {
+        // Process not found - already dead
+        try {
+          process.kill(pid, 'SIGKILL')
+          return true
+        } catch (innerErr: unknown) {
+          const innerError = innerErr as NodeJS.ErrnoException
+          if (innerError.code === 'ESRCH') {
+            return false // Already dead
           }
+          throw innerError
         }
-        throw error
       }
+      throw error
     }
   }
 

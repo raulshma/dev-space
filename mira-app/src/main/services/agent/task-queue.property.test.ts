@@ -28,43 +28,22 @@ const arbitraryUniqueTaskIds: fc.Arbitrary<string[]> = fc
   .map(ids => [...new Set(ids)]) // Ensure uniqueness
 
 /**
- * Arbitrary generator for queue operations
+ * Type for queue operations (defined for potential future stateful testing)
  */
-type QueueOperation =
+type _QueueOperation =
   | { type: 'enqueue'; taskId: string }
   | { type: 'dequeue' }
   | { type: 'setCurrentTask'; taskId: string | undefined }
   | { type: 'clearCurrentTask' }
 
-const arbitraryQueueOperation = (
-  taskIds: string[]
-): fc.Arbitrary<QueueOperation> => {
-  if (taskIds.length === 0) {
-    return fc.constantFrom<QueueOperation>(
-      { type: 'dequeue' },
-      { type: 'clearCurrentTask' }
-    )
-  }
-
-  return fc.oneof(
-    fc.record({
-      type: fc.constant('enqueue' as const),
-      taskId: fc.constantFrom(...taskIds),
-    }),
-    fc.constant({ type: 'dequeue' as const }),
-    fc.record({
-      type: fc.constant('setCurrentTask' as const),
-      taskId: fc.constantFrom(...taskIds, undefined),
-    }),
-    fc.constant({ type: 'clearCurrentTask' as const })
-  )
-}
+// Note: _QueueOperation is defined for potential future use in stateful testing
+// but is not currently used in the property tests below
 
 describe('Task Queue Property Tests', () => {
-  let taskQueue: TaskQueue
+  let _taskQueue: TaskQueue
 
   beforeEach(() => {
-    taskQueue = new TaskQueue()
+    _taskQueue = new TaskQueue()
   })
 
   /**

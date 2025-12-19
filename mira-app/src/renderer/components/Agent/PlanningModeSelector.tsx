@@ -57,13 +57,15 @@ const PLANNING_MODE_OPTIONS: PlanningModeOption[] = [
   {
     value: 'spec',
     label: 'Spec',
-    description: 'Specification with acceptance criteria and file modifications',
+    description:
+      'Specification with acceptance criteria and file modifications',
     icon: <IconFileDescription className="h-4 w-4" />,
   },
   {
     value: 'full',
     label: 'Full',
-    description: 'Comprehensive spec with user story, phased tasks, and risk analysis',
+    description:
+      'Comprehensive spec with user story, phased tasks, and risk analysis',
     icon: <IconFileAnalytics className="h-4 w-4" />,
   },
 ]
@@ -188,11 +190,7 @@ export function CompactPlanningModeSelector({
   const selectedOption = PLANNING_MODE_OPTIONS.find(o => o.value === value)
 
   return (
-    <Select
-      disabled={disabled}
-      onValueChange={handleModeChange}
-      value={value}
-    >
+    <Select disabled={disabled} onValueChange={handleModeChange} value={value}>
       <SelectTrigger className={className}>
         <SelectValue>
           <span className="flex items-center gap-2">

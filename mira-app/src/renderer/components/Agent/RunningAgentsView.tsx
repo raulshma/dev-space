@@ -35,12 +35,14 @@ import { ScrollArea } from 'renderer/components/ui/scroll-area'
 
 interface RunningAgentsViewProps {
   onBack?: () => void
+  compact?: boolean
 }
 
 export const RunningAgentsView = memo(function RunningAgentsView({
   onBack,
+  compact = false,
 }: RunningAgentsViewProps): React.JSX.Element {
-  const tasks = useRunningTasks()
+  const tasks = useRunningTasks() ?? []
   const isLoading = useRunningTasksLoading()
   const error = useRunningTasksError()
   const { refreshTasks, stopTask, startPolling, stopPolling } =
@@ -99,45 +101,47 @@ export const RunningAgentsView = memo(function RunningAgentsView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBack}
-            className="h-8 w-8 p-0"
-          >
-            <IconArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <IconRobot className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold">Running Agents</h1>
-            {tasks.length > 0 && (
-              <span className="text-sm text-muted-foreground">
-                ({tasks.length})
-              </span>
-            )}
+      {/* Header - only show in non-compact mode */}
+      {!compact && (
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-3">
+            <Button
+              className="h-8 w-8 p-0"
+              onClick={handleBack}
+              size="sm"
+              variant="ghost"
+            >
+              <IconArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <IconRobot className="h-5 w-5 text-primary" />
+              <h1 className="text-lg font-semibold">Running Agents</h1>
+              {tasks.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  ({tasks.length})
+                </span>
+              )}
+            </div>
           </div>
+          <Button
+            className="h-8 px-2"
+            disabled={isLoading}
+            onClick={handleRefresh}
+            size="sm"
+            variant="ghost"
+          >
+            {isLoading ? (
+              <IconLoader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <IconRefresh className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="h-8 px-2"
-        >
-          {isLoading ? (
-            <IconLoader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <IconRefresh className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
+      )}
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-4">
+        <div className={compact ? 'p-2' : 'p-4'}>
           {error && (
             <div className="flex items-center gap-2 p-3 mb-4 rounded-md bg-destructive/10 text-destructive text-sm">
               <IconAlertCircle className="h-4 w-4 shrink-0" />
@@ -146,27 +150,36 @@ export const RunningAgentsView = memo(function RunningAgentsView({
           )}
 
           {tasks.length === 0 ? (
-            <Empty className="min-h-[400px]">
+            <Empty className={compact ? 'min-h-[200px]' : 'min-h-[400px]'}>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <IconRobot className="h-5 w-5" />
                 </EmptyMedia>
                 <EmptyTitle>No Running Agents</EmptyTitle>
-                <EmptyDescription>
-                  There are no agent tasks currently running. Start a task from
-                  a project's task board to see it here.
-                </EmptyDescription>
+                {!compact && (
+                  <EmptyDescription>
+                    There are no agent tasks currently running. Start a task
+                    from a project's task board to see it here.
+                  </EmptyDescription>
+                )}
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div
+              className={
+                compact
+                  ? 'flex flex-col gap-2'
+                  : 'grid gap-3 md:grid-cols-2 lg:grid-cols-3'
+              }
+            >
               {tasks.map(task => (
                 <RunningTaskCard
+                  compact={compact}
+                  isStoppingTask={stoppingTaskId === task.taskId}
                   key={task.taskId}
-                  task={task}
                   onStop={handleStop}
                   onViewProject={handleViewProject}
-                  isStoppingTask={stoppingTaskId === task.taskId}
+                  task={task}
                 />
               ))}
             </div>

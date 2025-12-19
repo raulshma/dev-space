@@ -52,7 +52,10 @@ export interface SessionStoreState {
   setError: (error: string | null) => void
 
   // Async actions (call IPC)
-  loadSessions: (projectPath: string, includeArchived?: boolean) => Promise<void>
+  loadSessions: (
+    projectPath: string,
+    includeArchived?: boolean
+  ) => Promise<void>
   loadMessages: (sessionId: string) => Promise<void>
   createSession: (
     projectPath: string,

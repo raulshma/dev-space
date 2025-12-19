@@ -103,6 +103,11 @@ const STATUS_CONFIG: Record<
     color: 'text-yellow-500',
     icon: <IconPlayerPause className="h-4 w-4" />,
   },
+  awaiting_approval: {
+    label: 'Awaiting Approval',
+    color: 'text-yellow-500',
+    icon: <IconClock className="h-4 w-4" />,
+  },
   completed: {
     label: 'Completed',
     color: 'text-green-500',

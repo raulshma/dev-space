@@ -173,7 +173,7 @@ export class DevToolsService {
           if (match) {
             const name = match[1]
             const pid = parseInt(match[2], 10)
-            if (!isNaN(pid)) {
+            if (!Number.isNaN(pid)) {
               map.set(pid, name)
             }
           }
@@ -186,9 +186,7 @@ export class DevToolsService {
   }
 
   private async killPortWindows(port: number): Promise<void> {
-    const { stdout } = await execAsync(
-      `netstat -ano -p TCP | findstr :${port}`
-    )
+    const { stdout } = await execAsync(`netstat -ano -p TCP | findstr :${port}`)
     const lines = stdout.split('\n')
     const pids = new Set<number>()
 
@@ -198,7 +196,7 @@ export class DevToolsService {
         const localAddr = parts[1]
         if (localAddr.endsWith(`:${port}`)) {
           const pid = parseInt(parts[4], 10)
-          if (!isNaN(pid) && pid > 0) {
+          if (!Number.isNaN(pid) && pid > 0) {
             pids.add(pid)
           }
         }
@@ -247,13 +245,15 @@ export class DevToolsService {
       const lines = tasklistOutput.split('\n')
 
       for (const line of lines) {
-        const match = line.match(/"([^"]+)","(\d+)","[^"]+","[^"]+","([\d,]+) K"/)
+        const match = line.match(
+          /"([^"]+)","(\d+)","[^"]+","[^"]+","([\d,]+) K"/
+        )
         if (match) {
           const name = match[1]
           const pid = parseInt(match[2], 10)
           const memory = parseInt(match[3].replace(/,/g, ''), 10) / 1024 // Convert KB to MB
 
-          if (!isNaN(pid) && pid > 0) {
+          if (!Number.isNaN(pid) && pid > 0) {
             processes.push({
               pid,
               name,
@@ -273,9 +273,7 @@ export class DevToolsService {
   // ============================================================================
 
   private async listPortsUnix(): Promise<PortInfo[]> {
-    const cmd = this.isMac
-      ? 'lsof -iTCP -sTCP:LISTEN -n -P'
-      : 'ss -tlnp'
+    const cmd = this.isMac ? 'lsof -iTCP -sTCP:LISTEN -n -P' : 'ss -tlnp'
 
     const { stdout } = await execAsync(cmd)
     const ports: PortInfo[] = []
@@ -339,7 +337,7 @@ export class DevToolsService {
       .split('\n')
       .filter(p => p)
       .map(p => parseInt(p, 10))
-      .filter(p => !isNaN(p) && p > 0)
+      .filter(p => !Number.isNaN(p) && p > 0)
 
     if (pids.length === 0) {
       throw new Error(`No process found on port ${port}`)
@@ -367,7 +365,7 @@ export class DevToolsService {
         const cpu = parseFloat(parts[2])
         const memory = parseInt(parts[3], 10) / 1024 // Convert KB to MB
 
-        if (!isNaN(pid) && pid > 0) {
+        if (!Number.isNaN(pid) && pid > 0) {
           processes.push({
             pid,
             name,

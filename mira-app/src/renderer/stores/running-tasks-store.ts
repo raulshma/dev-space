@@ -187,9 +187,7 @@ export const useRunningTasksForProject = (
   projectPath: string
 ): RunningTaskInfo[] => {
   return useRunningTasksStore(
-    useShallow(state =>
-      state.tasks.filter(t => t.projectPath === projectPath)
-    )
+    useShallow(state => state.tasks.filter(t => t.projectPath === projectPath))
   )
 }
 

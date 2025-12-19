@@ -15,7 +15,6 @@ import {
   IconFilePlus,
   IconFileX,
   IconFileOff,
-  IconExternalLink,
   IconGitCompare,
 } from '@tabler/icons-react'
 import { useGitTelemetry } from 'renderer/hooks/use-git-telemetry'
@@ -254,10 +253,10 @@ const GitFileItem = memo(function GitFileItem({
           className="h-5 w-5 p-0"
           onClick={() => onOpenFile(`${projectPath}/${file.path}`)}
           size="sm"
-          title="Open file"
+          title="Open in editor"
           variant="ghost"
         >
-          <IconExternalLink className="h-3 w-3" />
+          <IconFile className="h-3 w-3" />
         </Button>
         {file.status !== 'untracked' && (
           <Button
@@ -317,9 +316,14 @@ export const GitPanel = memo(function GitPanel({
     [focusedTerminalId, getTerminal, projectId]
   )
 
-  const handleOpenFile = useCallback((filePath: string) => {
-    window.api.shell.openPath({ path: filePath }).catch(console.error)
-  }, [])
+  const openFile = useEditorStore(state => state.openFile)
+
+  const handleOpenFile = useCallback(
+    (filePath: string) => {
+      openFile(filePath)
+    },
+    [openFile]
+  )
 
   const openDiff = useEditorStore(state => state.openDiff)
 

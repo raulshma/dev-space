@@ -37,6 +37,7 @@
     "prebuild:sqlite": "pnpm exec electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.73",
     "@anthropic-ai/sdk": "^0.71.2",
     "@base-ui/react": "^1.0.0",
     "@fontsource-variable/noto-sans": "^5.2.10",

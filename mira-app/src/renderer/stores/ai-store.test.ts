@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAIStore } from './ai-store'
-import type { AIModel, ConversationMessage, AIAction } from 'shared/ai-types'
+import type { AIModel, ConversationMessage } from 'shared/ai-types'
 
 describe('AIStore', () => {
   beforeEach(() => {

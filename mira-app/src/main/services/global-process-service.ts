@@ -16,7 +16,7 @@
 import { EventEmitter } from 'node:events'
 import * as path from 'node:path'
 import type { AgentExecutorService } from './agent-executor-service'
-import type { AutoModeService } from './auto-mode-service'
+import type { AutoModeServiceV2 } from './auto-mode-service-v2'
 import type { AgentTask, TaskStatus } from 'shared/ai-types'
 
 /**
@@ -97,7 +97,7 @@ export interface IGlobalProcessService {
    * Set the auto-mode service for checking auto-mode status
    * @param autoModeService - The auto-mode service instance
    */
-  setAutoModeService(autoModeService: AutoModeService): void
+  setAutoModeService(autoModeService: AutoModeServiceV2): void
 
   /**
    * Subscribe to running tasks updates
@@ -122,17 +122,10 @@ export class GlobalProcessService
   private executorServices: Map<string, AgentExecutorService> = new Map()
 
   /** Reference to the auto-mode service for checking auto-mode status */
-  private autoModeService: AutoModeService | null = null
+  private autoModeService: AutoModeServiceV2 | null = null
 
   /** Cleanup functions for executor service listeners */
   private listenerCleanups: Map<string, () => void> = new Map()
-
-  /**
-   * Create a new GlobalProcessService instance
-   */
-  constructor() {
-    super()
-  }
 
   /**
    * Register an executor service for a project
@@ -209,7 +202,7 @@ export class GlobalProcessService
    *
    * @param autoModeService - The auto-mode service instance
    */
-  setAutoModeService(autoModeService: AutoModeService): void {
+  setAutoModeService(autoModeService: AutoModeServiceV2): void {
     this.autoModeService = autoModeService
   }
 
@@ -350,8 +343,8 @@ export class GlobalProcessService
     // Check if this task was started by auto-mode
     let isAutoMode = false
     if (this.autoModeService) {
-      const runningTaskIds = this.autoModeService.getRunningTaskIds(projectPath)
-      isAutoMode = runningTaskIds.includes(task.id)
+      const state = this.autoModeService.getState(projectPath)
+      isAutoMode = state?.runningFeatureIds?.includes(task.id) ?? false
     }
 
     return {

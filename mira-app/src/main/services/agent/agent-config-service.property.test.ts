@@ -10,13 +10,21 @@
 
 import { describe, it, beforeEach, afterEach, vi } from 'vitest'
 import * as fc from 'fast-check'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import * as os from 'node:os'
+
+// Mock Electron app module - must be before other imports that use electron
+vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn().mockImplementation(() => os.tmpdir()),
+  },
+}))
+
 import { AgentConfigService } from './agent-config-service'
 import { DatabaseService } from '../database'
 import { KeychainService } from '../keychain-service'
 import type { AgentEnvironmentConfig } from 'shared/ai-types'
-import * as fs from 'node:fs'
-import * as path from 'node:path'
-import * as os from 'node:os'
 
 /**
  * Arbitrary generator for whitespace-only strings

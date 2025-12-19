@@ -20,7 +20,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from 'renderer/components/ui/tooltip'
-import { formatJSON, minifyJSON, validateJSON } from 'renderer/lib/devtools-utils'
+import {
+  formatJSON,
+  minifyJSON,
+  validateJSON,
+} from 'renderer/lib/devtools-utils'
 
 export function JSONFormatter(): React.JSX.Element {
   const [input, setInput] = useState('')
@@ -149,12 +153,18 @@ export function JSONFormatter(): React.JSX.Element {
       {validation && (
         <div className="flex items-center gap-2">
           {validation.valid ? (
-            <Badge className="bg-green-500/10 text-green-600 border-green-500/30" variant="outline">
+            <Badge
+              className="bg-green-500/10 text-green-600 border-green-500/30"
+              variant="outline"
+            >
               <IconCheck className="h-3 w-3 mr-1" />
               Valid JSON
             </Badge>
           ) : (
-            <Badge className="bg-destructive/10 text-destructive border-destructive/30" variant="outline">
+            <Badge
+              className="bg-destructive/10 text-destructive border-destructive/30"
+              variant="outline"
+            >
               <IconX className="h-3 w-3 mr-1" />
               {validation.error || 'Invalid JSON'}
             </Badge>

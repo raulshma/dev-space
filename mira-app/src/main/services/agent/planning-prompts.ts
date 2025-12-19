@@ -215,7 +215,7 @@ export function getPlanningPromptPrefix(
     return ''
   }
 
-  return planningPrompt + '\n\n---\n\n## Task Request\n\n'
+  return `${planningPrompt}\n\n---\n\n## Task Request\n\n`
 }
 
 /**

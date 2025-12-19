@@ -6,10 +6,7 @@
  */
 
 import { memo, useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import {
-  parseAnsiSequences,
-  createColorPalette,
-} from 'ansi-sequence-parser'
+import { parseAnsiSequences, createColorPalette } from 'ansi-sequence-parser'
 import {
   Dialog,
   DialogContent,
@@ -113,7 +110,7 @@ const LogLine = memo(function LogLine({ line }: { line: string }) {
         }
 
         return (
-          <span key={i} style={style}>
+          <span key={`${i}-${token.value.slice(0, 10)}`} style={style}>
             {token.value}
           </span>
         )
@@ -302,7 +299,9 @@ export const LogsDialog = memo(function LogsDialog({
             {logs.length === 0 ? (
               <span className="text-zinc-500">Waiting for output...</span>
             ) : (
-              logs.map((line, index) => <LogLine key={index} line={line} />)
+              logs.map((line, index) => (
+                <LogLine key={`${index}-${line.slice(0, 20)}`} line={line} />
+              ))
             )}
             <div ref={logsEndRef} />
           </div>

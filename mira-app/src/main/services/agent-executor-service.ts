@@ -58,7 +58,13 @@ import type {
   OutputLine,
   ExecutionStep,
 } from 'shared/ai-types'
-import { getPlanningPromptPrefix, hasPlanGenerated, needsPlanApproval, extractTaskProgress, updateTaskStatuses } from './agent/planning-prompts'
+import {
+  getPlanningPromptPrefix,
+  hasPlanGenerated,
+  needsPlanApproval,
+  extractTaskProgress,
+  updateTaskStatuses,
+} from './agent/planning-prompts'
 import type { WorkingDirectoryService } from './agent/working-directory-service'
 import type {
   JulesSessionStatus,
@@ -699,8 +705,10 @@ export class AgentExecutorService
 
     await this.updateTask(taskId, { status: 'paused' })
 
-    const updatedTask = this.db.getAgentTask(taskId)!
-    this.emit('taskPaused', updatedTask)
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (updatedTask) {
+      this.emit('taskPaused', updatedTask)
+    }
   }
 
   /**
@@ -736,8 +744,10 @@ export class AgentExecutorService
 
     await this.updateTask(taskId, { status: 'running' })
 
-    const updatedTask = this.db.getAgentTask(taskId)!
-    this.emit('taskResumed', updatedTask)
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (updatedTask) {
+      this.emit('taskResumed', updatedTask)
+    }
   }
 
   /**
@@ -804,8 +814,10 @@ export class AgentExecutorService
       completedAt: new Date(),
     })
 
-    const updatedTask = this.db.getAgentTask(taskId)!
-    this.emit('taskStopped', updatedTask)
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (updatedTask) {
+      this.emit('taskStopped', updatedTask)
+    }
 
     // Process next task in queue
     await this.processNextTask()
@@ -866,7 +878,15 @@ export class AgentExecutorService
     )
     this.emit('outputReceived', taskId, line)
 
-    const updatedTask = this.db.getAgentTask(taskId)!
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (!updatedTask) {
+      throw new AgentExecutorError(
+        `Failed to retrieve updated task: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
     this.emit('planApproved', updatedTask)
 
     return updatedTask
@@ -929,7 +949,15 @@ export class AgentExecutorService
     )
     this.emit('outputReceived', taskId, line)
 
-    const updatedTask = this.db.getAgentTask(taskId)!
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (!updatedTask) {
+      throw new AgentExecutorError(
+        `Failed to retrieve updated task: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
     this.emit('planRejected', updatedTask, feedback)
 
     return updatedTask
@@ -943,7 +971,10 @@ export class AgentExecutorService
    * @param taskId - The task ID
    * @param planContent - The generated plan content
    */
-  async setAwaitingApproval(taskId: string, planContent: string): Promise<void> {
+  async setAwaitingApproval(
+    taskId: string,
+    planContent: string
+  ): Promise<void> {
     const task = this.db.getAgentTask(taskId)
     if (!task) {
       return
@@ -968,8 +999,10 @@ export class AgentExecutorService
       planSpec,
     })
 
-    const updatedTask = this.db.getAgentTask(taskId)!
-    this.emit('taskAwaitingApproval', updatedTask)
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (updatedTask) {
+      this.emit('taskAwaitingApproval', updatedTask)
+    }
   }
 
   /**
@@ -1159,8 +1192,10 @@ export class AgentExecutorService
       startedAt: new Date(),
     })
 
-    const updatedTask = this.db.getAgentTask(task.id)!
-    this.emit('taskStarted', updatedTask)
+    const updatedTask = this.db.getAgentTask(task.id)
+    if (updatedTask) {
+      this.emit('taskStarted', updatedTask)
+    }
 
     try {
       // Create Jules session
@@ -1543,8 +1578,10 @@ export class AgentExecutorService
       completedAt: new Date(),
     })
 
-    const task = this.db.getAgentTask(taskId)!
-    this.emit('taskCompleted', task)
+    const task = this.db.getAgentTask(taskId)
+    if (task) {
+      this.emit('taskCompleted', task)
+    }
 
     // Process next task
     await this.processNextTask()
@@ -1586,8 +1623,10 @@ export class AgentExecutorService
       executionStep: 'copying-project',
     })
 
-    const updatedTask = this.db.getAgentTask(task.id)!
-    this.emit('taskStarted', updatedTask)
+    const updatedTask = this.db.getAgentTask(task.id)
+    if (updatedTask) {
+      this.emit('taskStarted', updatedTask)
+    }
 
     // Copy project to working directory
     let workingDirectory = task.targetDirectory
@@ -1676,7 +1715,11 @@ export class AgentExecutorService
     // Track accumulated output for plan detection
     let accumulatedOutput = ''
     let planDetected = false
-    let lastTaskProgress = { startedTasks: [] as string[], completedTasks: [] as string[], completedPhases: [] as string[] }
+    let lastTaskProgress = {
+      startedTasks: [] as string[],
+      completedTasks: [] as string[],
+      completedPhases: [] as string[],
+    }
 
     const spawnConfig: SpawnConfig = {
       script: scriptPath,
@@ -1720,9 +1763,12 @@ export class AgentExecutorService
 
           // Check if progress has changed
           const hasNewProgress =
-            currentProgress.startedTasks.length > lastTaskProgress.startedTasks.length ||
-            currentProgress.completedTasks.length > lastTaskProgress.completedTasks.length ||
-            currentProgress.completedPhases.length > lastTaskProgress.completedPhases.length
+            currentProgress.startedTasks.length >
+              lastTaskProgress.startedTasks.length ||
+            currentProgress.completedTasks.length >
+              lastTaskProgress.completedTasks.length ||
+            currentProgress.completedPhases.length >
+              lastTaskProgress.completedPhases.length
 
           if (hasNewProgress) {
             lastTaskProgress = currentProgress
@@ -1770,7 +1816,10 @@ export class AgentExecutorService
     const requirePlanApproval = task.requirePlanApproval ?? false
 
     // Get planning prompt prefix based on mode
-    const planningPrefix = getPlanningPromptPrefix(planningMode, requirePlanApproval)
+    const planningPrefix = getPlanningPromptPrefix(
+      planningMode,
+      requirePlanApproval
+    )
 
     // If no planning prefix, return original description
     if (!planningPrefix) {
@@ -1974,7 +2023,12 @@ export class AgentExecutorService
 
     await this.updateTask(taskId, updates)
 
-    const updatedTask = this.db.getAgentTask(taskId)!
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (!updatedTask) {
+      console.error(`Task ${taskId} not found after update`)
+      await this.processNextTask()
+      return
+    }
 
     if (isSuccess) {
       this.emit('taskCompleted', updatedTask)
@@ -2010,8 +2064,10 @@ export class AgentExecutorService
       completedAt: new Date(),
     })
 
-    const task = this.db.getAgentTask(taskId)!
-    this.emit('taskFailed', task, errorMessage)
+    const task = this.db.getAgentTask(taskId)
+    if (task) {
+      this.emit('taskFailed', task, errorMessage)
+    }
 
     // Process next task
     await this.processNextTask()

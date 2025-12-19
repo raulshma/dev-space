@@ -13,7 +13,7 @@
  * Requirements: 6.1, 6.2, 6.3, 6.5
  */
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -150,7 +150,6 @@ export function TaskCreationDialog({
   const [isLoadingSources, setIsLoadingSources] = useState(false)
   const [sourceSearchQuery, setSourceSearchQuery] = useState('')
   const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false)
-  const sourceSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Configured services state
   const [configuredServices, setConfiguredServices] = useState<
@@ -473,10 +472,6 @@ Respond with JSON only:
     return ['service', 'details', 'parameters', 'review']
   }
 
-  const getStepIndex = (s: Step): number => {
-    return getSteps().indexOf(s)
-  }
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
@@ -582,7 +577,7 @@ Respond with JSON only:
                           onClick={e => {
                             e.stopPropagation()
                             window.api.shell.openExternal({
-                              url: service.docsUrl!,
+                              url: service.docsUrl as string,
                             })
                           }}
                           size="icon-sm"
@@ -763,9 +758,11 @@ Respond with JSON only:
                   </p>
                   {/* Click outside to close dropdown */}
                   {isSourceDropdownOpen && (
-                    <div
-                      className="fixed inset-0 z-40"
+                    <button
+                      aria-label="Close dropdown"
+                      className="fixed inset-0 z-40 cursor-default"
                       onClick={() => setIsSourceDropdownOpen(false)}
+                      type="button"
                     />
                   )}
                 </div>

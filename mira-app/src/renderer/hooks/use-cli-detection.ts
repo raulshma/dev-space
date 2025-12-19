@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { CLIType, CLIDetectionResult, DetectedCLI } from 'shared/ipc-types'
+import type { CLIType } from 'shared/ipc-types'
 
 /**
  * Query key factory for CLI detection

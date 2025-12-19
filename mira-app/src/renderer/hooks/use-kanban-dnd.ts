@@ -124,6 +124,7 @@ export const VALID_DROP_TARGETS: Record<TaskStatus, TaskStatus[]> = {
   queued: ['pending', 'stopped', 'completed'], // Can move back to backlog, stop, or mark done
   running: [], // Can't drag running tasks
   paused: ['pending', 'queued', 'stopped', 'completed'], // Can move back, stop, or complete
+  awaiting_approval: ['pending', 'queued', 'stopped', 'completed'], // Can move back, stop, or complete
   completed: ['pending', 'archived'], // Can reopen or archive
   failed: ['pending', 'queued', 'archived'], // Can retry or archive
   stopped: ['pending', 'queued', 'archived'], // Can requeue or archive

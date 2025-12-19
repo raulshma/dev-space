@@ -9,16 +9,11 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import * as fc from 'fast-check'
-import {
-  AIService,
-  AIErrorCode,
-  AIServiceError,
-  type RetryConfig,
-} from './ai-service'
+import { AIService, AIErrorCode, type RetryConfig } from './ai-service'
 import { ProviderRegistry } from './ai/provider-registry'
 import { ModelRegistry } from './ai/model-registry'
 import { RequestLogger } from './ai/request-logger'
-import type { ConversationMessage, AIModel } from 'shared/ai-types'
+import type { ConversationMessage } from 'shared/ai-types'
 
 // Mock dependencies
 const mockKeychainService = {
@@ -130,8 +125,9 @@ describe('AI Service Property Tests', () => {
               freshService.addMessageToConversation(projectId, message)
             }
 
-            // Get conversation before model switch
-            const conversationBefore = freshService.getConversation(projectId)
+            // Store conversation length before model switch
+            const conversationLengthBefore =
+              freshService.getConversation(projectId).length
 
             // Simulate model switch by setting a new default model
             // (The conversation should remain unchanged)
@@ -146,6 +142,7 @@ describe('AI Service Property Tests', () => {
 
             // Verify conversation length is preserved
             expect(conversationAfter.length).toBe(messages.length)
+            expect(conversationAfter.length).toBe(conversationLengthBefore)
 
             // Verify each message content is preserved
             for (let i = 0; i < messages.length; i++) {

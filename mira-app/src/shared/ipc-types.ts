@@ -14,12 +14,6 @@ import type {
   CreateBlueprintInput,
   GitTelemetry,
   AIProvider,
-  AIModel,
-  ContextFile,
-  TokenUsage,
-  ErrorContext,
-  FixSuggestion,
-  ConversationMessage,
   PinnedProcess,
 } from './models'
 
@@ -92,20 +86,7 @@ export const IPC_CHANNELS = {
   SHORTCUT_LIST: 'shortcut:list',
   SHORTCUT_SET: 'shortcut:set',
 
-  // AI Agent operations (legacy)
-  AGENT_SET_MODEL: 'agent:setModel',
-  AGENT_GET_MODEL: 'agent:getModel',
-  AGENT_GET_MODELS: 'agent:getModels',
-  AGENT_SEND_MESSAGE: 'agent:sendMessage',
-  AGENT_GET_CONVERSATION: 'agent:getConversation',
-  AGENT_CLEAR_CONVERSATION: 'agent:clearConversation',
-  AGENT_ADD_CONTEXT_FILE: 'agent:addContextFile',
-  AGENT_REMOVE_CONTEXT_FILE: 'agent:removeContextFile',
-  AGENT_GET_CONTEXT_FILES: 'agent:getContextFiles',
-  AGENT_GET_TOKEN_USAGE: 'agent:getTokenUsage',
-  AGENT_GENERATE_FIX: 'agent:generateFix',
-
-  // AI Service operations (new Vercel AI SDK)
+  // AI Service operations (Vercel AI SDK)
   AI_GENERATE_TEXT: 'ai:generateText',
   AI_STREAM_TEXT: 'ai:streamText',
   AI_STREAM_TEXT_CHUNK: 'ai:streamTextChunk',
@@ -182,13 +163,6 @@ export const IPC_CHANNELS = {
   DEVTOOLS_TASK_LIST: 'devtools:task:list',
   DEVTOOLS_TASK_KILL: 'devtools:task:kill',
 
-  // Auto-Mode operations
-  AUTO_MODE_START: 'autoMode:start',
-  AUTO_MODE_STOP: 'autoMode:stop',
-  AUTO_MODE_GET_STATE: 'autoMode:getState',
-  AUTO_MODE_SET_CONCURRENCY: 'autoMode:setConcurrency',
-  AUTO_MODE_STATE_CHANGED: 'autoMode:stateChanged', // event
-
   // Running Tasks Global View operations
   RUNNING_TASKS_GET_ALL: 'runningTasks:getAll',
   RUNNING_TASKS_STOP: 'runningTasks:stop',
@@ -221,6 +195,44 @@ export const IPC_CHANNELS = {
   AGENT_SESSION_GET_MESSAGES: 'agentSession:getMessages',
   AGENT_SESSION_GET_LAST: 'agentSession:getLast',
   AGENT_SESSION_SET_LAST: 'agentSession:setLast',
+
+  // Agent Service V2 operations (Claude SDK integration)
+  AGENT_V2_SESSION_CREATE: 'agentV2:sessionCreate',
+  AGENT_V2_SESSION_GET: 'agentV2:sessionGet',
+  AGENT_V2_SESSION_LIST: 'agentV2:sessionList',
+  AGENT_V2_SESSION_UPDATE: 'agentV2:sessionUpdate',
+  AGENT_V2_SESSION_ARCHIVE: 'agentV2:sessionArchive',
+  AGENT_V2_SESSION_DELETE: 'agentV2:sessionDelete',
+  AGENT_V2_SESSION_CLEAR: 'agentV2:sessionClear',
+  AGENT_V2_SEND_MESSAGE: 'agentV2:sendMessage',
+  AGENT_V2_GET_MESSAGES: 'agentV2:getMessages',
+  AGENT_V2_STOP_EXECUTION: 'agentV2:stopExecution',
+  AGENT_V2_IS_EXECUTING: 'agentV2:isExecuting',
+  AGENT_V2_TEXT_DELTA: 'agentV2:textDelta',
+  AGENT_V2_MESSAGE: 'agentV2:message',
+  AGENT_V2_TOOL_USE: 'agentV2:toolUse',
+  AGENT_V2_ERROR: 'agentV2:error',
+  AGENT_V2_COMPLETE: 'agentV2:complete',
+
+  // Auto Mode Service V2 operations (Claude SDK integration)
+  AUTO_MODE_V2_START: 'autoModeV2:start',
+  AUTO_MODE_V2_STOP: 'autoModeV2:stop',
+  AUTO_MODE_V2_GET_STATE: 'autoModeV2:getState',
+  AUTO_MODE_V2_UPDATE_CONFIG: 'autoModeV2:updateConfig',
+  AUTO_MODE_V2_GET_QUEUE: 'autoModeV2:getQueue',
+  AUTO_MODE_V2_ENQUEUE_FEATURE: 'autoModeV2:enqueueFeature',
+  AUTO_MODE_V2_DEQUEUE_FEATURE: 'autoModeV2:dequeueFeature',
+  AUTO_MODE_V2_EXECUTE_FEATURE: 'autoModeV2:executeFeature',
+  AUTO_MODE_V2_STOP_FEATURE: 'autoModeV2:stopFeature',
+  AUTO_MODE_V2_APPROVE_PLAN: 'autoModeV2:approvePlan',
+  AUTO_MODE_V2_REJECT_PLAN: 'autoModeV2:rejectPlan',
+  AUTO_MODE_V2_STATE_CHANGED: 'autoModeV2:stateChanged',
+  AUTO_MODE_V2_FEATURE_STARTED: 'autoModeV2:featureStarted',
+  AUTO_MODE_V2_FEATURE_COMPLETED: 'autoModeV2:featureCompleted',
+  AUTO_MODE_V2_FEATURE_FAILED: 'autoModeV2:featureFailed',
+  AUTO_MODE_V2_FEATURE_PROGRESS: 'autoModeV2:featureProgress',
+  AUTO_MODE_V2_PLAN_GENERATED: 'autoModeV2:planGenerated',
+  AUTO_MODE_V2_RATE_LIMIT_WAIT: 'autoModeV2:rateLimitWait',
 } as const
 
 // Project Request/Response Types
@@ -542,94 +554,6 @@ export interface ShortcutSetRequest {
 
 export interface ShortcutSetResponse {
   success: boolean
-}
-
-// AI Agent Request/Response Types
-export interface AgentSetModelRequest {
-  model: AIModel
-}
-
-export interface AgentSetModelResponse {
-  success: boolean
-}
-
-export interface AgentGetModelRequest {}
-
-export interface AgentGetModelResponse {
-  model: AIModel
-}
-
-export interface AgentGetModelsRequest {}
-
-export interface AgentGetModelsResponse {
-  models: AIModel[]
-}
-
-export interface AgentSendMessageRequest {
-  projectId: string
-  content: string
-}
-
-export interface AgentSendMessageResponse {
-  message: ConversationMessage
-}
-
-export interface AgentGetConversationRequest {
-  projectId: string
-}
-
-export interface AgentGetConversationResponse {
-  messages: ConversationMessage[]
-}
-
-export interface AgentClearConversationRequest {
-  projectId: string
-}
-
-export interface AgentClearConversationResponse {
-  success: boolean
-}
-
-export interface AgentAddContextFileRequest {
-  projectId: string
-  filePath: string
-}
-
-export interface AgentAddContextFileResponse {
-  file: ContextFile
-}
-
-export interface AgentRemoveContextFileRequest {
-  projectId: string
-  filePath: string
-}
-
-export interface AgentRemoveContextFileResponse {
-  success: boolean
-}
-
-export interface AgentGetContextFilesRequest {
-  projectId: string
-}
-
-export interface AgentGetContextFilesResponse {
-  files: ContextFile[]
-}
-
-export interface AgentGetTokenUsageRequest {
-  projectId: string
-}
-
-export interface AgentGetTokenUsageResponse {
-  usage: TokenUsage
-}
-
-export interface AgentGenerateFixRequest {
-  errorContext: ErrorContext
-}
-
-export interface AgentGenerateFixResponse {
-  suggestion: FixSuggestion
 }
 
 // Scripts Request/Response Types
@@ -1247,7 +1171,6 @@ export interface RunningProjectOutputData {
   data: string
 }
 
-
 // ============================================================================
 // DevTools Request/Response Types
 // ============================================================================
@@ -1299,59 +1222,6 @@ export interface DevToolsTaskKillRequest {
 export interface DevToolsTaskKillResponse {
   success: boolean
   error?: string
-}
-
-// ============================================================================
-// Auto-Mode Request/Response Types
-// ============================================================================
-
-export interface AutoModeStartRequest {
-  projectPath: string
-  concurrencyLimit?: number
-}
-
-export interface AutoModeStartResponse {
-  success: boolean
-}
-
-export interface AutoModeStopRequest {
-  projectPath: string
-}
-
-export interface AutoModeStopResponse {
-  success: boolean
-}
-
-export interface AutoModeGetStateRequest {
-  projectPath: string
-}
-
-export interface AutoModeGetStateResponse {
-  state: {
-    isRunning: boolean
-    runningTaskCount: number
-    concurrencyLimit: number
-    lastStartedTaskId: string | null
-  } | null
-}
-
-export interface AutoModeSetConcurrencyRequest {
-  projectPath: string
-  limit: number
-}
-
-export interface AutoModeSetConcurrencyResponse {
-  success: boolean
-}
-
-export interface AutoModeStateChangedData {
-  projectPath: string
-  state: {
-    isRunning: boolean
-    runningTaskCount: number
-    concurrencyLimit: number
-    lastStartedTaskId: string | null
-  }
 }
 
 // ============================================================================
@@ -1603,4 +1473,422 @@ export interface AgentSessionSetLastRequest {
 
 export interface AgentSessionSetLastResponse {
   success: boolean
+}
+
+// ============================================================================
+// Agent Service V2 Request/Response Types (Claude SDK Integration)
+// ============================================================================
+
+export interface AgentV2SessionCreateRequest {
+  name: string
+  projectPath?: string
+  workingDirectory: string
+  model?: string
+  tags?: string[]
+}
+
+export interface AgentV2SessionCreateResponse {
+  session: {
+    id: string
+    name: string
+    projectPath?: string
+    workingDirectory: string
+    createdAt: string
+    updatedAt: string
+    archived?: boolean
+    tags?: string[]
+    model?: string
+    sdkSessionId?: string
+  }
+}
+
+export interface AgentV2SessionGetRequest {
+  sessionId: string
+}
+
+export interface AgentV2SessionGetResponse {
+  session: {
+    metadata: {
+      id: string
+      name: string
+      projectPath?: string
+      workingDirectory: string
+      createdAt: string
+      updatedAt: string
+      archived?: boolean
+      tags?: string[]
+      model?: string
+      sdkSessionId?: string
+    }
+    messages: AgentV2Message[]
+  } | null
+}
+
+export interface AgentV2SessionListRequest {
+  projectPath?: string
+  includeArchived?: boolean
+}
+
+export interface AgentV2SessionListResponse {
+  sessions: Array<{
+    id: string
+    name: string
+    projectPath?: string
+    workingDirectory: string
+    createdAt: string
+    updatedAt: string
+    archived?: boolean
+    tags?: string[]
+    model?: string
+    sdkSessionId?: string
+  }>
+}
+
+export interface AgentV2SessionUpdateRequest {
+  sessionId: string
+  updates: {
+    name?: string
+    tags?: string[]
+    model?: string
+  }
+}
+
+export interface AgentV2SessionUpdateResponse {
+  session: {
+    id: string
+    name: string
+    projectPath?: string
+    workingDirectory: string
+    createdAt: string
+    updatedAt: string
+    archived?: boolean
+    tags?: string[]
+    model?: string
+    sdkSessionId?: string
+  } | null
+}
+
+export interface AgentV2SessionArchiveRequest {
+  sessionId: string
+}
+
+export interface AgentV2SessionArchiveResponse {
+  success: boolean
+}
+
+export interface AgentV2SessionDeleteRequest {
+  sessionId: string
+}
+
+export interface AgentV2SessionDeleteResponse {
+  success: boolean
+}
+
+export interface AgentV2SessionClearRequest {
+  sessionId: string
+}
+
+export interface AgentV2SessionClearResponse {
+  success: boolean
+}
+
+export interface AgentV2Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  images?: Array<{
+    data: string
+    mimeType: string
+    filename: string
+  }>
+  timestamp: string
+  isError?: boolean
+  toolUses?: Array<{
+    name: string
+    input: unknown
+    id: string
+  }>
+}
+
+export interface AgentV2SendMessageRequest {
+  sessionId: string
+  message: string
+  imagePaths?: string[]
+  model?: string
+  systemPrompt?: string
+  allowedTools?: string[]
+}
+
+export interface AgentV2SendMessageResponse {
+  message: AgentV2Message
+}
+
+export interface AgentV2GetMessagesRequest {
+  sessionId: string
+}
+
+export interface AgentV2GetMessagesResponse {
+  messages: AgentV2Message[]
+}
+
+export interface AgentV2StopExecutionRequest {
+  sessionId: string
+}
+
+export interface AgentV2StopExecutionResponse {
+  success: boolean
+}
+
+export interface AgentV2IsExecutingRequest {
+  sessionId: string
+}
+
+export interface AgentV2IsExecutingResponse {
+  isExecuting: boolean
+}
+
+export interface AgentV2TextDeltaData {
+  sessionId: string
+  text: string
+}
+
+export interface AgentV2MessageData {
+  sessionId: string
+  message: AgentV2Message
+}
+
+export interface AgentV2ToolUseData {
+  sessionId: string
+  toolName: string
+  input: unknown
+}
+
+export interface AgentV2ErrorData {
+  sessionId: string
+  error: {
+    type: 'abort' | 'rate_limit' | 'network' | 'auth' | 'unknown'
+    message: string
+    isAbort: boolean
+    retryable: boolean
+    resetTime?: string
+  }
+}
+
+export interface AgentV2CompleteData {
+  sessionId: string
+  result: string
+}
+
+// ============================================================================
+// Auto Mode Service V2 Request/Response Types (Claude SDK Integration)
+// ============================================================================
+
+export interface AutoModeV2StartRequest {
+  projectPath: string
+  config?: {
+    maxConcurrency?: number
+    defaultPlanningMode?: 'skip' | 'lite' | 'spec' | 'full'
+    defaultRequirePlanApproval?: boolean
+    useWorktrees?: boolean
+    rateLimitBufferSeconds?: number
+  }
+}
+
+export interface AutoModeV2StartResponse {
+  success: boolean
+}
+
+export interface AutoModeV2StopRequest {
+  projectPath: string
+}
+
+export interface AutoModeV2StopResponse {
+  success: boolean
+}
+
+export interface AutoModeV2GetStateRequest {
+  projectPath: string
+}
+
+export interface AutoModeV2GetStateResponse {
+  state: {
+    isRunning: boolean
+    runningCount: number
+    maxConcurrency: number
+    runningFeatureIds: string[]
+    lastStartedFeatureId: string | null
+    isWaitingForRateLimit: boolean
+    rateLimitResetTime?: string
+  } | null
+}
+
+export interface AutoModeV2UpdateConfigRequest {
+  projectPath: string
+  config: {
+    maxConcurrency?: number
+    defaultPlanningMode?: 'skip' | 'lite' | 'spec' | 'full'
+    defaultRequirePlanApproval?: boolean
+    useWorktrees?: boolean
+    rateLimitBufferSeconds?: number
+  }
+}
+
+export interface AutoModeV2UpdateConfigResponse {
+  success: boolean
+}
+
+export interface AutoModeV2GetQueueRequest {
+  projectPath: string
+}
+
+export interface AutoModeV2Feature {
+  id: string
+  title: string
+  description: string
+  status:
+    | 'backlog'
+    | 'pending'
+    | 'in_progress'
+    | 'waiting_approval'
+    | 'completed'
+    | 'failed'
+  branchName?: string
+  model?: string
+  imagePaths?: string[]
+  planningMode?: 'skip' | 'lite' | 'spec' | 'full'
+  requirePlanApproval?: boolean
+  planSpec?: {
+    status: 'pending' | 'generating' | 'generated' | 'approved' | 'rejected'
+    content?: string
+    version: number
+    generatedAt?: string
+    approvedAt?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AutoModeV2GetQueueResponse {
+  features: AutoModeV2Feature[]
+}
+
+export interface AutoModeV2EnqueueFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeV2EnqueueFeatureResponse {
+  feature: AutoModeV2Feature | null
+}
+
+export interface AutoModeV2DequeueFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeV2DequeueFeatureResponse {
+  feature: AutoModeV2Feature | null
+}
+
+export interface AutoModeV2ExecuteFeatureRequest {
+  projectPath: string
+  featureId: string
+  useWorktrees?: boolean
+}
+
+export interface AutoModeV2ExecuteFeatureResponse {
+  feature: AutoModeV2Feature | null
+}
+
+export interface AutoModeV2StopFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeV2StopFeatureResponse {
+  success: boolean
+}
+
+export interface AutoModeV2ApprovePlanRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeV2ApprovePlanResponse {
+  feature: AutoModeV2Feature | null
+}
+
+export interface AutoModeV2RejectPlanRequest {
+  projectPath: string
+  featureId: string
+  feedback: string
+}
+
+export interface AutoModeV2RejectPlanResponse {
+  feature: AutoModeV2Feature | null
+}
+
+export interface AutoModeV2StateChangedData {
+  projectPath: string
+  state: {
+    isRunning: boolean
+    runningCount: number
+    maxConcurrency: number
+    runningFeatureIds: string[]
+    lastStartedFeatureId: string | null
+    isWaitingForRateLimit: boolean
+    rateLimitResetTime?: string
+  }
+}
+
+export interface AutoModeV2FeatureStartedData {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeV2FeatureCompletedData {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeV2FeatureFailedData {
+  projectPath: string
+  featureId: string
+  error: string
+}
+
+export interface AutoModeV2FeatureProgressData {
+  projectPath: string
+  featureId: string
+  status:
+    | 'backlog'
+    | 'pending'
+    | 'in_progress'
+    | 'waiting_approval'
+    | 'completed'
+    | 'failed'
+  message: string
+  textDelta?: string
+  toolUse?: {
+    name: string
+    input: unknown
+  }
+}
+
+export interface AutoModeV2PlanGeneratedData {
+  projectPath: string
+  featureId: string
+  plan: {
+    status: 'pending' | 'generating' | 'generated' | 'approved' | 'rejected'
+    content?: string
+    version: number
+    generatedAt?: string
+    approvedAt?: string
+  }
+}
+
+export interface AutoModeV2RateLimitWaitData {
+  projectPath: string
+  resetTime: string
+  waitSeconds: number
 }

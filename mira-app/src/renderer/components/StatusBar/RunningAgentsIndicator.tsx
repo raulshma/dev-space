@@ -34,9 +34,9 @@ export const RunningAgentsIndicator = memo(function RunningAgentsIndicator() {
         render={
           <Button
             className="h-5 gap-1 px-1.5"
+            onClick={handleClick}
             size="sm"
             variant="ghost"
-            onClick={handleClick}
           >
             <IconRobot
               className={`h-3.5 w-3.5 ${hasRunningTasks ? 'text-green-500' : 'text-muted-foreground'}`}

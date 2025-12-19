@@ -73,11 +73,12 @@ function validateBranchName(name: string): ValidationResult {
   const trimmed = name.trim()
 
   // Check for invalid characters
-  const invalidChars = /[\s~^:?*\[\]\\]/
+  const invalidChars = /[\s~^:?*[\]\\]/
   if (invalidChars.test(trimmed)) {
     return {
       isValid: false,
-      message: 'Branch name cannot contain spaces or special characters (~^:?*[]\\)',
+      message:
+        'Branch name cannot contain spaces or special characters (~^:?*[]\\)',
       type: 'error',
     }
   }
@@ -244,7 +245,6 @@ export const BranchInput = memo(function BranchInput({
         return <IconAlertTriangle className="h-4 w-4 text-amber-500" />
       case 'error':
         return <IconAlertTriangle className="h-4 w-4 text-destructive" />
-      case 'info':
       default:
         return <IconInfoCircle className="h-4 w-4 text-muted-foreground" />
     }
@@ -253,10 +253,10 @@ export const BranchInput = memo(function BranchInput({
   return (
     <div className={cn('space-y-2', className)}>
       {showLabel && (
-        <Label htmlFor="branch-input" className="flex items-center gap-2">
+        <Label className="flex items-center gap-2" htmlFor="branch-input">
           <IconGitBranch className="h-4 w-4" />
           {label}
-          <Badge variant="outline" className="text-xs font-normal">
+          <Badge className="text-xs font-normal" variant="outline">
             Optional
           </Badge>
         </Label>
@@ -264,15 +264,16 @@ export const BranchInput = memo(function BranchInput({
 
       <div className="relative">
         <Input
-          id="branch-input"
-          value={value}
-          onChange={handleChange}
-          disabled={disabled}
-          placeholder={placeholder}
           className={cn(
             'pr-10',
-            !validation.isValid && 'border-destructive focus-visible:ring-destructive'
+            !validation.isValid &&
+              'border-destructive focus-visible:ring-destructive'
           )}
+          disabled={disabled}
+          id="branch-input"
+          onChange={handleChange}
+          placeholder={placeholder}
+          value={value}
         />
 
         {/* Validation indicator */}
@@ -280,7 +281,9 @@ export const BranchInput = memo(function BranchInput({
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <Tooltip>
               <TooltipTrigger
-                render={<span className="cursor-default">{getValidationIcon()}</span>}
+                render={
+                  <span className="cursor-default">{getValidationIcon()}</span>
+                }
               />
               <TooltipContent>
                 <p>{validation.message}</p>
@@ -295,9 +298,9 @@ export const BranchInput = memo(function BranchInput({
         <div className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground">Suggestion:</span>
           <button
-            type="button"
-            onClick={handleUseSuggestion}
             className="text-primary hover:underline font-mono"
+            onClick={handleUseSuggestion}
+            type="button"
           >
             {suggestion}
           </button>
@@ -321,7 +324,8 @@ export const BranchInput = memo(function BranchInput({
         <p className="text-xs text-muted-foreground">{helperText}</p>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Specify a branch name to isolate this task's changes. A worktree will be created automatically.
+          Specify a branch name to isolate this task's changes. A worktree will
+          be created automatically.
         </p>
       )}
     </div>
@@ -354,14 +358,14 @@ export const CompactBranchInput = memo(function CompactBranchInput({
     <div className={cn('flex items-center gap-2', className)}>
       <IconGitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
       <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        placeholder="Branch name (optional)"
         className={cn(
           'h-8 text-sm',
           !validation.isValid && 'border-destructive'
         )}
+        disabled={disabled}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Branch name (optional)"
+        value={value}
       />
     </div>
   )

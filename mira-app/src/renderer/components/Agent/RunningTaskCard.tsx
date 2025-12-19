@@ -31,6 +31,7 @@ interface RunningTaskCardProps {
   onStop: (taskId: string) => void
   onViewProject: (projectPath: string) => void
   isStoppingTask?: boolean
+  compact?: boolean
 }
 
 function formatRelativeTime(date: Date): string {
@@ -52,6 +53,7 @@ export const RunningTaskCard = memo(function RunningTaskCard({
   onStop,
   onViewProject,
   isStoppingTask = false,
+  compact = false,
 }: RunningTaskCardProps): React.JSX.Element {
   const handleStop = useCallback(
     (e: React.MouseEvent) => {
@@ -69,6 +71,33 @@ export const RunningTaskCard = memo(function RunningTaskCard({
     [task.projectPath, onViewProject]
   )
 
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+        <IconLoader2 className="h-3.5 w-3.5 text-green-500 animate-spin shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium truncate">{task.description}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {task.projectName}
+          </p>
+        </div>
+        <Button
+          className="h-6 w-6 shrink-0"
+          disabled={isStoppingTask}
+          onClick={handleStop}
+          size="icon-sm"
+          variant="ghost"
+        >
+          {isStoppingTask ? (
+            <IconLoader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <IconPlayerStop className="h-3 w-3 text-destructive" />
+          )}
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <Card className="border-l-4 border-l-green-500 transition-all hover:ring-2 hover:ring-primary/20">
       <CardHeader className="pb-2">
@@ -80,7 +109,7 @@ export const RunningTaskCard = memo(function RunningTaskCard({
             </CardTitle>
           </div>
           {task.isAutoMode && (
-            <Badge variant="secondary" className="shrink-0">
+            <Badge className="shrink-0" variant="secondary">
               <IconRobot className="h-3 w-3 mr-1" />
               Auto
             </Badge>
@@ -105,20 +134,20 @@ export const RunningTaskCard = memo(function RunningTaskCard({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleViewProject}
             className="h-7 px-2 text-xs"
+            onClick={handleViewProject}
+            size="sm"
+            variant="ghost"
           >
             <IconExternalLink className="h-3 w-3 mr-1" />
             View Project
           </Button>
           <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleStop}
-            disabled={isStoppingTask}
             className="h-7 px-2 text-xs"
+            disabled={isStoppingTask}
+            onClick={handleStop}
+            size="sm"
+            variant="destructive"
           >
             {isStoppingTask ? (
               <IconLoader2 className="h-3 w-3 mr-1 animate-spin" />

@@ -43,7 +43,10 @@ export function useWorktrees(projectPath: string | null) {
   }, [projectPath])
 
   const createWorktree = useCallback(
-    async (branchName: string, taskId?: string): Promise<WorktreeInfo | null> => {
+    async (
+      branchName: string,
+      taskId?: string
+    ): Promise<WorktreeInfo | null> => {
       if (!projectPath) return null
 
       setIsLoading(true)

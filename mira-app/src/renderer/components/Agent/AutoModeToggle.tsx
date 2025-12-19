@@ -26,7 +26,7 @@ import {
   IconSettings,
   IconPlayerPlay,
 } from '@tabler/icons-react'
-import { useAutoMode } from 'renderer/hooks/use-auto-mode'
+import { useAutoModeV2 } from 'renderer/hooks/use-auto-mode-v2'
 import {
   Tooltip,
   TooltipContent,
@@ -46,14 +46,18 @@ export const AutoModeToggle = memo(function AutoModeToggle({
 }: AutoModeToggleProps): React.JSX.Element {
   const {
     isRunning,
-    runningTaskCount,
-    concurrencyLimit,
-    isLoading,
-    error,
+    runningCount,
+    maxConcurrency,
+    isStarting,
+    isStopping,
     start,
     stop,
-    setConcurrencyLimit,
-  } = useAutoMode(projectPath)
+    updateConfig,
+  } = useAutoModeV2(projectPath)
+
+  const isLoading = isStarting || isStopping
+  const runningTaskCount = runningCount
+  const concurrencyLimit = maxConcurrency
 
   const [pendingLimit, setPendingLimit] = useState<number | null>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -64,10 +68,10 @@ export const AutoModeToggle = memo(function AutoModeToggle({
       if (isRunning) {
         await stop()
       } else {
-        await start(concurrencyLimit)
+        await start({ maxConcurrency: concurrencyLimit })
       }
     } catch (err) {
-      // Error is handled by the store
+      // Error is handled by the hook
       console.error('Auto-mode toggle error:', err)
     }
   }, [isRunning, start, stop, concurrencyLimit])
@@ -78,14 +82,14 @@ export const AutoModeToggle = memo(function AutoModeToggle({
       const newValue = Array.isArray(value) ? value[0] : value
       setPendingLimit(newValue)
       try {
-        await setConcurrencyLimit(newValue)
+        await updateConfig({ maxConcurrency: newValue })
       } catch (err) {
         console.error('Failed to set concurrency limit:', err)
       } finally {
         setPendingLimit(null)
       }
     },
-    [setConcurrencyLimit]
+    [updateConfig]
   )
 
   // Compact mode renders just the toggle with a badge
@@ -96,11 +100,7 @@ export const AutoModeToggle = memo(function AutoModeToggle({
           className="flex items-center gap-2"
           onClick={handleToggle}
         >
-          <Switch
-            checked={isRunning}
-            disabled={isLoading}
-            size="sm"
-          />
+          <Switch checked={isRunning} disabled={isLoading} size="sm" />
           {runningTaskCount > 0 && (
             <Badge className="h-5 min-w-5 px-1.5" variant="default">
               {runningTaskCount}
@@ -193,10 +193,6 @@ export const AutoModeToggle = memo(function AutoModeToggle({
                 Maximum number of tasks to run simultaneously
               </p>
             </div>
-
-            {error && (
-              <p className="text-xs text-destructive">{error}</p>
-            )}
 
             <div className="text-xs text-muted-foreground border-t pt-3">
               <p>

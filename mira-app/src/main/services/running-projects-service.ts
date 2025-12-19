@@ -48,8 +48,8 @@ export class RunningProjectsService extends EventEmitter {
     devCommand?: string
   ): Promise<RunningProject> {
     // Check if already running
-    if (this.runningProjects.has(projectId)) {
-      const existing = this.runningProjects.get(projectId)!
+    const existing = this.runningProjects.get(projectId)
+    if (existing) {
       if (existing.status === 'running' || existing.status === 'starting') {
         return this.toPublicProject(existing)
       }
@@ -141,7 +141,8 @@ export class RunningProjectsService extends EventEmitter {
       // Only treat as error if PTY still exists (real failure)
       if (this.ptyManager.exists(project.ptyId)) {
         project.status = 'error'
-        project.error = error instanceof Error ? error.message : 'Failed to stop process'
+        project.error =
+          error instanceof Error ? error.message : 'Failed to stop process'
         this.emitStatusUpdate(projectId, 'error', project.error)
         return false
       }

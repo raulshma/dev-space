@@ -14,11 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from 'renderer/components/ui/tooltip'
-import {
-  IconLock,
-  IconAlertTriangle,
-  IconCircleX,
-} from '@tabler/icons-react'
+import { IconLock, IconAlertTriangle, IconCircleX } from '@tabler/icons-react'
 import { cn } from 'renderer/lib/utils'
 import type { AgentTask } from 'shared/ai-types'
 
@@ -56,9 +52,6 @@ export function BlockedIndicator({
   size = 'default',
   variant = 'badge',
 }: BlockedIndicatorProps): React.JSX.Element | null {
-  // Don't render if not blocked
-  if (!isBlocked) return null
-
   const hasFailedDependencies = failedDependencyIds.length > 0
 
   // Get task descriptions for tooltip
@@ -92,7 +85,10 @@ export function BlockedIndicator({
       )
       failedTaskDescriptions.forEach((desc, i) => {
         lines.push(
-          <div className="flex items-center gap-1 text-destructive" key={`failed-${i}`}>
+          <div
+            className="flex items-center gap-1 text-destructive"
+            key={`failed-${failedDependencyIds[i]}`}
+          >
             <IconCircleX className="h-3 w-3 shrink-0" />
             <span>{desc}</span>
           </div>
@@ -107,16 +103,25 @@ export function BlockedIndicator({
 
     if (pendingBlockingTasks.length > 0) {
       if (lines.length > 0) {
-        lines.push(<div className="my-1 border-t border-border/50" key="separator" />)
+        lines.push(
+          <div className="my-1 border-t border-border/50" key="separator" />
+        )
       }
       lines.push(
         <div className="mb-1" key="blocking-header">
           <span className="font-medium">Waiting for:</span>
         </div>
       )
+      // Get the original task IDs for pending blocking tasks
+      const pendingBlockingTaskIds = blockingTaskIds.filter(
+        id => !failedDependencyIds.includes(id)
+      )
       pendingBlockingTasks.forEach((desc, i) => {
         lines.push(
-          <div className="flex items-center gap-1" key={`blocking-${i}`}>
+          <div
+            className="flex items-center gap-1"
+            key={`blocking-${pendingBlockingTaskIds[i]}`}
+          >
             <IconLock className="h-3 w-3 shrink-0 text-muted-foreground" />
             <span>{desc}</span>
           </div>
@@ -131,6 +136,9 @@ export function BlockedIndicator({
     blockingTaskIds,
     failedDependencyIds,
   ])
+
+  // Don't render if not blocked
+  if (!isBlocked) return null
 
   const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'
 

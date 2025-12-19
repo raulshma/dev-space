@@ -18,7 +18,7 @@ import { EventEmitter } from 'node:events'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { existsSync, rmSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { join } from 'node:path'
 import type { DatabaseService } from './database'
 import type { GitService } from './git-service'
 
@@ -126,10 +126,7 @@ export interface IWorktreeService {
  *
  * Manages git worktrees for isolated task development.
  */
-export class WorktreeService
-  extends EventEmitter
-  implements IWorktreeService
-{
+export class WorktreeService extends EventEmitter implements IWorktreeService {
   private db: DatabaseService
   private gitService: GitService
 

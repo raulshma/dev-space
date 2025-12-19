@@ -11,7 +11,6 @@ import type {
   AIModel,
   ConversationMessage,
   AIAction,
-  TokenUsage,
   AIRequestLog,
   AgentEnvironmentConfig,
 } from 'shared/ai-types'

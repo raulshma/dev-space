@@ -34,9 +34,7 @@ interface TaskProgressIndicatorProps {
 /**
  * Get icon for task status
  */
-function getTaskStatusIcon(
-  status: PlanTask['status']
-): React.ReactNode {
+function getTaskStatusIcon(status: PlanTask['status']): React.ReactNode {
   switch (status) {
     case 'completed':
       return <IconCircleCheck className="h-4 w-4 text-green-500" />
@@ -44,28 +42,8 @@ function getTaskStatusIcon(
       return <IconLoader2 className="h-4 w-4 text-primary animate-spin" />
     case 'failed':
       return <IconCircleX className="h-4 w-4 text-destructive" />
-    case 'pending':
     default:
       return <IconCircleDashed className="h-4 w-4 text-muted-foreground" />
-  }
-}
-
-/**
- * Get badge variant for task status
- */
-function getTaskStatusVariant(
-  status: PlanTask['status']
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status) {
-    case 'completed':
-      return 'default'
-    case 'in_progress':
-      return 'secondary'
-    case 'failed':
-      return 'destructive'
-    case 'pending':
-    default:
-      return 'outline'
   }
 }
 
@@ -77,23 +55,20 @@ export function TaskProgressIndicator({
 }: TaskProgressIndicatorProps): React.JSX.Element | null {
   const tasks = planSpec?.tasks ?? []
 
-  const { completedCount, inProgressCount, failedCount, progress, currentTask } =
-    useMemo(() => {
-      const completed = tasks.filter(t => t.status === 'completed').length
-      const inProgress = tasks.filter(t => t.status === 'in_progress').length
-      const failed = tasks.filter(t => t.status === 'failed').length
-      const total = tasks.length
-      const progressValue = total > 0 ? (completed / total) * 100 : 0
-      const current = tasks.find(t => t.status === 'in_progress')
+  const { completedCount, failedCount, progress, currentTask } = useMemo(() => {
+    const completed = tasks.filter(t => t.status === 'completed').length
+    const failed = tasks.filter(t => t.status === 'failed').length
+    const total = tasks.length
+    const progressValue = total > 0 ? (completed / total) * 100 : 0
+    const current = tasks.find(t => t.status === 'in_progress')
 
-      return {
-        completedCount: completed,
-        inProgressCount: inProgress,
-        failedCount: failed,
-        progress: progressValue,
-        currentTask: current,
-      }
-    }, [tasks])
+    return {
+      completedCount: completed,
+      failedCount: failed,
+      progress: progressValue,
+      currentTask: current,
+    }
+  }, [tasks])
 
   if (!planSpec || tasks.length === 0) {
     return null
@@ -127,7 +102,7 @@ export function TaskProgressIndicator({
         </div>
         <div className="flex items-center gap-2">
           {failedCount > 0 && (
-            <Badge variant="destructive" className="text-xs">
+            <Badge className="text-xs" variant="destructive">
               {failedCount} failed
             </Badge>
           )}
@@ -164,13 +139,13 @@ export function TaskProgressIndicator({
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {tasks.map(task => (
             <div
-              key={task.id}
               className={cn(
                 'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs',
                 task.status === 'in_progress' && 'bg-primary/5',
                 task.status === 'completed' && 'opacity-60',
                 task.status === 'failed' && 'bg-destructive/5'
               )}
+              key={task.id}
             >
               {getTaskStatusIcon(task.status)}
               <span className="font-mono text-muted-foreground shrink-0">
@@ -178,7 +153,7 @@ export function TaskProgressIndicator({
               </span>
               <span className="flex-1 truncate">{task.description}</span>
               {task.phase && (
-                <Badge variant="outline" className="text-[10px] shrink-0">
+                <Badge className="text-[10px] shrink-0" variant="outline">
                   {task.phase}
                 </Badge>
               )}
@@ -196,7 +171,10 @@ export function TaskProgressIndicator({
 export function InlineTaskProgress({
   planSpec,
   className,
-}: Pick<TaskProgressIndicatorProps, 'planSpec' | 'className'>): React.JSX.Element | null {
+}: Pick<
+  TaskProgressIndicatorProps,
+  'planSpec' | 'className'
+>): React.JSX.Element | null {
   const tasks = planSpec?.tasks ?? []
   const currentTask = tasks.find(t => t.status === 'in_progress')
   const completedCount = tasks.filter(t => t.status === 'completed').length
@@ -210,9 +188,7 @@ export function InlineTaskProgress({
       {currentTask ? (
         <>
           <IconLoader2 className="h-3 w-3 text-primary animate-spin" />
-          <span className="text-muted-foreground">
-            Task {currentTask.id}:
-          </span>
+          <span className="text-muted-foreground">Task {currentTask.id}:</span>
           <span className="truncate max-w-[200px]">
             {currentTask.description}
           </span>

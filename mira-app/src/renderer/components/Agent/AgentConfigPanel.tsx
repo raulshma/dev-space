@@ -149,10 +149,11 @@ function PythonConfigCard({
 
   const handleAutoDetect = async (): Promise<void> => {
     const result = await detectPython()
-    if (result.data?.result.recommended?.path) {
+    const recommended = result.data?.result.recommended
+    if (recommended?.path) {
       setConfig(prev => ({
         ...prev,
-        pythonPath: result.data.result.recommended!.path,
+        pythonPath: recommended.path,
       }))
     }
   }
@@ -242,10 +243,10 @@ function PythonConfigCard({
                     {showInstallations && (
                       <div className="mt-2 space-y-1 rounded-md border p-2">
                         {pythonDetection.result.installations.map(
-                          (installation, index) => (
+                          installation => (
                             <div
                               className="flex items-center justify-between rounded px-2 py-1 text-xs hover:bg-muted"
-                              key={index}
+                              key={installation.path}
                             >
                               <div className="flex items-center gap-2">
                                 <code className="text-muted-foreground">
@@ -554,8 +555,8 @@ export function AgentConfigPanel(): React.JSX.Element {
           <IconAlertTriangle className="h-4 w-4" />
           <AlertDescription>
             <ul className="list-disc pl-4">
-              {validationErrors.map((error, i) => (
-                <li key={i}>{error.message}</li>
+              {validationErrors.map(error => (
+                <li key={`${error.field}-${error.message}`}>{error.message}</li>
               ))}
             </ul>
           </AlertDescription>
@@ -934,7 +935,10 @@ export function AgentConfigPanel(): React.JSX.Element {
           {envVars.length > 0 && (
             <div className="space-y-2">
               {envVars.map((envVar, index) => (
-                <div className="flex items-center gap-2" key={index}>
+                <div
+                  className="flex items-center gap-2"
+                  key={`env-${envVar.key || index}`}
+                >
                   <Input
                     className="flex-1 font-mono text-xs"
                     onChange={e =>

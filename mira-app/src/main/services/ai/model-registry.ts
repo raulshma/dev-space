@@ -7,12 +7,7 @@
  * Requirements: 3.1, 3.2, 3.4, 3.5
  */
 
-import type {
-  AIModel,
-  AIAction,
-  CachedModel,
-  CacheModelInput,
-} from 'shared/ai-types'
+import type { AIModel, AIAction, CacheModelInput } from 'shared/ai-types'
 import type { DatabaseService } from '../database'
 import type { AIProviderAdapter } from './provider-registry'
 
@@ -137,7 +132,7 @@ export class ModelRegistry implements IModelRegistry {
     }
 
     // Try to fetch from provider
-    if (this.provider && this.provider.isConfigured()) {
+    if (this.provider?.isConfigured()) {
       try {
         const freshModels = await this.provider.fetchModels()
         this.updateModelsCache(freshModels)

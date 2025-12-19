@@ -125,13 +125,6 @@ export class TaskQueue extends EventEmitter implements ITaskQueue {
   private currentTaskId: string | undefined = undefined
 
   /**
-   * Create a new TaskQueue instance
-   */
-  constructor() {
-    super()
-  }
-
-  /**
    * Add a task to the end of the queue
    *
    * @param taskId - The task ID to enqueue
