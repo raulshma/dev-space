@@ -175,6 +175,12 @@ export const IPC_CHANNELS = {
   RUNNING_PROJECT_GET_DEV_COMMAND: 'runningProject:getDevCommand',
   RUNNING_PROJECT_STATUS_UPDATE: 'runningProject:statusUpdate',
   RUNNING_PROJECT_OUTPUT: 'runningProject:output',
+
+  // DevTools operations
+  DEVTOOLS_PORT_LIST: 'devtools:port:list',
+  DEVTOOLS_PORT_KILL: 'devtools:port:kill',
+  DEVTOOLS_TASK_LIST: 'devtools:task:list',
+  DEVTOOLS_TASK_KILL: 'devtools:task:kill',
 } as const
 
 // Project Request/Response Types
@@ -1196,4 +1202,58 @@ export interface RunningProjectStatusUpdateData {
 export interface RunningProjectOutputData {
   projectId: string
   data: string
+}
+
+
+// ============================================================================
+// DevTools Request/Response Types
+// ============================================================================
+
+export interface DevToolsPortListRequest {
+  filter?: string
+}
+
+export interface DevToolsPortListResponse {
+  ports: Array<{
+    port: number
+    pid: number
+    processName: string
+    protocol: 'tcp' | 'udp'
+    state: string
+  }>
+  error?: string
+}
+
+export interface DevToolsPortKillRequest {
+  port: number
+}
+
+export interface DevToolsPortKillResponse {
+  success: boolean
+  error?: string
+}
+
+export interface DevToolsTaskListRequest {
+  filter?: string
+}
+
+export interface DevToolsTaskListResponse {
+  processes: Array<{
+    pid: number
+    name: string
+    cpu: number
+    memory: number
+    command?: string
+  }>
+  error?: string
+}
+
+export interface DevToolsTaskKillRequest {
+  pid: number
+  force?: boolean
+}
+
+export interface DevToolsTaskKillResponse {
+  success: boolean
+  error?: string
 }

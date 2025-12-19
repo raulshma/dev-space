@@ -635,6 +635,26 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.CLI_CLEAR_CACHE, request),
   },
 
+  // DevTools operations
+  devTools: {
+    listPorts: (
+      request: import('shared/ipc-types').DevToolsPortListRequest
+    ): Promise<import('shared/ipc-types').DevToolsPortListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DEVTOOLS_PORT_LIST, request),
+    killPort: (
+      request: import('shared/ipc-types').DevToolsPortKillRequest
+    ): Promise<import('shared/ipc-types').DevToolsPortKillResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DEVTOOLS_PORT_KILL, request),
+    listTasks: (
+      request: import('shared/ipc-types').DevToolsTaskListRequest
+    ): Promise<import('shared/ipc-types').DevToolsTaskListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DEVTOOLS_TASK_LIST, request),
+    killTask: (
+      request: import('shared/ipc-types').DevToolsTaskKillRequest
+    ): Promise<import('shared/ipc-types').DevToolsTaskKillResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DEVTOOLS_TASK_KILL, request),
+  },
+
   // Running Projects operations
   runningProjects: {
     start: (

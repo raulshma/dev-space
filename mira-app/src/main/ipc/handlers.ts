@@ -113,6 +113,13 @@ import type {
 } from 'shared/ipc-types'
 import { getCLIDetectorService } from 'main/services/cli-detector-service'
 import type { RunningProjectsService } from 'main/services/running-projects-service'
+import { getDevToolsService } from 'main/services/devtools-service'
+import type {
+  DevToolsPortListRequest,
+  DevToolsPortKillRequest,
+  DevToolsTaskListRequest,
+  DevToolsTaskKillRequest,
+} from 'shared/ipc-types'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -195,6 +202,7 @@ export class IPCHandlers {
     this.registerJulesEventForwarding()
     this.registerCLIDetectorHandlers()
     this.registerRunningProjectsHandlers()
+    this.registerDevToolsHandlers()
   }
 
   /**
@@ -2028,6 +2036,61 @@ export class IPCHandlers {
             request.projectId
           )
           return { devCommand }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * DevTools operation handlers
+   */
+  private registerDevToolsHandlers(): void {
+    const devToolsService = getDevToolsService()
+
+    // List ports
+    ipcMain.handle(
+      IPC_CHANNELS.DEVTOOLS_PORT_LIST,
+      async (_event, request: DevToolsPortListRequest) => {
+        try {
+          return await devToolsService.listPorts(request.filter)
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Kill port
+    ipcMain.handle(
+      IPC_CHANNELS.DEVTOOLS_PORT_KILL,
+      async (_event, request: DevToolsPortKillRequest) => {
+        try {
+          return await devToolsService.killPort(request.port)
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List tasks
+    ipcMain.handle(
+      IPC_CHANNELS.DEVTOOLS_TASK_LIST,
+      async (_event, request: DevToolsTaskListRequest) => {
+        try {
+          return await devToolsService.listTasks(request.filter)
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Kill task
+    ipcMain.handle(
+      IPC_CHANNELS.DEVTOOLS_TASK_KILL,
+      async (_event, request: DevToolsTaskKillRequest) => {
+        try {
+          return await devToolsService.killTask(request.pid, request.force)
         } catch (error) {
           return this.handleError(error)
         }
