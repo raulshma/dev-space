@@ -42,8 +42,8 @@ function parseMarkdown(text: string): React.ReactNode[] {
       } else {
         result.push(
           <pre
-            key={`code-${i}`}
             className="bg-muted/50 rounded-md p-3 my-2 overflow-x-auto text-xs font-mono"
+            key={`code-${i}`}
           >
             <code>{codeBlockContent.join('\n')}</code>
           </pre>
@@ -68,7 +68,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
 
     // Parse inline elements
     result.push(
-      <p key={`p-${i}`} className="mb-1 last:mb-0 break-words">
+      <p className="mb-1 last:mb-0 break-words" key={`p-${i}`}>
         {parseInline(line)}
       </p>
     )
@@ -78,8 +78,8 @@ function parseMarkdown(text: string): React.ReactNode[] {
   if (inCodeBlock && codeBlockContent.length > 0) {
     result.push(
       <pre
-        key="code-unclosed"
         className="bg-muted/50 rounded-md p-3 my-2 overflow-x-auto text-xs font-mono"
+        key="code-unclosed"
       >
         <code>{codeBlockContent.join('\n')}</code>
       </pre>
@@ -116,8 +116,8 @@ function parseInline(text: string): React.ReactNode[] {
       // Inline code
       result.push(
         <code
-          key={key}
           className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono"
+          key={key}
         >
           {token.slice(1, -1)}
         </code>
@@ -128,11 +128,11 @@ function parseInline(text: string): React.ReactNode[] {
       if (linkMatch) {
         result.push(
           <a
-            key={key}
-            href={linkMatch[2]}
             className="text-blue-500 hover:underline"
-            target="_blank"
+            href={linkMatch[2]}
+            key={key}
             rel="noopener noreferrer"
+            target="_blank"
           >
             {linkMatch[1]}
           </a>

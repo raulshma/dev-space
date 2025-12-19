@@ -2,7 +2,8 @@
  * Tasks Screen
  *
  * Dedicated page for workspace task management with:
- * - Full task list with filtering and sorting
+ * - Kanban board view (default) for visual task management
+ * - Table view for detailed task list
  * - Task execution monitoring
  * - Task creation and management
  * - Output streaming and history
@@ -15,9 +16,13 @@ import { useAppStore } from 'renderer/stores/app-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { ErrorBoundary } from 'renderer/components/ErrorBoundary'
-import { TasksHeader } from 'renderer/components/Tasks/TasksHeader'
+import {
+  TasksHeader,
+  type TasksViewMode,
+} from 'renderer/components/Tasks/TasksHeader'
 import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
+import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
 import { TaskExecutionPanel } from 'renderer/components/Tasks/TaskExecutionPanel'
 import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
 import {
@@ -39,6 +44,9 @@ function TasksScreenContent(): React.JSX.Element {
   const setActiveView = useAppStore(state => state.setActiveView)
   const activeProjectId = useAppStore(state => state.activeProjectId)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
+
+  // View mode state (kanban is default)
+  const [viewMode, setViewMode] = useState<TasksViewMode>('kanban')
 
   // Filter state
   const [filters, setFilters] = useState<TasksFilter>({
@@ -89,7 +97,12 @@ function TasksScreenContent(): React.JSX.Element {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <TasksHeader onBack={handleBack} onCreateTask={handleOpenTaskCreation} />
+      <TasksHeader
+        onBack={handleBack}
+        onCreateTask={handleOpenTaskCreation}
+        onViewModeChange={setViewMode}
+        viewMode={viewMode}
+      />
 
       <TasksFilters filters={filters} onFilterChange={handleFilterChange} />
 
@@ -103,11 +116,19 @@ function TasksScreenContent(): React.JSX.Element {
           id="tasks-list-panel"
           minSize={30}
         >
-          <TasksTable
-            filters={filters}
-            onTaskSelect={handleTaskSelect}
-            selectedTaskId={selectedTaskId}
-          />
+          {viewMode === 'kanban' ? (
+            <KanbanBoard
+              filters={filters}
+              onTaskSelect={handleTaskSelect}
+              selectedTaskId={selectedTaskId}
+            />
+          ) : (
+            <TasksTable
+              filters={filters}
+              onTaskSelect={handleTaskSelect}
+              selectedTaskId={selectedTaskId}
+            />
+          )}
         </ResizablePanel>
 
         {selectedTaskId && (

@@ -395,14 +395,69 @@ interface CenterPanelProps {
   projectId: string
   projectPath: string
   isRestoringTerminals: boolean
+  panelGroupRef?: React.RefObject<GroupImperativeHandle | null>
+  defaultLayout?: { [panelId: string]: number }
+  onLayoutChange?: (layout: { [panelId: string]: number }) => void
 }
 
 const CenterPanel = memo(function CenterPanel({
   projectId,
   projectPath,
   isRestoringTerminals,
+  panelGroupRef,
+  defaultLayout,
+  onLayoutChange,
 }: CenterPanelProps) {
   const hasOpenFiles = useEditorStore(state => state.openFiles.length > 0)
+  const appliedLayoutRef = useRef<string | null>(null)
+
+  // Apply layout imperatively when defaultLayout changes and panel is available
+  useEffect(() => {
+    if (!hasOpenFiles || !defaultLayout) return
+
+    const layoutKey = JSON.stringify(defaultLayout)
+    // Skip if we've already applied this exact layout
+    if (appliedLayoutRef.current === layoutKey) return
+
+    const applyLayout = () => {
+      if (panelGroupRef?.current) {
+        try {
+          panelGroupRef.current.setLayout(defaultLayout)
+          appliedLayoutRef.current = layoutKey
+          return true
+        } catch {
+          return false
+        }
+      }
+      return false
+    }
+
+    // Try immediately
+    if (applyLayout()) return
+
+    // If ref not ready, poll with increasing delays
+    const delays = [50, 100, 150, 200, 300]
+    let index = 0
+    let timeoutId: number | undefined
+
+    const tryApply = () => {
+      if (applyLayout() || index >= delays.length) return
+      timeoutId = window.setTimeout(tryApply, delays[index++])
+    }
+
+    timeoutId = window.setTimeout(tryApply, delays[index++])
+
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [hasOpenFiles, defaultLayout, panelGroupRef])
+
+  // Reset when files are closed so layout can be reapplied
+  useEffect(() => {
+    if (!hasOpenFiles) {
+      appliedLayoutRef.current = null
+    }
+  }, [hasOpenFiles])
 
   if (!hasOpenFiles) {
     return (
@@ -417,7 +472,13 @@ const CenterPanel = memo(function CenterPanel({
   }
 
   return (
-    <ResizablePanelGroup className="h-full" orientation="vertical">
+    <ResizablePanelGroup
+      className="h-full"
+      defaultLayout={defaultLayout}
+      onLayoutChange={onLayoutChange}
+      orientation="vertical"
+      ref={panelGroupRef}
+    >
       <ResizablePanel defaultSize={60} id="center-editor" minSize={20}>
         <CodeEditorPanel />
       </ResizablePanel>
@@ -468,6 +529,7 @@ export function ProjectWorkspace({
 
   // Panel refs
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null)
+  const centerPanelGroupRef = useRef<GroupImperativeHandle | null>(null)
   const leftPanelRef = useRef<PanelImperativeHandle | null>(null)
   const rightPanelRef = useRef<PanelImperativeHandle | null>(null)
 
@@ -475,8 +537,10 @@ export function ProjectWorkspace({
   const {
     isReady: isSessionReady,
     lastLayoutRef,
+    lastCenterLayoutRef,
     lastExpandedSizesRef,
     restoredLayout,
+    restoredCenterLayout,
     scheduleSave,
     saveNow,
   } = useWorkspaceSession({
@@ -484,6 +548,7 @@ export function ProjectWorkspace({
     project,
     projectLoading,
     panelGroupRef,
+    centerPanelGroupRef,
   })
 
   // Terminal management
@@ -616,6 +681,14 @@ export function ProjectWorkspace({
     [scheduleSave, lastLayoutRef, lastExpandedSizesRef]
   )
 
+  const handleCenterLayoutChange = useCallback(
+    (layout: { [panelId: string]: number }) => {
+      lastCenterLayoutRef.current = layout
+      scheduleSave()
+    },
+    [scheduleSave, lastCenterLayoutRef]
+  )
+
   // Visibility states
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
   const isRightPanelVisible = !zenMode && !agentPanelCollapsed
@@ -698,7 +771,10 @@ export function ProjectWorkspace({
           minSize={10}
         >
           <CenterPanel
+            defaultLayout={restoredCenterLayout}
             isRestoringTerminals={isRestoringTerminals}
+            onLayoutChange={handleCenterLayoutChange}
+            panelGroupRef={centerPanelGroupRef}
             projectId={projectId}
             projectPath={project.path}
           />

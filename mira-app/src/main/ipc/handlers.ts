@@ -185,7 +185,10 @@ export class IPCHandlers {
     // Forward Jules status updates to all renderer windows
     this.agentExecutorService.on(
       'julesStatusUpdate',
-      (taskId: string, status: import('shared/notification-types').JulesSessionStatus) => {
+      (
+        taskId: string,
+        status: import('shared/notification-types').JulesSessionStatus
+      ) => {
         const windows = BrowserWindow.getAllWindows()
         for (const window of windows) {
           window.webContents.send(IPC_CHANNELS.JULES_STATUS_UPDATE, {
@@ -1679,7 +1682,10 @@ export class IPCHandlers {
           if (!this.julesService) {
             return { success: false, error: 'Jules service not initialized' }
           }
-          await this.julesService.sendMessage(request.sessionId, request.message)
+          await this.julesService.sendMessage(
+            request.sessionId,
+            request.message
+          )
           return { success: true }
         } catch (error) {
           const message =

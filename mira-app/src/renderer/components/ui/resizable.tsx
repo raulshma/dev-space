@@ -1,13 +1,13 @@
-import * as React from "react"
+import * as React from 'react'
 import {
   Group,
   Panel,
   Separator,
   type GroupImperativeHandle,
   type PanelImperativeHandle,
-} from "react-resizable-panels"
+} from 'react-resizable-panels'
 
-import { cn } from "renderer/lib/utils"
+import { cn } from 'renderer/lib/utils'
 
 type GroupProps = React.ComponentProps<typeof Group>
 type PanelProps = React.ComponentProps<typeof Panel>
@@ -15,12 +15,12 @@ type SeparatorProps = React.ComponentProps<typeof Separator>
 
 const ResizablePanelGroup = React.forwardRef<
   GroupImperativeHandle,
-  Omit<GroupProps, "groupRef">
+  Omit<GroupProps, 'groupRef'>
 >(function ResizablePanelGroup({ className, ...props }, ref) {
   return (
     <Group
       className={cn(
-        "flex h-full w-full data-[orientation=vertical]:flex-col",
+        'flex h-full w-full data-[orientation=vertical]:flex-col',
         className
       )}
       groupRef={ref}
@@ -31,7 +31,7 @@ const ResizablePanelGroup = React.forwardRef<
 
 const ResizablePanel = React.forwardRef<
   PanelImperativeHandle,
-  Omit<PanelProps, "panelRef">
+  Omit<PanelProps, 'panelRef'>
 >(function ResizablePanel({ className, ...props }, ref) {
   return <Panel className={className} panelRef={ref} {...props} />
 })
@@ -48,7 +48,7 @@ function ResizableHandle({
   return (
     <Separator
       className={cn(
-        "bg-border relative flex w-1 items-center justify-center data-[orientation=vertical]:h-1 data-[orientation=vertical]:w-full",
+        'bg-border relative flex w-1 items-center justify-center data-[orientation=vertical]:h-1 data-[orientation=vertical]:w-full',
         className
       )}
       {...props}

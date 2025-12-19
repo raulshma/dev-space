@@ -32,6 +32,11 @@ export interface WorkspaceSessionState {
    */
   panelLayout?: { [panelId: string]: number }
 
+  /**
+   * Center panel layout (editor/terminal split) as a map of panel id to percentage.
+   */
+  centerPanelLayout?: { [panelId: string]: number }
+
   /** Expanded sizes for collapsed panels (to restore when uncollapsed) */
   expandedPanelSizes?: { left: number; right: number }
 

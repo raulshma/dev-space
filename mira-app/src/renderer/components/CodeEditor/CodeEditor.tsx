@@ -128,7 +128,8 @@ export const CodeEditor = memo(function CodeEditor({
           lineNumbers: lineNumbers ? 'on' : 'off',
           scrollBeyondLastLine: false,
           fontSize: 13,
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          fontFamily:
+            'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
           tabSize: 2,
           insertSpaces: true,
           wordWrap: 'off',

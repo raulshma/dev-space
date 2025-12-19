@@ -85,7 +85,9 @@ const JulesStateIcon = memo(function JulesStateIcon({
     case 'executing':
     case 'planning':
     case 'initializing':
-      return <IconLoader2 className={`${className} text-blue-500 animate-spin`} />
+      return (
+        <IconLoader2 className={`${className} text-blue-500 animate-spin`} />
+      )
     case 'completed':
       return <IconCheck className={`${className} text-green-500`} />
     case 'failed':
@@ -108,7 +110,10 @@ const NotificationItem = memo(function NotificationItem({
 }: NotificationItemProps) {
   return (
     <div className="flex items-start gap-3 p-3 border-b border-border last:border-0 hover:bg-muted/50">
-      <SeverityIcon severity={notification.severity} className="h-4 w-4 mt-0.5 shrink-0" />
+      <SeverityIcon
+        className="h-4 w-4 mt-0.5 shrink-0"
+        severity={notification.severity}
+      />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{notification.title}</p>
         {notification.message && (
@@ -120,11 +125,11 @@ const NotificationItem = memo(function NotificationItem({
           <div className="flex gap-2 mt-2">
             {notification.actions.map(action => (
               <Button
+                className="h-7 text-xs"
                 key={action.id}
+                onClick={() => onAction(action)}
                 size="sm"
                 variant={action.variant === 'primary' ? 'default' : 'outline'}
-                onClick={() => onAction(action)}
-                className="h-7 text-xs"
               >
                 {action.label}
               </Button>
@@ -134,10 +139,10 @@ const NotificationItem = memo(function NotificationItem({
       </div>
       {!notification.persistent && (
         <Button
+          className="shrink-0"
+          onClick={onDismiss}
           size="icon-sm"
           variant="ghost"
-          onClick={onDismiss}
-          className="shrink-0"
         >
           <IconX className="h-3 w-3" />
         </Button>
@@ -180,7 +185,7 @@ const JulesStatusItem = memo(function JulesStatusItem({
         needsAction ? 'bg-yellow-500/10' : ''
       }`}
     >
-      <JulesStateIcon state={status.state} className="h-3.5 w-3.5" />
+      <JulesStateIcon className="h-3.5 w-3.5" state={status.state} />
       <span className="text-xs truncate flex-1">
         {status.title || 'Jules Task'}: {stateLabels[status.state]}
       </span>
@@ -191,10 +196,10 @@ const JulesStatusItem = memo(function JulesStatusItem({
             <TooltipTrigger
               render={
                 <Button
+                  className="h-6 w-6"
+                  onClick={onApprovePlan}
                   size="icon-sm"
                   variant="ghost"
-                  onClick={onApprovePlan}
-                  className="h-6 w-6"
                 >
                   <IconCheck className="h-3.5 w-3.5 text-green-500" />
                 </Button>
@@ -208,10 +213,10 @@ const JulesStatusItem = memo(function JulesStatusItem({
           <TooltipTrigger
             render={
               <Button
+                className="h-6 w-6"
+                onClick={onResync}
                 size="icon-sm"
                 variant="ghost"
-                onClick={onResync}
-                className="h-6 w-6"
               >
                 <IconRefresh className="h-3.5 w-3.5" />
               </Button>
@@ -224,10 +229,10 @@ const JulesStatusItem = memo(function JulesStatusItem({
           <TooltipTrigger
             render={
               <Button
+                className="h-6 w-6"
+                onClick={onViewTask}
                 size="icon-sm"
                 variant="ghost"
-                onClick={onViewTask}
-                className="h-6 w-6"
               >
                 <IconExternalLink className="h-3.5 w-3.5" />
               </Button>
@@ -255,9 +260,7 @@ export function StatusBar(): React.JSX.Element {
   // Get active Jules tasks that need attention
   const activeJulesStatuses = julesStatuses.filter(
     s =>
-      s.state !== 'completed' &&
-      s.state !== 'failed' &&
-      s.state !== 'unknown'
+      s.state !== 'completed' && s.state !== 'failed' && s.state !== 'unknown'
   )
 
   const needsAttention = activeJulesStatuses.some(
@@ -357,10 +360,10 @@ export function StatusBar(): React.JSX.Element {
           {activeJulesStatuses.map(status => (
             <JulesStatusItem
               key={status.sessionId}
-              status={status}
               onApprovePlan={() => handleJulesApprovePlan(status)}
               onResync={() => handleJulesResync(status)}
               onViewTask={() => handleViewTask(status)}
+              status={status}
             />
           ))}
         </div>
@@ -371,8 +374,8 @@ export function StatusBar(): React.JSX.Element {
         <div className="flex items-center gap-2">
           {needsAttention && (
             <Badge
-              variant="outline"
               className="h-5 text-xs bg-yellow-500/10 text-yellow-600 border-yellow-500/30"
+              variant="outline"
             >
               <IconAlertTriangle className="h-3 w-3 mr-1" />
               Action Required
@@ -394,9 +397,9 @@ export function StatusBar(): React.JSX.Element {
             <PopoverTrigger
               render={
                 <Button
+                  className="h-5 w-5 relative"
                   size="icon-sm"
                   variant="ghost"
-                  className="h-5 w-5 relative"
                 >
                   <IconBell className="h-3.5 w-3.5" />
                   {unreadCount > 0 && (
@@ -417,10 +420,12 @@ export function StatusBar(): React.JSX.Element {
                 <span className="text-sm font-medium">Notifications</span>
                 {unreadCount > 0 && (
                   <Button
+                    className="h-6 text-xs"
+                    onClick={() =>
+                      useNotificationStore.getState().markAllAsRead()
+                    }
                     size="sm"
                     variant="ghost"
-                    onClick={() => useNotificationStore.getState().markAllAsRead()}
-                    className="h-6 text-xs"
                   >
                     Mark all read
                   </Button>

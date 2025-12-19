@@ -7,22 +7,31 @@
 import { memo } from 'react'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
+import { ButtonGroup } from 'renderer/components/ui/button-group'
 import {
   IconArrowLeft,
   IconPlus,
   IconRocket,
   IconLoader2,
+  IconLayoutKanban,
+  IconTable,
 } from '@tabler/icons-react'
 import { useTaskList, useCurrentTask } from 'renderer/stores/agent-task-store'
+
+export type TasksViewMode = 'table' | 'kanban'
 
 interface TasksHeaderProps {
   onBack: () => void
   onCreateTask: () => void
+  viewMode?: TasksViewMode
+  onViewModeChange?: (mode: TasksViewMode) => void
 }
 
 export const TasksHeader = memo(function TasksHeader({
   onBack,
   onCreateTask,
+  viewMode = 'kanban',
+  onViewModeChange,
 }: TasksHeaderProps): React.JSX.Element {
   const tasks = useTaskList()
   const currentTask = useCurrentTask()
@@ -69,6 +78,28 @@ export const TasksHeader = memo(function TasksHeader({
             <Badge variant="outline">{completedCount} Completed</Badge>
             <Badge variant="outline">{tasks.length} Total</Badge>
           </div>
+
+          {/* View mode toggle */}
+          {onViewModeChange && (
+            <ButtonGroup>
+              <Button
+                aria-label="Kanban view"
+                onClick={() => onViewModeChange('kanban')}
+                size="sm"
+                variant={viewMode === 'kanban' ? 'default' : 'outline'}
+              >
+                <IconLayoutKanban className="h-4 w-4" />
+              </Button>
+              <Button
+                aria-label="Table view"
+                onClick={() => onViewModeChange('table')}
+                size="sm"
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+              >
+                <IconTable className="h-4 w-4" />
+              </Button>
+            </ButtonGroup>
+          )}
 
           <Button onClick={onCreateTask}>
             <IconPlus className="h-4 w-4 mr-2" />

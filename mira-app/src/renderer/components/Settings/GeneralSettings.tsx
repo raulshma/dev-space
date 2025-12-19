@@ -296,7 +296,7 @@ export function GeneralSettings(): React.JSX.Element {
             <AlertDialog>
               <AlertDialogTrigger
                 render={
-                  <Button variant="destructive" size="sm">
+                  <Button size="sm" variant="destructive">
                     <IconTrash className="h-4 w-4 mr-1" />
                     Reset
                   </Button>

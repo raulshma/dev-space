@@ -76,7 +76,10 @@ export function useSendJulesMessage() {
       sessionId: string
       message: string
     }) => {
-      const response = await window.api.jules.sendMessage({ sessionId, message })
+      const response = await window.api.jules.sendMessage({
+        sessionId,
+        message,
+      })
       if (!response.success) {
         throw new Error(response.error || 'Failed to send message')
       }

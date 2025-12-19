@@ -19,14 +19,17 @@ interface UseWorkspaceSessionOptions {
   project: Project | null | undefined
   projectLoading: boolean
   panelGroupRef: React.RefObject<GroupImperativeHandle | null>
+  centerPanelGroupRef?: React.RefObject<GroupImperativeHandle | null>
 }
 
 interface UseWorkspaceSessionReturn {
   isRestoring: boolean
   isReady: boolean
   lastLayoutRef: React.RefObject<{ [panelId: string]: number } | null>
+  lastCenterLayoutRef: React.RefObject<{ [panelId: string]: number } | null>
   lastExpandedSizesRef: React.RefObject<{ left: number; right: number }>
   restoredLayout: { [panelId: string]: number } | undefined
+  restoredCenterLayout: { [panelId: string]: number } | undefined
   scheduleSave: () => void
   saveNow: () => void
 }
@@ -36,6 +39,7 @@ export function useWorkspaceSession({
   project,
   projectLoading,
   panelGroupRef,
+  centerPanelGroupRef,
 }: UseWorkspaceSessionOptions): UseWorkspaceSessionReturn {
   const { data: session, isLoading: sessionLoading } = useSession(projectId)
   const { mutate: saveSession } = useSaveSession()
@@ -45,12 +49,16 @@ export function useWorkspaceSession({
   const [restoredLayout, setRestoredLayout] = useState<
     { [panelId: string]: number } | undefined
   >(undefined)
+  const [restoredCenterLayout, setRestoredCenterLayout] = useState<
+    { [panelId: string]: number } | undefined
+  >(undefined)
   const isRestoredRef = useRef(false)
   const isRestoringRef = useRef(true)
   const saveTimerRef = useRef<number | null>(null)
 
   // Layout tracking
   const lastLayoutRef = useRef<{ [panelId: string]: number } | null>(null)
+  const lastCenterLayoutRef = useRef<{ [panelId: string]: number } | null>(null)
   const lastExpandedSizesRef = useRef({ left: 15, right: 15 })
 
   // Build current session state - stable callback
@@ -65,6 +73,10 @@ export function useWorkspaceSession({
     // because getLayout() may not reflect the latest resize
     const layout =
       lastLayoutRef.current ?? panelGroupRef.current?.getLayout() ?? undefined
+    const centerLayout =
+      lastCenterLayoutRef.current ??
+      centerPanelGroupRef?.current?.getLayout() ??
+      undefined
 
     const openDiffFiles = editorState.openFiles
       .filter(f => f.isDiff)
@@ -85,6 +97,7 @@ export function useWorkspaceSession({
       activeTerminalId: appState.activeTerminalId,
       workspace: {
         panelLayout: layout,
+        centerPanelLayout: centerLayout,
         expandedPanelSizes: { ...lastExpandedSizesRef.current },
         sidebarCollapsed: appState.sidebarCollapsed,
         agentPanelCollapsed: appState.agentPanelCollapsed,
@@ -100,7 +113,7 @@ export function useWorkspaceSession({
         openDiffFiles,
       },
     }
-  }, [projectId, panelGroupRef])
+  }, [projectId, panelGroupRef, centerPanelGroupRef])
 
   // Immediate save - stable callback
   const saveNow = useCallback(() => {
@@ -240,6 +253,17 @@ export function useWorkspaceSession({
             setRestoredLayout(clampedLayout)
           }
         }
+
+        // Restore center panel layout (editor/terminal split)
+        if (session.workspace.centerPanelLayout) {
+          const centerLayout = session.workspace.centerPanelLayout
+          const expectedCenterIds = ['center-editor', 'center-terminal']
+
+          if (expectedCenterIds.some(id => id in centerLayout)) {
+            lastCenterLayoutRef.current = { ...centerLayout }
+            setRestoredCenterLayout({ ...centerLayout })
+          }
+        }
       }
 
       // Mark ready after restoration
@@ -278,8 +302,10 @@ export function useWorkspaceSession({
     isRestoring: !isReady,
     isReady,
     lastLayoutRef,
+    lastCenterLayoutRef,
     lastExpandedSizesRef,
     restoredLayout,
+    restoredCenterLayout,
     scheduleSave,
     saveNow,
   }
