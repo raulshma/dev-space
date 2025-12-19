@@ -5,7 +5,7 @@
  * to view, manage, and see logs of running dev servers.
  */
 
-import { memo, useState, useCallback, useEffect, useRef } from 'react'
+import { memo, useState, useCallback } from 'react'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import {
@@ -33,7 +33,7 @@ import {
   useRunningProjectsCount,
   useRunningProjectsManager,
 } from 'renderer/hooks/use-running-projects'
-import { useRunningProjectsStore } from 'renderer/stores/running-projects-store'
+import { LogsDialog } from './LogsDialog'
 import type { RunningProjectStatus } from 'shared/models'
 
 const StatusIcon = memo(function StatusIcon({
@@ -154,71 +154,15 @@ const RunningProjectItem = memo(function RunningProjectItem({
   )
 })
 
-interface LogViewerProps {
-  projectId: string
-  projectName: string
-  onClose: () => void
-}
-
-const LogViewer = memo(function LogViewer({
-  projectId,
-  projectName,
-  onClose,
-}: LogViewerProps) {
-  const project = useRunningProjectsStore(state =>
-    state.projects.get(projectId)
-  )
-  const logs = project?.logs ?? []
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  // Auto-scroll to bottom on new logs
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [logs.length])
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-        <span className="text-sm font-medium truncate">
-          {projectName} - Logs
-        </span>
-        <Button
-          className="h-6 w-6"
-          onClick={onClose}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <IconX className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-      <ScrollArea className="flex-1">
-        <div
-          className="p-2 font-mono text-xs bg-black/90 text-green-400 min-h-[200px]"
-          ref={scrollRef}
-        >
-          {logs.length === 0 ? (
-            <span className="text-muted-foreground">No output yet...</span>
-          ) : (
-            logs.map((line, index) => (
-              <pre className="whitespace-pre-wrap break-all" key={index}>
-                {line}
-              </pre>
-            ))
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  )
-})
-
 export const RunningProjectsIndicator = memo(
   function RunningProjectsIndicator() {
     const count = useRunningProjectsCount()
     const projects = useRunningProjects()
     const { stopProject, restartProject } = useRunningProjectsManager()
-    const [viewingLogsFor, setViewingLogsFor] = useState<string | null>(null)
+    const [logsDialogProject, setLogsDialogProject] = useState<{
+      projectId: string
+      projectName: string
+    } | null>(null)
 
     const handleStop = useCallback(
       async (projectId: string) => {
@@ -234,85 +178,87 @@ export const RunningProjectsIndicator = memo(
       [restartProject]
     )
 
-    const handleViewLogs = useCallback((projectId: string) => {
-      setViewingLogsFor(projectId)
-    }, [])
+    const handleViewLogs = useCallback(
+      (projectId: string, projectName: string) => {
+        setLogsDialogProject({ projectId, projectName })
+      },
+      []
+    )
 
-    const handleCloseLogs = useCallback(() => {
-      setViewingLogsFor(null)
+    const handleCloseLogsDialog = useCallback(() => {
+      setLogsDialogProject(null)
     }, [])
-
-    const viewingProject = viewingLogsFor
-      ? projects.find(p => p.projectId === viewingLogsFor)
-      : null
 
     const hasRunningProjects = count > 0
 
     return (
-      <Popover>
-        <PopoverTrigger
-          render={
-            <Button className="h-5 gap-1 px-1.5" size="sm" variant="ghost">
-              <IconTerminal2
-                className={`h-3.5 w-3.5 ${hasRunningProjects ? 'text-green-500' : 'text-muted-foreground'}`}
-              />
-              {hasRunningProjects && (
-                <Badge
-                  className="h-4 min-w-4 px-1 text-[10px] bg-green-500/20 text-green-600 border-green-500/30"
-                  variant="outline"
-                >
-                  {count}
-                </Badge>
-              )}
-            </Button>
-          }
-        />
-        <PopoverContent
-          align="end"
-          className="w-80 p-0"
-          side="top"
-          sideOffset={8}
-        >
-          {viewingLogsFor && viewingProject ? (
-            <LogViewer
-              onClose={handleCloseLogs}
-              projectId={viewingLogsFor}
-              projectName={viewingProject.projectName}
-            />
-          ) : (
-            <>
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                <span className="text-sm font-medium">Running Projects</span>
-                <span className="text-xs text-muted-foreground">
-                  {count} active
-                </span>
-              </div>
-              <ScrollArea className="max-h-64">
-                {projects.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">
-                    No running projects. Start a dev server from the Scripts
-                    panel.
-                  </p>
-                ) : (
-                  projects.map(project => (
-                    <RunningProjectItem
-                      devCommand={project.devCommand}
-                      error={project.error}
-                      key={project.projectId}
-                      onRestart={() => handleRestart(project.projectId)}
-                      onStop={() => handleStop(project.projectId)}
-                      onViewLogs={() => handleViewLogs(project.projectId)}
-                      projectId={project.projectId}
-                      projectName={project.projectName}
-                      status={project.status}
-                    />
-                  ))
+      <>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button className="h-5 gap-1 px-1.5" size="sm" variant="ghost">
+                <IconTerminal2
+                  className={`h-3.5 w-3.5 ${hasRunningProjects ? 'text-green-500' : 'text-muted-foreground'}`}
+                />
+                {hasRunningProjects && (
+                  <Badge
+                    className="h-4 min-w-4 px-1 text-[10px] bg-green-500/20 text-green-600 border-green-500/30"
+                    variant="outline"
+                  >
+                    {count}
+                  </Badge>
                 )}
-              </ScrollArea>
-            </>
-          )}
-        </PopoverContent>
-      </Popover>
+              </Button>
+            }
+          />
+          <PopoverContent
+            align="end"
+            className="w-80 p-0"
+            side="top"
+            sideOffset={8}
+          >
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+              <span className="text-sm font-medium">Running Projects</span>
+              <span className="text-xs text-muted-foreground">
+                {count} active
+              </span>
+            </div>
+            <ScrollArea className="max-h-64">
+              {projects.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  No running projects. Start a dev server from the Scripts
+                  panel.
+                </p>
+              ) : (
+                projects.map(project => (
+                  <RunningProjectItem
+                    devCommand={project.devCommand}
+                    error={project.error}
+                    key={project.projectId}
+                    onRestart={() => handleRestart(project.projectId)}
+                    onStop={() => handleStop(project.projectId)}
+                    onViewLogs={() =>
+                      handleViewLogs(project.projectId, project.projectName)
+                    }
+                    projectId={project.projectId}
+                    projectName={project.projectName}
+                    status={project.status}
+                  />
+                ))
+              )}
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
+
+        {logsDialogProject && (
+          <LogsDialog
+            onOpenChange={open => !open && handleCloseLogsDialog()}
+            open={!!logsDialogProject}
+            projectId={logsDialogProject.projectId}
+            projectName={logsDialogProject.projectName}
+          />
+        )}
+      </>
     )
   }
 )

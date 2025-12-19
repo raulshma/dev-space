@@ -112,30 +112,46 @@ export class RunningProjectsService extends EventEmitter {
     project.status = 'stopping'
     this.emitStatusUpdate(projectId, 'stopping')
 
+    // Send Ctrl+C to attempt graceful stop
     try {
-      // Send Ctrl+C to gracefully stop
       this.ptyManager.write(project.ptyId, '\x03')
-
-      // Wait a bit then force kill if still running
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      try {
-        this.ptyManager.kill(project.ptyId)
-      } catch {
-        // PTY might already be dead
-      }
-
-      project.status = 'stopped'
-      this.emitStatusUpdate(projectId, 'stopped')
-      this.runningProjects.delete(projectId)
-
-      return true
-    } catch (error) {
-      project.status = 'error'
-      project.error = error instanceof Error ? error.message : 'Unknown error'
-      this.emitStatusUpdate(projectId, 'error', project.error)
-      return false
+    } catch {
+      // PTY might already be dead, continue to force kill
     }
+
+    // Wait a bit for graceful shutdown
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Send another Ctrl+C in case the first one was absorbed
+    try {
+      this.ptyManager.write(project.ptyId, '\x03')
+    } catch {
+      // PTY might already be dead
+    }
+
+    // Wait a bit more then force kill
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Force kill the process tree and PTY
+    try {
+      if (this.ptyManager.exists(project.ptyId)) {
+        this.ptyManager.kill(project.ptyId)
+      }
+    } catch (error) {
+      // Only treat as error if PTY still exists (real failure)
+      if (this.ptyManager.exists(project.ptyId)) {
+        project.status = 'error'
+        project.error = error instanceof Error ? error.message : 'Failed to stop process'
+        this.emitStatusUpdate(projectId, 'error', project.error)
+        return false
+      }
+    }
+
+    project.status = 'stopped'
+    this.emitStatusUpdate(projectId, 'stopped')
+    this.runningProjects.delete(projectId)
+
+    return true
   }
 
   /**

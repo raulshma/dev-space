@@ -41,10 +41,13 @@ export const useRunningProjectsStore = create<RunningProjectsState>(
     error: null,
 
     setProjects: (projects: RunningProject[]) =>
-      set(() => {
+      set(state => {
         const map = new Map<string, RunningProjectWithLogs>()
         for (const project of projects) {
-          map.set(project.projectId, { ...project, logs: [] })
+          // Preserve existing logs if project was already in store
+          const existing = state.projects.get(project.projectId)
+          const existingLogs = existing?.logs ?? []
+          map.set(project.projectId, { ...project, logs: existingLogs })
         }
         return { projects: map }
       }),
@@ -52,7 +55,10 @@ export const useRunningProjectsStore = create<RunningProjectsState>(
     addProject: (project: RunningProject) =>
       set(state => {
         const newProjects = new Map(state.projects)
-        newProjects.set(project.projectId, { ...project, logs: [] })
+        // Preserve existing logs if project was already added (e.g., from buffered output)
+        const existing = newProjects.get(project.projectId)
+        const existingLogs = existing?.logs ?? []
+        newProjects.set(project.projectId, { ...project, logs: existingLogs })
         return { projects: newProjects }
       }),
 
@@ -79,27 +85,56 @@ export const useRunningProjectsStore = create<RunningProjectsState>(
 
     appendLog: (projectId: string, data: string) =>
       set(state => {
-        const project = state.projects.get(projectId)
-        if (!project) return state
+        const newProjects = new Map(state.projects)
+        const project = newProjects.get(projectId)
 
-        const newLogs = [...project.logs, data]
-        // Keep only last 1000 log entries
-        if (newLogs.length > 1000) {
-          newLogs.splice(0, newLogs.length - 1000)
+        if (project) {
+          const newLogs = [...project.logs, data]
+          // Keep only last 1000 log entries
+          if (newLogs.length > 1000) {
+            newLogs.splice(0, newLogs.length - 1000)
+          }
+          newProjects.set(projectId, { ...project, logs: newLogs })
+        } else {
+          // Create a placeholder entry to buffer logs until project info arrives
+          newProjects.set(projectId, {
+            id: `pending-${projectId}`,
+            projectId,
+            projectName: 'Loading...',
+            projectPath: '',
+            devCommand: '',
+            ptyId: '',
+            status: 'running',
+            startedAt: new Date(),
+            logs: [data],
+          })
         }
 
-        const newProjects = new Map(state.projects)
-        newProjects.set(projectId, { ...project, logs: newLogs })
         return { projects: newProjects }
       }),
 
     setLogs: (projectId: string, logs: string[]) =>
       set(state => {
-        const project = state.projects.get(projectId)
-        if (!project) return state
-
         const newProjects = new Map(state.projects)
-        newProjects.set(projectId, { ...project, logs })
+        const project = newProjects.get(projectId)
+
+        if (project) {
+          newProjects.set(projectId, { ...project, logs })
+        } else {
+          // Create a placeholder entry with the logs
+          newProjects.set(projectId, {
+            id: `pending-${projectId}`,
+            projectId,
+            projectName: 'Loading...',
+            projectPath: '',
+            devCommand: '',
+            ptyId: '',
+            status: 'running',
+            startedAt: new Date(),
+            logs,
+          })
+        }
+
         return { projects: newProjects }
       }),
 

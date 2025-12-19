@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { spawnSync } from 'node:child_process'
 import * as pty from '@lydell/node-pty'
 
 /**
@@ -95,8 +96,62 @@ export class PTYManager {
       throw new Error(`PTY instance ${ptyId} not found`)
     }
 
-    instance.pty.kill()
+    // Kill the process tree first (child processes)
+    this.killProcessTree(instance.pty.pid)
+
+    // Then kill the PTY instance itself
+    try {
+      instance.pty.kill()
+    } catch {
+      // PTY might already be dead from process tree kill
+    }
+
     this.instances.delete(ptyId)
+  }
+
+  /**
+   * Kill a process and all its children
+   * On Windows uses taskkill /T, on Unix uses regular kill
+   * @returns true if killed successfully, false if process was already dead
+   * @throws Error if kill fails for unexpected reasons
+   */
+  private killProcessTree(pid: number): boolean {
+    if (process.platform === 'win32') {
+      // taskkill /T kills the process tree, /F forces termination
+      const result = spawnSync('taskkill', ['/pid', pid.toString(), '/T', '/F'])
+
+      // Exit code 128 means process not found (already dead) - that's OK
+      // Exit code 0 means success
+      if (result.status === 0 || result.status === 128) {
+        return result.status === 0
+      }
+
+      // Any other exit code is a real error
+      const stderr = result.stderr?.toString() || ''
+      throw new Error(`Failed to kill process ${pid}: ${stderr || `exit code ${result.status}`}`)
+    } else {
+      try {
+        // Try to kill process group first
+        process.kill(-pid, 'SIGKILL')
+        return true
+      } catch (err: unknown) {
+        const error = err as NodeJS.ErrnoException
+        if (error.code === 'ESRCH') {
+          // Process not found - already dead
+          try {
+            process.kill(pid, 'SIGKILL')
+            return true
+          } catch (innerErr: unknown) {
+            const innerError = innerErr as NodeJS.ErrnoException
+            if (innerError.code === 'ESRCH') {
+              return false // Already dead
+            }
+            throw innerError
+          }
+        }
+        throw error
+      }
+    }
   }
 
   /**

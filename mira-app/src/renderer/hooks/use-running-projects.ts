@@ -13,44 +13,40 @@ import {
   useIsProjectRunning,
 } from 'renderer/stores/running-projects-store'
 
-export function useRunningProjectsManager() {
-  const {
-    setProjects,
-    addProject,
-    updateProjectStatus,
-    removeProject,
-    appendLog,
-    setLoading,
-    setError,
-  } = useRunningProjectsStore()
-
-  // Subscribe to status updates and output
+/**
+ * Initialize running projects subscriptions - call ONCE at app root level
+ */
+export function useRunningProjectsInit() {
+  // Subscribe to status updates and output - empty deps = run once on mount
   useEffect(() => {
     const unsubscribeStatus = window.api.runningProjects.onStatusUpdate(
       data => {
-        updateProjectStatus(data.projectId, data.status, data.error)
+        useRunningProjectsStore
+          .getState()
+          .updateProjectStatus(data.projectId, data.status, data.error)
         if (data.status === 'stopped' || data.status === 'error') {
-          // Optionally remove after a delay
           setTimeout(() => {
-            removeProject(data.projectId)
+            useRunningProjectsStore.getState().removeProject(data.projectId)
           }, 5000)
         }
       }
     )
 
     const unsubscribeOutput = window.api.runningProjects.onOutput(data => {
-      appendLog(data.projectId, data.data)
+      useRunningProjectsStore.getState().appendLog(data.projectId, data.data)
     })
 
     return () => {
       unsubscribeStatus()
       unsubscribeOutput()
     }
-  }, [updateProjectStatus, removeProject, appendLog])
+  }, [])
 
-  // Load initial running projects
+  // Load initial running projects - empty deps = run once on mount
   useEffect(() => {
     const loadProjects = async () => {
+      const { setProjects, setLoading, setError } =
+        useRunningProjectsStore.getState()
       setLoading(true)
       try {
         const response = await window.api.runningProjects.list({})
@@ -64,12 +60,20 @@ export function useRunningProjectsManager() {
             : 'Failed to load running projects'
         )
       } finally {
-        setLoading(false)
+        useRunningProjectsStore.getState().setLoading(false)
       }
     }
 
     loadProjects()
-  }, [setProjects, setLoading, setError])
+  }, [])
+}
+
+/**
+ * Get running projects actions - can be called from any component
+ */
+export function useRunningProjectsManager() {
+  const { addProject, removeProject, setLoading, setError } =
+    useRunningProjectsStore()
 
   const startProject = useCallback(
     async (projectId: string, devCommand?: string) => {
