@@ -15,6 +15,7 @@ export interface AppState {
   commandPaletteOpen: boolean
   settingsPanelOpen: boolean
   activeView: ActiveView
+  previousView: ActiveView | null
 
   // Previous state for Zen Mode restoration
   previousSidebarState: boolean
@@ -58,6 +59,7 @@ export const useAppStore = create<AppState>(set => ({
   commandPaletteOpen: false,
   settingsPanelOpen: false,
   activeView: 'dashboard',
+  previousView: null,
   previousSidebarState: false,
   previousAgentPanelState: false,
 
@@ -109,9 +111,10 @@ export const useAppStore = create<AppState>(set => ({
     })),
 
   setActiveProject: (id: string | null) =>
-    set(() => ({
+    set(state => ({
       activeProjectId: id,
-      activeView: id ? 'workspace' : 'dashboard',
+      activeView: id ? 'tasks' : 'dashboard',
+      previousView: id ? 'dashboard' : state.previousView,
     })),
 
   setActiveTerminal: (id: string | null) =>
@@ -120,14 +123,16 @@ export const useAppStore = create<AppState>(set => ({
     }),
 
   setActiveView: (view: ActiveView) =>
-    set({
+    set(state => ({
       activeView: view,
-    }),
+      previousView: state.activeView,
+    })),
 
   openTasksWithTask: (_taskId: string) =>
-    set({
+    set(state => ({
       activeView: 'tasks',
-    }),
+      previousView: state.activeView,
+    })),
 
   openCommandPalette: () =>
     set({

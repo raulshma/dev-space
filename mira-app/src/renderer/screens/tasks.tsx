@@ -11,7 +11,7 @@
  * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 8.1, 9.2, 10.1, 11.1
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
@@ -32,6 +32,9 @@ import {
 } from 'renderer/components/ui/resizable'
 import type { TaskStatus, AgentType } from 'shared/ai-types'
 
+const TASK_PANEL_SIZE_KEY = 'mira:task-detail-panel-size'
+const DEFAULT_PANEL_SIZE = 50
+
 export interface TasksFilter {
   status?: TaskStatus | 'all'
   agentType?: AgentType | 'all'
@@ -43,6 +46,7 @@ export interface TasksFilter {
 function TasksScreenContent(): React.JSX.Element {
   const setActiveView = useAppStore(state => state.setActiveView)
   const activeProjectId = useAppStore(state => state.activeProjectId)
+  const previousView = useAppStore(state => state.previousView)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
 
   // View mode state (kanban is default)
@@ -60,15 +64,55 @@ function TasksScreenContent(): React.JSX.Element {
   // Dialog state
   const [showTaskCreation, setShowTaskCreation] = useState(false)
 
+  // Panel size persistence - use ref to avoid re-renders during drag
+  const detailPanelSizeRef = useRef<number>(DEFAULT_PANEL_SIZE)
+  const initializedRef = useRef(false)
+  if (!initializedRef.current) {
+    initializedRef.current = true
+    const saved = localStorage.getItem(TASK_PANEL_SIZE_KEY)
+    if (saved) {
+      const size = Number.parseFloat(saved)
+      if (!Number.isNaN(size) && size >= 20 && size <= 80) {
+        detailPanelSizeRef.current = size
+      }
+    }
+  }
+
+  // Save panel size when layout changes - only persist, don't update state
+  const handleLayoutChange = useCallback(
+    (layout: { [panelId: string]: number }) => {
+      const panelSize = layout['task-execution-panel']
+      if (typeof panelSize === 'number' && panelSize > 0) {
+        detailPanelSizeRef.current = panelSize
+        localStorage.setItem(TASK_PANEL_SIZE_KEY, String(panelSize))
+      }
+    },
+    []
+  )
+
   // Load tasks
   useAgentTasks()
 
+  const setActiveProject = useAppStore(state => state.setActiveProject)
+
   const handleBack = useCallback(() => {
-    // If we came from a workspace, go back to it; otherwise go to dashboard
-    if (activeProjectId) {
+    // Go back to previous view, or fallback based on context
+    if (previousView === 'workspace') {
+      setActiveView('workspace')
+    } else if (previousView === 'dashboard') {
+      // Clear project context when going back to dashboard
+      setActiveProject(null)
+    } else if (activeProjectId) {
+      // Default: if we have a project, go to workspace
       setActiveView('workspace')
     } else {
-      setActiveView('dashboard')
+      setActiveProject(null)
+    }
+  }, [setActiveView, setActiveProject, activeProjectId, previousView])
+
+  const handleGoToWorkspace = useCallback(() => {
+    if (activeProjectId) {
+      setActiveView('workspace')
     }
   }, [setActiveView, activeProjectId])
 
@@ -100,6 +144,7 @@ function TasksScreenContent(): React.JSX.Element {
       <TasksHeader
         onBack={handleBack}
         onCreateTask={handleOpenTaskCreation}
+        onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}
         onViewModeChange={setViewMode}
         viewMode={viewMode}
       />
@@ -109,10 +154,11 @@ function TasksScreenContent(): React.JSX.Element {
       <ResizablePanelGroup
         className="flex-1"
         id="tasks-screen-layout"
+        onLayoutChange={handleLayoutChange}
         orientation="horizontal"
       >
         <ResizablePanel
-          defaultSize={selectedTaskId ? 50 : 100}
+          defaultSize={selectedTaskId ? 100 - detailPanelSizeRef.current : 100}
           id="tasks-list-panel"
           minSize={30}
         >
@@ -135,7 +181,7 @@ function TasksScreenContent(): React.JSX.Element {
           <>
             <ResizableHandle withHandle />
             <ResizablePanel
-              defaultSize={50}
+              defaultSize={detailPanelSizeRef.current}
               id="task-execution-panel"
               minSize={30}
             >

@@ -15,6 +15,7 @@ import {
   IconLoader2,
   IconLayoutKanban,
   IconTable,
+  IconFolderOpen,
 } from '@tabler/icons-react'
 import { useTaskList, useCurrentTask } from 'renderer/stores/agent-task-store'
 
@@ -23,6 +24,7 @@ export type TasksViewMode = 'table' | 'kanban'
 interface TasksHeaderProps {
   onBack: () => void
   onCreateTask: () => void
+  onGoToWorkspace?: () => void
   viewMode?: TasksViewMode
   onViewModeChange?: (mode: TasksViewMode) => void
 }
@@ -30,6 +32,7 @@ interface TasksHeaderProps {
 export const TasksHeader = memo(function TasksHeader({
   onBack,
   onCreateTask,
+  onGoToWorkspace,
   viewMode = 'kanban',
   onViewModeChange,
 }: TasksHeaderProps): React.JSX.Element {
@@ -50,6 +53,12 @@ export const TasksHeader = memo(function TasksHeader({
             <IconArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
+          {onGoToWorkspace && (
+            <Button onClick={onGoToWorkspace} size="sm" variant="outline">
+              <IconFolderOpen className="h-4 w-4 mr-2" />
+              Go to Workspace
+            </Button>
+          )}
           <div className="flex items-center gap-3">
             <IconRocket className="h-6 w-6 text-primary" />
             <div>
