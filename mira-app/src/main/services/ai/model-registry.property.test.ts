@@ -30,6 +30,12 @@ const arbitraryAIModel: fc.Arbitrary<AIModel> = fc.record({
   }),
   capabilities: fc.array(fc.string()),
   isConfigured: fc.boolean(),
+  created: fc.integer({ min: 0 }),
+  architecture: fc.record({
+    modality: fc.string(),
+    tokenizer: fc.option(fc.string(), { nil: undefined }),
+    instructType: fc.option(fc.string(), { nil: undefined }),
+  }),
 })
 
 /**

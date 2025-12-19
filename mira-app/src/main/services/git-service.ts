@@ -1,13 +1,45 @@
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, extname } from 'node:path'
 import type { GitTelemetry, GitFileStatus } from 'shared/models'
 
 const execAsync = promisify(exec)
 
+// Map file extensions to Monaco language IDs
+const extensionToLanguage: Record<string, string> = {
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.js': 'javascript',
+  '.jsx': 'javascript',
+  '.json': 'json',
+  '.html': 'html',
+  '.css': 'css',
+  '.scss': 'scss',
+  '.less': 'less',
+  '.md': 'markdown',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.xml': 'xml',
+  '.sql': 'sql',
+  '.sh': 'shell',
+  '.bash': 'shell',
+  '.py': 'python',
+  '.rs': 'rust',
+  '.go': 'go',
+  '.java': 'java',
+  '.c': 'c',
+  '.cpp': 'cpp',
+  '.cs': 'csharp',
+  '.php': 'php',
+  '.rb': 'ruby',
+  '.swift': 'swift',
+  '.kt': 'kotlin',
+}
+
 export class GitService {
-  private refreshIntervals: Map<string, NodeJS.Timeout> = new Map()
+  /** @internal Exposed for testing */
+  refreshIntervals: Map<string, NodeJS.Timeout> = new Map()
   private telemetryCache: Map<string, GitTelemetry> = new Map()
 
   /**
@@ -249,5 +281,67 @@ export class GitService {
    */
   clearCache(): void {
     this.telemetryCache.clear()
+  }
+
+  /**
+   * Get file diff for a specific file
+   * Returns original (HEAD) and modified (working tree or staged) content
+   */
+  async getFileDiff(
+    projectPath: string,
+    filePath: string,
+    staged = false
+  ): Promise<{ original: string; modified: string; language: string }> {
+    const fullPath = join(projectPath, filePath)
+    const ext = extname(filePath).toLowerCase()
+    const language = extensionToLanguage[ext] || 'plaintext'
+
+    // Normalize path to use forward slashes for git commands (works on all platforms)
+    const gitPath = filePath.replace(/\\/g, '/')
+
+    try {
+      // Get the original content from HEAD
+      let original = ''
+      try {
+        const { stdout } = await execAsync(`git show "HEAD:${gitPath}"`, {
+          cwd: projectPath,
+          timeout: 10000,
+          maxBuffer: 10 * 1024 * 1024, // 10MB
+        })
+        original = stdout
+      } catch {
+        // File might be new (not in HEAD)
+        original = ''
+      }
+
+      // Get the modified content
+      let modified = ''
+      if (staged) {
+        // Get staged content
+        try {
+          const { stdout } = await execAsync(`git show ":${gitPath}"`, {
+            cwd: projectPath,
+            timeout: 10000,
+            maxBuffer: 10 * 1024 * 1024,
+          })
+          modified = stdout
+        } catch {
+          // Fall back to working tree
+          if (existsSync(fullPath)) {
+            modified = readFileSync(fullPath, 'utf-8')
+          }
+        }
+      } else {
+        // Get working tree content
+        if (existsSync(fullPath)) {
+          modified = readFileSync(fullPath, 'utf-8')
+        }
+      }
+
+      return { original, modified, language }
+    } catch (error) {
+      console.error('Error getting file diff:', error)
+      throw error
+    }
   }
 }

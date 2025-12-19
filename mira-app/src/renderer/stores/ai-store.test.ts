@@ -36,6 +36,8 @@ describe('AIStore', () => {
         pricing: { prompt: 0.001, completion: 0.002 },
         capabilities: ['chat'],
         isConfigured: true,
+        created: Date.now(),
+        architecture: { modality: 'text' },
       },
       {
         id: 'model-2',
@@ -45,6 +47,8 @@ describe('AIStore', () => {
         pricing: { prompt: 0.002, completion: 0.004 },
         capabilities: ['chat', 'code'],
         isConfigured: true,
+        created: Date.now(),
+        architecture: { modality: 'text' },
       },
     ]
 

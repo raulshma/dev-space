@@ -94,9 +94,9 @@ function TasksScreenContent(): React.JSX.Element {
       <TasksFilters filters={filters} onFilterChange={handleFilterChange} />
 
       <ResizablePanelGroup
-        autoSaveId="tasks-screen-layout"
         className="flex-1"
-        direction="horizontal"
+        id="tasks-screen-layout"
+        orientation="horizontal"
       >
         <ResizablePanel
           defaultSize={selectedTaskId ? 50 : 100}

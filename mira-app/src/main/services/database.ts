@@ -810,6 +810,14 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * Clear all session data and workspace configuration
+   */
+  clearAllSessions(): void {
+    const db = this.getDb()
+    db.exec('DELETE FROM sessions')
+  }
+
   // ============================================================================
   // COMMAND LIBRARY OPERATIONS
   // ============================================================================

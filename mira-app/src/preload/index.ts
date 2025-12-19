@@ -33,6 +33,8 @@ import type {
   GitStartRefreshResponse,
   GitStopRefreshRequest,
   GitStopRefreshResponse,
+  GitFileDiffRequest,
+  GitFileDiffResponse,
   PTYCreateRequest,
   PTYCreateResponse,
   PTYWriteRequest,
@@ -61,6 +63,7 @@ import type {
   SessionSaveResponse,
   SessionRestoreRequest,
   SessionRestoreResponse,
+  SessionClearAllResponse,
   CommandListRequest,
   CommandListResponse,
   CommandCreateRequest,
@@ -245,6 +248,8 @@ const api = {
       request: GitStopRefreshRequest
     ): Promise<GitStopRefreshResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_STOP_REFRESH, request),
+    getFileDiff: (request: GitFileDiffRequest): Promise<GitFileDiffResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_FILE_DIFF, request),
   },
 
   // PTY/Terminal operations
@@ -305,6 +310,8 @@ const api = {
       request: SessionRestoreRequest
     ): Promise<SessionRestoreResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SESSION_RESTORE, request),
+    clearAll: (): Promise<SessionClearAllResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SESSION_CLEAR_ALL, {}),
   },
 
   // Command library operations

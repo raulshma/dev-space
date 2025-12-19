@@ -9,6 +9,11 @@ interface OpenFile {
   size: number
   isTruncated: boolean
   isDirty: boolean
+  // Diff-specific fields
+  isDiff?: boolean
+  diffOriginal?: string
+  diffModified?: string
+  diffStaged?: boolean
 }
 
 interface EditorState {
@@ -21,6 +26,11 @@ interface EditorState {
 
 interface EditorActions {
   openFile: (filePath: string) => Promise<void>
+  openDiff: (
+    projectPath: string,
+    filePath: string,
+    staged?: boolean
+  ) => Promise<void>
   closeFile: (filePath: string) => void
   setActiveFile: (filePath: string) => void
   closeAllFiles: () => void
@@ -79,6 +89,61 @@ export const useEditorStore = create<EditorState & EditorActions>(
       } catch (err) {
         set({
           error: err instanceof Error ? err.message : 'Failed to open file',
+          isLoading: false,
+        })
+      }
+    },
+
+    openDiff: async (projectPath: string, filePath: string, staged = false) => {
+      // Create a unique path for the diff tab
+      const diffPath = `diff://${filePath}${staged ? '?staged' : ''}`
+      const { openFiles } = get()
+
+      // Check if already open
+      const existing = openFiles.find(f => f.path === diffPath)
+      if (existing) {
+        set({ activeFilePath: diffPath })
+        return
+      }
+
+      set({ isLoading: true, error: null })
+
+      try {
+        const result = await window.api.git.getFileDiff({
+          projectPath,
+          filePath,
+          staged,
+        })
+
+        if ('error' in result) {
+          set({ error: (result as { error: string }).error, isLoading: false })
+          return
+        }
+
+        const fileName = filePath.split(/[/\\]/).pop() || 'untitled'
+        const newFile: OpenFile = {
+          path: diffPath,
+          name: `${fileName} (Diff)`,
+          content: result.modified,
+          originalContent: result.original,
+          language: result.language,
+          size: result.modified.length + result.original.length,
+          isTruncated: false,
+          isDirty: false,
+          isDiff: true,
+          diffOriginal: result.original,
+          diffModified: result.modified,
+          diffStaged: staged,
+        }
+
+        set(state => ({
+          openFiles: [...state.openFiles, newFile],
+          activeFilePath: diffPath,
+          isLoading: false,
+        }))
+      } catch (err) {
+        set({
+          error: err instanceof Error ? err.message : 'Failed to load diff',
           isLoading: false,
         })
       }

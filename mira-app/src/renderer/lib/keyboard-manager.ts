@@ -44,8 +44,10 @@ export type ActionHandler = () => void
  */
 export class KeyboardManager {
   private shortcuts: Map<string, string> = new Map()
-  private handlers: Map<ShortcutAction, ActionHandler> = new Map()
-  private listener: ((event: KeyboardEvent) => void) | null = null
+  /** @internal Exposed for testing */
+  handlers: Map<ShortcutAction, ActionHandler> = new Map()
+  /** @internal Exposed for testing */
+  listener: ((event: KeyboardEvent) => void) | null = null
 
   constructor() {
     // Initialize with default shortcuts

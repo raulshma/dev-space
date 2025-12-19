@@ -562,6 +562,8 @@ describe('DatabaseService', () => {
         contextLength: 8192,
         pricing: { prompt: 0.03, completion: 0.06 },
         capabilities: ['chat', 'code'],
+        created: Date.now(),
+        architecture: { modality: 'text' },
       })
 
       expect(model.id).toBe('gpt-4')
@@ -583,6 +585,8 @@ describe('DatabaseService', () => {
           contextLength: 8192,
           pricing: { prompt: 0.03, completion: 0.06 },
           capabilities: ['chat'],
+          created: Date.now(),
+          architecture: { modality: 'text' },
         },
         {
           id: 'claude-3',
@@ -591,6 +595,8 @@ describe('DatabaseService', () => {
           contextLength: 100000,
           pricing: { prompt: 0.01, completion: 0.03 },
           capabilities: ['chat', 'code'],
+          created: Date.now(),
+          architecture: { modality: 'text' },
         },
       ])
 
@@ -606,6 +612,8 @@ describe('DatabaseService', () => {
         contextLength: 8192,
         pricing: { prompt: 0.03, completion: 0.06 },
         capabilities: [],
+        created: Date.now(),
+        architecture: { modality: 'text' },
       })
 
       dbService.clearModelCache()
@@ -625,6 +633,8 @@ describe('DatabaseService', () => {
         contextLength: 8192,
         pricing: { prompt: 0.03, completion: 0.06 },
         capabilities: [],
+        created: Date.now(),
+        architecture: { modality: 'text' },
       })
 
       // Fresh cache should not be stale with reasonable TTL

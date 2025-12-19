@@ -13,6 +13,7 @@ import type {
   GitTelemetryRequest,
   GitStartRefreshRequest,
   GitStopRefreshRequest,
+  GitFileDiffRequest,
   PTYCreateRequest,
   PTYWriteRequest,
   PTYResizeRequest,
@@ -432,6 +433,23 @@ export class IPCHandlers {
         }
       }
     )
+
+    ipcMain.handle(
+      IPC_CHANNELS.GIT_FILE_DIFF,
+      async (_event, request: GitFileDiffRequest) => {
+        try {
+          const { original, modified, language } =
+            await this.gitService.getFileDiff(
+              request.projectPath,
+              request.filePath,
+              request.staged
+            )
+          return { original, modified, language, filePath: request.filePath }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
   }
 
   /**
@@ -624,6 +642,15 @@ export class IPCHandlers {
         }
       }
     )
+
+    ipcMain.handle(IPC_CHANNELS.SESSION_CLEAR_ALL, async () => {
+      try {
+        this.db.clearAllSessions()
+        return { success: true }
+      } catch (error) {
+        return this.handleError(error)
+      }
+    })
   }
 
   /**

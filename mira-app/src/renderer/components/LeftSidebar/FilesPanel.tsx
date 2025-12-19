@@ -3,7 +3,6 @@ import {
   IconChevronRight,
   IconFolder,
   IconFolderOpen,
-  IconFile,
   IconRefresh,
   IconFolderPlus,
   IconFileCode,
@@ -19,6 +18,7 @@ import {
 } from '@tabler/icons-react'
 import { Button } from 'renderer/components/ui/button'
 import { Spinner } from 'renderer/components/ui/spinner'
+import { useSidebarStore } from 'renderer/stores/sidebar-store'
 import type { FileNode } from 'shared/ipc-types'
 
 interface FilesPanelProps {
@@ -208,8 +208,13 @@ export const FilesPanel = memo(function FilesPanel({
   const [files, setFiles] = useState<FileNode[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+
+  // Use sidebar store for expanded paths to enable persistence
+  const expandedPaths = useSidebarStore(state => state.expandedFolderPaths)
+  const toggleFolderExpanded = useSidebarStore(
+    state => state.toggleFolderExpanded
+  )
 
   const loadFiles = useCallback(async () => {
     setIsLoading(true)
@@ -232,43 +237,102 @@ export const FilesPanel = memo(function FilesPanel({
     loadFiles()
   }, [loadFiles])
 
-  const loadChildren = useCallback(
-    async (dirPath: string) => {
-      try {
-        const response = await window.api.files.listShallow({ path: dirPath })
-        // Update the tree with new children
-        setFiles(prevFiles => {
-          const updateNode = (nodes: FileNode[]): FileNode[] => {
-            return nodes.map(node => {
-              if (node.path === dirPath) {
-                return { ...node, children: response.files }
-              }
-              if (node.children) {
-                return { ...node, children: updateNode(node.children) }
-              }
-              return node
-            })
-          }
-          return updateNode(prevFiles)
-        })
-      } catch (err) {
-        console.error('Failed to load directory:', err)
-      }
-    },
-    []
-  )
+  // Restore expanded folders by loading their children after initial load
+  // Use expandedPaths.size to trigger re-run when paths are hydrated from session
+  const expandedPathsSize = expandedPaths.size
+  useEffect(() => {
+    if (isLoading || files.length === 0 || expandedPathsSize === 0) return
 
-  const handleToggle = useCallback((path: string) => {
-    setExpandedPaths(prev => {
-      const next = new Set(prev)
-      if (next.has(path)) {
-        next.delete(path)
-      } else {
-        next.add(path)
+    const loadExpandedChildren = async () => {
+      // Find all expanded paths that need children loaded
+      const findMissingChildren = (
+        nodes: FileNode[],
+        paths: Set<string>
+      ): string[] => {
+        const missing: string[] = []
+        for (const node of nodes) {
+          if (
+            node.isDirectory &&
+            paths.has(node.path) &&
+            (!node.children || node.children.length === 0)
+          ) {
+            missing.push(node.path)
+          }
+          if (node.children) {
+            missing.push(...findMissingChildren(node.children, paths))
+          }
+        }
+        return missing
       }
-      return next
-    })
+
+      const pathsToLoad = findMissingChildren(files, expandedPaths)
+
+      if (pathsToLoad.length === 0) return
+
+      // Load children for all missing paths
+      const loadResults = await Promise.all(
+        pathsToLoad.map(async dirPath => {
+          try {
+            const response = await window.api.files.listShallow({
+              path: dirPath,
+            })
+            return { path: dirPath, children: response.files }
+          } catch {
+            return { path: dirPath, children: [] }
+          }
+        })
+      )
+
+      // Update tree with all loaded children
+      setFiles(prevFiles => {
+        const updateNodes = (nodes: FileNode[]): FileNode[] => {
+          return nodes.map(node => {
+            const result = loadResults.find(r => r.path === node.path)
+            if (result) {
+              return { ...node, children: result.children }
+            }
+            if (node.children) {
+              return { ...node, children: updateNodes(node.children) }
+            }
+            return node
+          })
+        }
+        return updateNodes(prevFiles)
+      })
+    }
+
+    loadExpandedChildren()
+  }, [isLoading, files.length, expandedPathsSize, expandedPaths])
+
+  const loadChildren = useCallback(async (dirPath: string) => {
+    try {
+      const response = await window.api.files.listShallow({ path: dirPath })
+      // Update the tree with new children
+      setFiles(prevFiles => {
+        const updateNode = (nodes: FileNode[]): FileNode[] => {
+          return nodes.map(node => {
+            if (node.path === dirPath) {
+              return { ...node, children: response.files }
+            }
+            if (node.children) {
+              return { ...node, children: updateNode(node.children) }
+            }
+            return node
+          })
+        }
+        return updateNode(prevFiles)
+      })
+    } catch (err) {
+      console.error('Failed to load directory:', err)
+    }
   }, [])
+
+  const handleToggle = useCallback(
+    (path: string) => {
+      toggleFolderExpanded(path)
+    },
+    [toggleFolderExpanded]
+  )
 
   const handleFileClick = useCallback((filePath: string) => {
     setSelectedPath(filePath)
@@ -344,7 +408,7 @@ export const FilesPanel = memo(function FilesPanel({
       </div>
 
       {/* File tree */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 min-h-0 max-h-[80vh] overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/40">
         {files.length > 0 ? (
           files.map(node => (
             <FileTreeItem

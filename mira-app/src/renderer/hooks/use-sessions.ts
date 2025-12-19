@@ -1,7 +1,7 @@
 // TanStack Query hooks for session operations
 // Requirements: 4.1, 4.2, 4.3, 4.4
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import type { SessionState } from 'shared/models'
 
 // Query keys
@@ -26,8 +26,6 @@ export function useSession(projectId: string | null) {
 
 // Hook to save a session
 export function useSaveSession() {
-  const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async ({
       projectId,
@@ -39,9 +37,8 @@ export function useSaveSession() {
       const response = await window.api.sessions.save({ projectId, state })
       return response.success
     },
-    onSuccess: (_, { projectId }) => {
-      // Invalidate the session cache for this project
-      queryClient.invalidateQueries({ queryKey: sessionKeys.detail(projectId) })
-    },
+    // Note: We intentionally don't invalidate the session query on save
+    // to prevent unnecessary refetches that could cause UI flicker.
+    // The session is only loaded once when entering a project workspace.
   })
 }

@@ -28,10 +28,12 @@ export interface SessionState {
 
 export interface WorkspaceSessionState {
   /**
-   * PanelGroup layout percentages in order: [left, center, right].
-   * Should sum to 100.
+   * PanelGroup layout as a map of panel id to percentage (0..100).
    */
-  panelLayout?: number[]
+  panelLayout?: { [panelId: string]: number }
+
+  /** Expanded sizes for collapsed panels (to restore when uncollapsed) */
+  expandedPanelSizes?: { left: number; right: number }
 
   /** UI state for restoring the workspace experience */
   sidebarCollapsed?: boolean
@@ -39,6 +41,32 @@ export interface WorkspaceSessionState {
   zenMode?: boolean
   previousSidebarState?: boolean
   previousAgentPanelState?: boolean
+
+  /** Active sidebar tab (files, git, scripts, commands) */
+  activeSidebarTab?: string
+
+  /** Open editor files - paths only for restoration */
+  openFilePaths?: string[]
+  /** Currently active file path */
+  activeFilePath?: string | null
+
+  /** Expanded folder paths in the file tree */
+  expandedFolderPaths?: string[]
+
+  /** Open git diff files for restoration */
+  openDiffFiles?: Array<{
+    filePath: string
+    staged: boolean
+  }>
+}
+
+/** Window state for persistence across app restarts */
+export interface WindowState {
+  x?: number
+  y?: number
+  width: number
+  height: number
+  isMaximized: boolean
 }
 
 export interface TerminalSessionData {

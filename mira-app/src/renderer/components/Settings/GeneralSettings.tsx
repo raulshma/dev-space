@@ -26,13 +26,25 @@ import {
   SelectValue,
 } from 'renderer/components/ui/select'
 import { Slider } from 'renderer/components/ui/slider'
-import { IconCheck, IconLoader2 } from '@tabler/icons-react'
+import { IconCheck, IconLoader2, IconTrash } from '@tabler/icons-react'
 import {
   useAllSettings,
   useSetSetting,
   SETTING_KEYS,
   DEFAULT_SETTINGS,
 } from 'renderer/hooks/use-settings'
+import { Button } from 'renderer/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from 'renderer/components/ui/alert-dialog'
 
 const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
@@ -271,6 +283,52 @@ export function GeneralSettings(): React.JSX.Element {
                 )
               }}
             />
+          </div>
+
+          {/* Reset Workspace Data */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="space-y-0.5">
+              <Label>Reset Workspace Data</Label>
+              <p className="text-xs text-muted-foreground">
+                Clear all saved session and workspace configuration
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button variant="destructive" size="sm">
+                    <IconTrash className="h-4 w-4 mr-1" />
+                    Reset
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset Workspace Data?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will clear all saved session data including open files,
+                    terminal states, and panel layouts for all projects. This
+                    action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      try {
+                        await window.api.sessions.clearAll()
+                        setSaveSuccess(true)
+                        setTimeout(() => setSaveSuccess(false), 2000)
+                      } catch (error) {
+                        console.error('Failed to reset workspace data:', error)
+                      }
+                    }}
+                  >
+                    Reset
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       </Card>

@@ -38,6 +38,8 @@ class MockProviderAdapter implements AIProviderAdapter {
         pricing: { prompt: 0.001, completion: 0.002 },
         capabilities: ['chat'],
         isConfigured: true,
+        created: Date.now(),
+        architecture: { modality: 'text' },
       },
     ]
   }

@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react'
 import { useGitTelemetry } from 'renderer/hooks/use-git-telemetry'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
+import { useEditorStore } from 'renderer/stores/editor-store'
 import { Button } from 'renderer/components/ui/button'
 import { Separator } from 'renderer/components/ui/separator'
 import {
@@ -218,7 +219,7 @@ interface GitFileItemProps {
   file: GitFileStatus
   projectPath: string
   onOpenFile: (path: string) => void
-  onViewDiff: (path: string) => void
+  onViewDiff: (path: string, staged: boolean) => void
 }
 
 const GitFileItem = memo(function GitFileItem({
@@ -234,13 +235,14 @@ const GitFileItem = memo(function GitFileItem({
   return (
     <div className="flex items-center gap-1 px-3 py-1 hover:bg-muted/50 group">
       <StatusIcon className={`h-4 w-4 shrink-0 ${statusColor}`} />
-      <span
-        className="flex-1 text-sm truncate cursor-pointer hover:underline"
-        onClick={() => onOpenFile(`${projectPath}/${file.path}`)}
-        title={file.path}
+      <button
+        className="flex-1 text-sm truncate cursor-pointer hover:underline text-left"
+        onClick={() => onViewDiff(file.path, file.staged)}
+        title={`View diff: ${file.path}`}
+        type="button"
       >
         {fileName}
-      </span>
+      </button>
       <span
         className={`text-xs font-mono px-1 rounded ${statusColor} bg-muted/50`}
         title={file.staged ? 'Staged' : file.status}
@@ -260,7 +262,7 @@ const GitFileItem = memo(function GitFileItem({
         {file.status !== 'untracked' && (
           <Button
             className="h-5 w-5 p-0"
-            onClick={() => onViewDiff(file.path)}
+            onClick={() => onViewDiff(file.path, file.staged)}
             size="sm"
             title="View diff"
             variant="ghost"
@@ -319,11 +321,13 @@ export const GitPanel = memo(function GitPanel({
     window.api.shell.openPath({ path: filePath }).catch(console.error)
   }, [])
 
+  const openDiff = useEditorStore(state => state.openDiff)
+
   const handleViewDiff = useCallback(
-    (relativePath: string) => {
-      runGitCommand(`git diff "${relativePath}"`)
+    (relativePath: string, staged = false) => {
+      openDiff(projectPath, relativePath, staged)
     },
-    [runGitCommand]
+    [openDiff, projectPath]
   )
 
   if (isLoading) {
@@ -397,10 +401,7 @@ export const GitPanel = memo(function GitPanel({
 
       <div className="flex-1 overflow-y-auto">
         {/* Changed Files Section */}
-        <Collapsible
-          onOpenChange={setChangesExpanded}
-          open={changesExpanded}
-        >
+        <Collapsible onOpenChange={setChangesExpanded} open={changesExpanded}>
           <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/50">
             <span>Changes</span>
             <div className="flex items-center gap-2">

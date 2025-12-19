@@ -49,6 +49,7 @@ export const IPC_CHANNELS = {
   GIT_TELEMETRY: 'git:telemetry',
   GIT_START_REFRESH: 'git:startRefresh',
   GIT_STOP_REFRESH: 'git:stopRefresh',
+  GIT_FILE_DIFF: 'git:fileDiff',
 
   // Terminal/PTY operations
   PTY_CREATE: 'pty:create',
@@ -71,6 +72,7 @@ export const IPC_CHANNELS = {
   // Session operations
   SESSION_SAVE: 'session:save',
   SESSION_RESTORE: 'session:restore',
+  SESSION_CLEAR_ALL: 'session:clearAll',
 
   // Command library operations
   COMMAND_LIST: 'command:list',
@@ -259,6 +261,19 @@ export interface GitStopRefreshResponse {
   success: boolean
 }
 
+export interface GitFileDiffRequest {
+  projectPath: string
+  filePath: string
+  staged?: boolean
+}
+
+export interface GitFileDiffResponse {
+  original: string
+  modified: string
+  language: string
+  filePath: string
+}
+
 // PTY Request/Response Types
 export interface PTYCreateRequest {
   projectId: string
@@ -375,6 +390,12 @@ export interface SessionRestoreRequest {
 
 export interface SessionRestoreResponse {
   state: SessionState | null
+}
+
+export interface SessionClearAllRequest {}
+
+export interface SessionClearAllResponse {
+  success: boolean
 }
 
 // Command Request/Response Types

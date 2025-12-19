@@ -3,23 +3,14 @@
  *
  * Workspace view for an active project with session restoration.
  * Requirements: 3.2, 4.2, 4.3, 4.4, 16.1, 16.2, 16.3, 16.4, 5.1, 6.1, 7.1, 7.2, 7.3, 9.2
- *
- * Performance optimizations:
- * - Memoized callbacks with useCallback
- * - Computed values with useMemo
- * - Extracted sub-components to prevent re-renders
- * - Consolidated useEffects for related logic
- * - Stable references for event handlers
  */
 
 import { useEffect, useCallback, useState, useRef, useMemo, memo } from 'react'
 import { IconTag, IconPlus, IconX, IconSettings } from '@tabler/icons-react'
-import type {
-  ImperativePanelGroupHandle,
-  ImperativePanelHandle,
-} from 'react-resizable-panels'
 import { useProject } from 'renderer/hooks/use-projects'
-import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
+
+import { useWorkspaceSession } from 'renderer/hooks/use-workspace-session'
+import { useWorkspaceTerminals } from 'renderer/hooks/use-workspace-terminals'
 import {
   useGitTelemetry,
   useGitTelemetryRefresh,
@@ -30,7 +21,6 @@ import {
   useRemoveTagFromProject,
 } from 'renderer/hooks/use-tags'
 import { useAppStore } from 'renderer/stores/app-store'
-import { useTerminalStore } from 'renderer/stores/terminal-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
@@ -48,15 +38,17 @@ import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
+  type GroupImperativeHandle,
+  type PanelImperativeHandle,
 } from 'renderer/components/ui/resizable'
-import type { SessionState, Tag } from 'shared/models'
+import type { Tag } from 'shared/models'
 import type { AgentTask } from 'shared/ai-types'
 
 interface ProjectWorkspaceProps {
   projectId: string
 }
 
-// Memoized header component to prevent re-renders
+// Memoized header component
 interface WorkspaceHeaderProps {
   projectName: string
   projectPath: string
@@ -256,7 +248,7 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
   )
 })
 
-// Memoized agent panel component
+// Agent panel component
 interface AgentPanelProps {
   projectId: string
   projectPath: string
@@ -278,12 +270,10 @@ const AgentPanel = memo(function AgentPanel({
   const [showTaskCreation, setShowTaskCreation] = useState(false)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
 
-  // Load persisted tasks from database on mount
   useAgentTasks()
 
   const handleTaskSelect = useCallback(
     (taskId: string) => {
-      // Navigate to tasks page with the selected task
       setSelectedTask(taskId)
       onNavigateToTasks(taskId)
     },
@@ -303,30 +293,13 @@ const AgentPanel = memo(function AgentPanel({
     setSelectedTask(null)
   }, [setSelectedTask])
 
-  const handleViewFullOutput = useCallback(() => {
-    setTaskView('detail')
-  }, [])
-
   const handleEditTask = useCallback(
     (task: AgentTask) => {
-      // Navigate to tasks page with the selected task for editing
       setSelectedTask(task.id)
       onNavigateToTasks(task.id)
     },
     [setSelectedTask, onNavigateToTasks]
   )
-
-  const handleOpenTaskCreation = useCallback(() => {
-    setShowTaskCreation(true)
-  }, [])
-
-  const handleCloseTaskCreation = useCallback((open: boolean) => {
-    setShowTaskCreation(open)
-  }, [])
-
-  const handleViewAllTasks = useCallback(() => {
-    onNavigateToTasks()
-  }, [onNavigateToTasks])
 
   if (!isVisible) return null
 
@@ -366,7 +339,7 @@ const AgentPanel = memo(function AgentPanel({
             <div className="flex items-center gap-2">
               <Button
                 className="text-xs"
-                onClick={handleViewAllTasks}
+                onClick={() => onNavigateToTasks()}
                 size="sm"
                 variant="ghost"
               >
@@ -374,7 +347,7 @@ const AgentPanel = memo(function AgentPanel({
               </Button>
               <Button
                 className="text-xs"
-                onClick={handleOpenTaskCreation}
+                onClick={() => setShowTaskCreation(true)}
                 size="sm"
                 variant="outline"
               >
@@ -400,7 +373,7 @@ const AgentPanel = memo(function AgentPanel({
           {taskView === 'completion' && selectedTaskId && (
             <TaskCompletionView
               onBack={handleBackToTaskList}
-              onViewOutput={handleViewFullOutput}
+              onViewOutput={() => setTaskView('detail')}
               taskId={selectedTaskId}
             />
           )}
@@ -409,7 +382,7 @@ const AgentPanel = memo(function AgentPanel({
 
       <TaskCreationDialog
         defaultDirectory={projectPath}
-        onOpenChange={handleCloseTaskCreation}
+        onOpenChange={setShowTaskCreation}
         onTaskCreated={handleTaskCreated}
         open={showTaskCreation}
       />
@@ -432,7 +405,6 @@ const CenterPanel = memo(function CenterPanel({
   const hasOpenFiles = useEditorStore(state => state.openFiles.length > 0)
 
   if (!hasOpenFiles) {
-    // Only terminal when no files are open
     return (
       <main className="h-full overflow-hidden">
         <Terminal
@@ -444,14 +416,13 @@ const CenterPanel = memo(function CenterPanel({
     )
   }
 
-  // Split view with editor and terminal
   return (
-    <ResizablePanelGroup direction="vertical" className="h-full">
-      <ResizablePanel defaultSize={60} minSize={20} id="center-editor">
+    <ResizablePanelGroup className="h-full" orientation="vertical">
+      <ResizablePanel defaultSize={60} id="center-editor" minSize={20}>
         <CodeEditorPanel />
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={40} minSize={15} id="center-terminal">
+      <ResizablePanel defaultSize={40} id="center-terminal" minSize={15}>
         <Terminal
           isRestoring={isRestoringTerminals}
           projectId={projectId}
@@ -470,25 +441,21 @@ export function ProjectWorkspace({
     isLoading: projectLoading,
     refetch: refetchProject,
   } = useProject(projectId)
-  const { data: session, isLoading: sessionLoading } = useSession(projectId)
-  const { mutate: saveSession } = useSaveSession()
   const { data: allTags = [] } = useTags()
   const addTagToProject = useAddTagToProject()
   const removeTagFromProject = useRemoveTagFromProject()
 
-  // Git telemetry for header display
+  // Git telemetry
   const { data: gitTelemetry } = useGitTelemetry(
     project?.isMissing ? null : project?.path || null
   )
-
-  // Start background git telemetry refresh when project is opened
   useGitTelemetryRefresh(
     projectId,
     project?.path || null,
     !!project && !project.isMissing
   )
 
-  // Select store values individually to prevent unnecessary re-renders
+  // App store
   const setActiveProject = useAppStore(state => state.setActiveProject)
   const setActiveView = useAppStore(state => state.setActiveView)
   const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
@@ -498,29 +465,35 @@ export function ProjectWorkspace({
   const toggleAgentPanel = useAppStore(state => state.toggleAgentPanel)
   const toggleZenMode = useAppStore(state => state.toggleZenMode)
   const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
-  const hydrateWorkspaceState = useAppStore(
-    state => state.hydrateWorkspaceState
-  )
 
-  const addTerminal = useTerminalStore(state => state.addTerminal)
-  const clearProject = useTerminalStore(state => state.clearProject)
+  // Panel refs
+  const panelGroupRef = useRef<GroupImperativeHandle | null>(null)
+  const leftPanelRef = useRef<PanelImperativeHandle | null>(null)
+  const rightPanelRef = useRef<PanelImperativeHandle | null>(null)
 
-  // Refs for session management
-  const sessionRestoredRef = useRef(false)
-  const panelGroupRef = useRef<ImperativePanelGroupHandle | null>(null)
-  const leftPanelRef = useRef<ImperativePanelHandle | null>(null)
-  const rightPanelRef = useRef<ImperativePanelHandle | null>(null)
-  const lastKnownLayoutRef = useRef<number[] | null>(null)
-  const lastExpandedSizesRef = useRef<{ left: number; right: number }>({
-    left: 15,
-    right: 15,
+  // Session management
+  const {
+    isReady: isSessionReady,
+    lastLayoutRef,
+    lastExpandedSizesRef,
+    restoredLayout,
+    scheduleSave,
+    saveNow,
+  } = useWorkspaceSession({
+    projectId,
+    project,
+    projectLoading,
+    panelGroupRef,
   })
-  const saveDebounceTimerRef = useRef<number | null>(null)
 
-  // Track if terminal restoration is in progress to prevent flash
-  const [isRestoringTerminals, setIsRestoringTerminals] = useState(true)
+  // Terminal management
+  const { isRestoring: isRestoringTerminals } = useWorkspaceTerminals({
+    projectId,
+    project,
+    projectLoading,
+  })
 
-  // Memoized computed values
+  // Computed values
   const availableTags = useMemo(
     () => allTags.filter(tag => !project?.tags.some(t => t.id === tag.id)),
     [allTags, project?.tags]
@@ -540,234 +513,57 @@ export function ProjectWorkspace({
     [gitTelemetry]
   )
 
-  // Build session state - memoized to prevent recreation
-  const buildSessionState = useCallback((): SessionState => {
-    const terminals = useTerminalStore
-      .getState()
-      .getTerminalsByProject(projectId)
-    const appState = useAppStore.getState()
-    const layout =
-      panelGroupRef.current?.getLayout() ??
-      lastKnownLayoutRef.current ??
-      undefined
-
-    return {
-      terminals: terminals.map(t => ({
-        id: t.id,
-        cwd: t.cwd,
-        isPinned: t.isPinned,
-        layout: { projectId, panes: [] },
-      })),
-      agentConversation: [],
-      contextFiles: [],
-      activeTerminalId: appState.activeTerminalId,
-      workspace: {
-        panelLayout: layout,
-        sidebarCollapsed: appState.sidebarCollapsed,
-        agentPanelCollapsed: appState.agentPanelCollapsed,
-        zenMode: appState.zenMode,
-        previousSidebarState: appState.previousSidebarState,
-        previousAgentPanelState: appState.previousAgentPanelState,
-      },
-    }
-  }, [projectId])
-
-  // Debounced session save
-  const scheduleSaveSession = useCallback((): void => {
-    if (!sessionRestoredRef.current) return
-
-    if (saveDebounceTimerRef.current) {
-      window.clearTimeout(saveDebounceTimerRef.current)
-    }
-
-    saveDebounceTimerRef.current = window.setTimeout(() => {
-      saveDebounceTimerRef.current = null
-      saveSession({ projectId, state: buildSessionState() })
-    }, 800)
-  }, [buildSessionState, projectId, saveSession])
-
-  // Create default terminal
-  const createDefaultTerminal = useCallback((): void => {
-    if (!project) return
-
-    const existingTerminals = useTerminalStore
-      .getState()
-      .getTerminalsByProject(projectId)
-    if (existingTerminals.length > 0) return
-
-    window.api.pty
-      .create({ projectId, cwd: project.path, shell: undefined })
-      .then(response => {
-        const currentTerminals = useTerminalStore
-          .getState()
-          .getTerminalsByProject(projectId)
-        if (currentTerminals.length > 0) {
-          window.api.pty.kill({ ptyId: response.ptyId }).catch(console.error)
-          return
-        }
-
-        addTerminal({
-          id: `term-${Date.now()}`,
-          projectId,
-          ptyId: response.ptyId,
-          isPinned: false,
-          title: 'Terminal',
-          cwd: project.path,
-        })
-      })
-      .catch(error => {
-        console.error('Failed to create default terminal:', error)
-      })
-  }, [project, projectId, addTerminal])
-
-  // Session restoration and cleanup - single consolidated effect
+  // Panel collapse sync
   useEffect(() => {
-    if (sessionRestoredRef.current || sessionLoading) return
-
-    sessionRestoredRef.current = true
-
-    // Restore workspace UI state
-    if (session?.workspace) {
-      hydrateWorkspaceState({
-        sidebarCollapsed: session.workspace.sidebarCollapsed ?? false,
-        agentPanelCollapsed: session.workspace.agentPanelCollapsed ?? false,
-        zenMode: session.workspace.zenMode ?? false,
-        previousSidebarState: session.workspace.previousSidebarState ?? false,
-        previousAgentPanelState:
-          session.workspace.previousAgentPanelState ?? false,
-      })
-    }
-
-    // Restore panel layout
-    if (session?.workspace?.panelLayout?.length) {
-      lastKnownLayoutRef.current = session.workspace.panelLayout
-      const [left, , right] = session.workspace.panelLayout
-      if (typeof left === 'number' && left > 0)
-        lastExpandedSizesRef.current.left = left
-      if (typeof right === 'number' && right > 0)
-        lastExpandedSizesRef.current.right = right
-
-      try {
-        panelGroupRef.current?.setLayout(session.workspace.panelLayout)
-      } catch (error) {
-        console.warn('Failed to restore panel layout:', error)
-      }
-    }
-
-    // Restore terminals
-    const existingTerminals = useTerminalStore
-      .getState()
-      .getTerminalsByProject(projectId)
-
-    if (existingTerminals.length === 0) {
-      if (session?.terminals?.length) {
-        // Track pending terminal restorations
-        let pendingCount = session.terminals.length
-        session.terminals.forEach(terminalData => {
-          window.api.pty
-            .create({ projectId, cwd: terminalData.cwd, shell: undefined })
-            .then(response => {
-              addTerminal({
-                id: terminalData.id,
-                projectId,
-                ptyId: response.ptyId,
-                isPinned: terminalData.isPinned,
-                title: `Terminal ${terminalData.id.slice(0, 8)}`,
-                cwd: terminalData.cwd,
-              })
-            })
-            .catch(error => {
-              console.error('Failed to restore terminal:', error)
-            })
-            .finally(() => {
-              pendingCount--
-              if (pendingCount === 0) {
-                setIsRestoringTerminals(false)
-              }
-            })
-        })
-      } else {
-        // No session terminals - create default and mark restoration complete
-        createDefaultTerminal()
-        // Small delay to allow the default terminal creation to complete
-        setTimeout(() => setIsRestoringTerminals(false), 100)
-      }
-    } else {
-      // Terminals already exist, no restoration needed
-      setIsRestoringTerminals(false)
-    }
-  }, [
-    session,
-    sessionLoading,
-    projectId,
-    addTerminal,
-    createDefaultTerminal,
-    hydrateWorkspaceState,
-  ])
-
-  // Panel collapse sync - only runs when collapse state changes
-  useEffect(() => {
-    if (!sessionRestoredRef.current) return
-
     const shouldCollapseLeft = zenMode || sidebarCollapsed
     const shouldCollapseRight = zenMode || agentPanelCollapsed
     const leftPanel = leftPanelRef.current
     const rightPanel = rightPanelRef.current
 
     if (leftPanel) {
-      const size = leftPanel.getSize()
-      if (size > 0) lastExpandedSizesRef.current.left = size
+      try {
+        const { asPercentage: size } = leftPanel.getSize()
+        if (size > 0) lastExpandedSizesRef.current.left = size
 
-      if (shouldCollapseLeft && leftPanel.isExpanded()) {
-        leftPanel.collapse()
-      } else if (!shouldCollapseLeft && leftPanel.isCollapsed()) {
-        leftPanel.expand(10)
-        leftPanel.resize(lastExpandedSizesRef.current.left || 15)
+        if (shouldCollapseLeft && !leftPanel.isCollapsed()) {
+          leftPanel.collapse()
+        } else if (!shouldCollapseLeft && leftPanel.isCollapsed()) {
+          leftPanel.expand()
+          leftPanel.resize(lastExpandedSizesRef.current.left || 15)
+        }
+      } catch {
+        // Panel may not be ready
       }
     }
 
     if (rightPanel) {
-      const size = rightPanel.getSize()
-      if (size > 0) lastExpandedSizesRef.current.right = size
+      try {
+        const { asPercentage: size } = rightPanel.getSize()
+        if (size > 0) lastExpandedSizesRef.current.right = size
 
-      if (shouldCollapseRight && rightPanel.isExpanded()) {
-        rightPanel.collapse()
-      } else if (!shouldCollapseRight && rightPanel.isCollapsed()) {
-        rightPanel.expand(10)
-        rightPanel.resize(lastExpandedSizesRef.current.right || 15)
-      }
-    }
-
-    // Save session when workspace state changes
-    scheduleSaveSession()
-  }, [sidebarCollapsed, agentPanelCollapsed, zenMode, scheduleSaveSession])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (saveDebounceTimerRef.current) {
-        window.clearTimeout(saveDebounceTimerRef.current)
-        saveDebounceTimerRef.current = null
-      }
-
-      const terminals = useTerminalStore
-        .getState()
-        .getTerminalsByProject(projectId)
-      saveSession({ projectId, state: buildSessionState() })
-
-      terminals.forEach((terminal: { isPinned: boolean; ptyId: string }) => {
-        if (!terminal.isPinned) {
-          window.api.pty.kill({ ptyId: terminal.ptyId }).catch(console.error)
+        if (shouldCollapseRight && !rightPanel.isCollapsed()) {
+          rightPanel.collapse()
+        } else if (!shouldCollapseRight && rightPanel.isCollapsed()) {
+          rightPanel.expand()
+          rightPanel.resize(lastExpandedSizesRef.current.right || 15)
         }
-      })
-
-      clearProject(projectId)
+      } catch {
+        // Panel may not be ready
+      }
     }
-  }, [projectId, saveSession, clearProject, buildSessionState])
 
-  // Memoized event handlers
+    scheduleSave()
+  }, [
+    sidebarCollapsed,
+    agentPanelCollapsed,
+    zenMode,
+    scheduleSave,
+    lastExpandedSizesRef,
+  ])
+
+  // Event handlers
   const handleAddTag = useCallback(
-    async (tagId: string): Promise<void> => {
+    async (tagId: string) => {
       try {
         await addTagToProject.mutateAsync({ projectId, tagId })
         refetchProject()
@@ -779,7 +575,7 @@ export function ProjectWorkspace({
   )
 
   const handleRemoveTag = useCallback(
-    async (tagId: string): Promise<void> => {
+    async (tagId: string) => {
       try {
         await removeTagFromProject.mutateAsync({ projectId, tagId })
         refetchProject()
@@ -790,42 +586,45 @@ export function ProjectWorkspace({
     [removeTagFromProject, projectId, refetchProject]
   )
 
-  const handleBackToDashboard = useCallback((): void => {
-    saveSession({ projectId, state: buildSessionState() })
+  const handleBackToDashboard = useCallback(() => {
+    saveNow()
     setActiveProject(null)
-  }, [saveSession, projectId, buildSessionState, setActiveProject])
+  }, [saveNow, setActiveProject])
 
   const handleNavigateToTasks = useCallback(
-    (_taskId?: string): void => {
+    (_taskId?: string) => {
       setActiveView('tasks')
     },
     [setActiveView]
   )
 
   const handleLayoutChange = useCallback(
-    (layout: number[]) => {
-      lastKnownLayoutRef.current = layout
-      const [left, , right] = layout
-      if (typeof left === 'number' && left > 0) {
-        lastExpandedSizesRef.current.left = left
+    (layout: { [panelId: string]: number }) => {
+      // Update refs with new layout
+      lastLayoutRef.current = layout
+      const leftSize = layout['project-workspace-left']
+      const rightSize = layout['project-workspace-right']
+      if (typeof leftSize === 'number' && leftSize > 0) {
+        lastExpandedSizesRef.current.left = leftSize
       }
-      if (typeof right === 'number' && right > 0) {
-        lastExpandedSizesRef.current.right = right
+      if (typeof rightSize === 'number' && rightSize > 0) {
+        lastExpandedSizesRef.current.right = rightSize
       }
-      scheduleSaveSession()
+      // Trigger debounced save
+      scheduleSave()
     },
-    [scheduleSaveSession]
+    [scheduleSave, lastLayoutRef, lastExpandedSizesRef]
   )
 
-  // Derived visibility states
+  // Visibility states
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
   const isRightPanelVisible = !zenMode && !agentPanelCollapsed
 
-  // Loading state
-  if (projectLoading || sessionLoading) {
+  // Loading state - wait for both project and session to be ready
+  if (projectLoading || !isSessionReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        <p className="text-muted-foreground">Loading project...</p>
+        <p className="text-muted-foreground">Loading workspace...</p>
       </div>
     )
   }
@@ -868,20 +667,20 @@ export function ProjectWorkspace({
       />
 
       <ResizablePanelGroup
-        autoSaveId={`project-workspace-${projectId}`}
         className="flex-1"
-        direction="horizontal"
-        onLayout={handleLayoutChange}
+        defaultLayout={restoredLayout}
+        id={`project-workspace-${projectId}`}
+        onLayoutChange={handleLayoutChange}
+        orientation="horizontal"
         ref={panelGroupRef}
       >
         <ResizablePanel
           className="bg-card"
           collapsedSize={0}
           collapsible
-          defaultSize={20}
+          defaultSize={15}
           id="project-workspace-left"
-          maxSize={35}
-          minSize={15}
+          minSize={10}
           ref={leftPanelRef}
         >
           {isLeftPanelVisible && (
@@ -891,27 +690,21 @@ export function ProjectWorkspace({
           )}
         </ResizablePanel>
 
-        <ResizableHandle
-          className={!isLeftPanelVisible ? 'hidden' : undefined}
-          withHandle
-        />
+        <ResizableHandle withHandle />
 
         <ResizablePanel
           defaultSize={70}
           id="project-workspace-center"
-          minSize={20}
+          minSize={10}
         >
           <CenterPanel
+            isRestoringTerminals={isRestoringTerminals}
             projectId={projectId}
             projectPath={project.path}
-            isRestoringTerminals={isRestoringTerminals}
           />
         </ResizablePanel>
 
-        <ResizableHandle
-          className={!isRightPanelVisible ? 'hidden' : undefined}
-          withHandle
-        />
+        <ResizableHandle withHandle />
 
         <ResizablePanel
           className="bg-card"
@@ -919,7 +712,6 @@ export function ProjectWorkspace({
           collapsible
           defaultSize={15}
           id="project-workspace-right"
-          maxSize={40}
           minSize={10}
           ref={rightPanelRef}
         >

@@ -5,8 +5,10 @@ import {
   IconAlertCircle,
   IconDeviceFloppy,
   IconArrowBackUp,
+  IconGitCompare,
 } from '@tabler/icons-react'
 import { CodeEditor } from './CodeEditor'
+import { DiffEditor } from './DiffEditor'
 import { Spinner } from 'renderer/components/ui/spinner'
 import { Button } from 'renderer/components/ui/button'
 import { useEditorStore } from 'renderer/stores/editor-store'
@@ -93,15 +95,20 @@ export const CodeEditorPanel = memo(function CodeEditorPanel({
       {/* Tab bar */}
       <div className="flex items-center border-b border-border bg-muted/30 overflow-x-auto">
         {openFiles.map(file => (
-          <button
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border-r border-border hover:bg-muted/50 shrink-0 ${
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border-r border-border hover:bg-muted/50 shrink-0 cursor-pointer ${
               activeFilePath === file.path ? 'bg-background' : ''
             }`}
             key={file.path}
             onClick={() => setActiveFile(file.path)}
+            onKeyDown={e => e.key === 'Enter' && setActiveFile(file.path)}
+            role="tab"
+            tabIndex={0}
             title={file.path}
-            type="button"
           >
+            {file.isDiff ? (
+              <IconGitCompare className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+            ) : null}
             <span className="truncate max-w-32">
               {file.isDirty && <span className="text-primary mr-1">●</span>}
               {file.name}
@@ -113,51 +120,63 @@ export const CodeEditorPanel = memo(function CodeEditorPanel({
             >
               <IconX className="h-3 w-3" />
             </button>
-          </button>
+          </div>
         ))}
       </div>
 
       {/* File info bar with actions */}
       {currentFile && (
         <div className="flex items-center justify-between px-3 py-1 text-xs text-muted-foreground border-b border-border bg-muted/20">
-          <span className="truncate flex-1">{currentFile.path}</span>
+          <span className="truncate flex-1">
+            {currentFile.isDiff
+              ? currentFile.path.replace('diff://', '').replace('?staged', '')
+              : currentFile.path}
+          </span>
           <div className="flex items-center gap-2 shrink-0">
             <span>{currentFile.language}</span>
-            <span>{formatFileSize(currentFile.size)}</span>
-            {currentFile.isTruncated && (
-              <span className="flex items-center gap-1 text-yellow-500">
-                <IconAlertCircle className="h-3 w-3" />
-                Read-only (truncated)
+            {currentFile.isDiff ? (
+              <span className="text-amber-500">
+                {currentFile.diffStaged ? 'Staged Changes' : 'Working Tree'}
               </span>
-            )}
-            {currentFile.isDirty && !currentFile.isTruncated && (
+            ) : (
               <>
-                <Button
-                  className="h-6 px-2 text-xs"
-                  disabled={isSaving}
-                  onClick={handleRevert}
-                  size="sm"
-                  title="Revert changes"
-                  variant="ghost"
-                >
-                  <IconArrowBackUp className="h-3 w-3 mr-1" />
-                  Revert
-                </Button>
-                <Button
-                  className="h-6 px-2 text-xs"
-                  disabled={isSaving}
-                  onClick={saveActiveFile}
-                  size="sm"
-                  title="Save (Ctrl+S)"
-                  variant="default"
-                >
-                  {isSaving ? (
-                    <Spinner className="h-3 w-3 mr-1" />
-                  ) : (
-                    <IconDeviceFloppy className="h-3 w-3 mr-1" />
-                  )}
-                  Save
-                </Button>
+                <span>{formatFileSize(currentFile.size)}</span>
+                {currentFile.isTruncated && (
+                  <span className="flex items-center gap-1 text-yellow-500">
+                    <IconAlertCircle className="h-3 w-3" />
+                    Read-only (truncated)
+                  </span>
+                )}
+                {currentFile.isDirty && !currentFile.isTruncated && (
+                  <>
+                    <Button
+                      className="h-6 px-2 text-xs"
+                      disabled={isSaving}
+                      onClick={handleRevert}
+                      size="sm"
+                      title="Revert changes"
+                      variant="ghost"
+                    >
+                      <IconArrowBackUp className="h-3 w-3 mr-1" />
+                      Revert
+                    </Button>
+                    <Button
+                      className="h-6 px-2 text-xs"
+                      disabled={isSaving}
+                      onClick={saveActiveFile}
+                      size="sm"
+                      title="Save (Ctrl+S)"
+                      variant="default"
+                    >
+                      {isSaving ? (
+                        <Spinner className="h-3 w-3 mr-1" />
+                      ) : (
+                        <IconDeviceFloppy className="h-3 w-3 mr-1" />
+                      )}
+                      Save
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -177,6 +196,12 @@ export const CodeEditorPanel = memo(function CodeEditorPanel({
               <p className="text-sm">{error}</p>
             </div>
           </div>
+        ) : currentFile?.isDiff ? (
+          <DiffEditor
+            language={currentFile.language}
+            modified={currentFile.diffModified || ''}
+            original={currentFile.diffOriginal || ''}
+          />
         ) : currentFile ? (
           <CodeEditor
             content={currentFile.content}

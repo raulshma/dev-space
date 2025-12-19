@@ -51,6 +51,7 @@ import type {
   SessionSaveResponse,
   SessionRestoreRequest,
   SessionRestoreResponse,
+  SessionClearAllResponse,
   CommandListRequest,
   CommandListResponse,
   CommandCreateRequest,
@@ -151,6 +152,7 @@ export interface MiraAPI {
   sessions: {
     save: (request: SessionSaveRequest) => Promise<SessionSaveResponse>
     restore: (request: SessionRestoreRequest) => Promise<SessionRestoreResponse>
+    clearAll: () => Promise<SessionClearAllResponse>
   }
   commands: {
     list: (request: CommandListRequest) => Promise<CommandListResponse>

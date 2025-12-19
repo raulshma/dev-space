@@ -1,9 +1,10 @@
-import { useState, useCallback, memo } from 'react'
+import { useCallback, memo } from 'react'
 import { ActivityBar, type SidebarTab } from './ActivityBar'
 import { FilesPanel } from './FilesPanel'
 import { GitPanel } from './GitPanel'
 import { ProjectScripts } from 'renderer/components/ProjectScripts'
 import { CommandLibrary } from 'renderer/components/CommandLibrary'
+import { useSidebarStore } from 'renderer/stores/sidebar-store'
 
 interface LeftSidebarProps {
   projectId: string
@@ -14,11 +15,15 @@ export const LeftSidebar = memo(function LeftSidebar({
   projectId,
   projectPath,
 }: LeftSidebarProps) {
-  const [activeTab, setActiveTab] = useState<SidebarTab>('git')
+  const activeTab = useSidebarStore(state => state.activeTab)
+  const setActiveTab = useSidebarStore(state => state.setActiveTab)
 
-  const handleTabChange = useCallback((tab: SidebarTab) => {
-    setActiveTab(tab)
-  }, [])
+  const handleTabChange = useCallback(
+    (tab: SidebarTab) => {
+      setActiveTab(tab)
+    },
+    [setActiveTab]
+  )
 
   const renderPanel = () => {
     switch (activeTab) {

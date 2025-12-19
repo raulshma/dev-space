@@ -1,7 +1,25 @@
 import { useState } from 'react'
 
+interface ElectronVersions {
+  electron: string
+  chrome: string
+  node: string
+}
+
+declare global {
+  interface Window {
+    electron?: {
+      process: {
+        versions: ElectronVersions
+      }
+    }
+  }
+}
+
 function Versions(): React.JSX.Element {
-  const [versions] = useState(window.electron.process.versions)
+  const [versions] = useState<ElectronVersions>(
+    window.electron?.process.versions ?? { electron: '', chrome: '', node: '' }
+  )
 
   return (
     <ul className="versions">

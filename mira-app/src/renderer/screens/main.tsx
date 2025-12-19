@@ -131,14 +131,26 @@ export function MainScreen() {
         return <TasksScreen />
       case 'workspace':
         if (activeProjectId) {
-          return <ProjectWorkspace projectId={activeProjectId} />
+          // Key ensures component remounts when project changes, resetting all refs and state
+          return (
+            <ProjectWorkspace
+              key={activeProjectId}
+              projectId={activeProjectId}
+            />
+          )
         }
         // Fall through to dashboard if no project selected
         return <ProjectDashboard />
       default:
         // For 'dashboard' or any other value, show dashboard or workspace based on activeProjectId
         if (activeProjectId) {
-          return <ProjectWorkspace projectId={activeProjectId} />
+          // Key ensures component remounts when project changes, resetting all refs and state
+          return (
+            <ProjectWorkspace
+              key={activeProjectId}
+              projectId={activeProjectId}
+            />
+          )
         }
         return <ProjectDashboard />
     }
