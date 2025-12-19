@@ -38,7 +38,7 @@ interface KanbanBoardProps {
   onTaskSelect: (taskId: string | null) => void
 }
 
-// Define the column order for the kanban board
+// Define the column order for the kanban board (archived is hidden by default)
 const KANBAN_COLUMNS: TaskStatus[] = [
   'pending',
   'queued',
@@ -52,6 +52,9 @@ const KANBAN_COLUMNS: TaskStatus[] = [
 // Simplified columns for a cleaner view (can be toggled)
 const SIMPLIFIED_COLUMNS: TaskStatus[] = ['pending', 'running', 'completed']
 
+// All columns including archived (for filter view)
+const ALL_COLUMNS: TaskStatus[] = [...KANBAN_COLUMNS, 'archived']
+
 export function KanbanBoard({
   filters,
   selectedTaskId,
@@ -61,6 +64,8 @@ export function KanbanBoard({
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<AgentTask | null>(
     null
   )
+  const [archiveConfirmTask, setArchiveConfirmTask] =
+    useState<AgentTask | null>(null)
 
   const startTask = useStartAgentTask()
   const pauseTask = usePauseAgentTask()
@@ -112,6 +117,7 @@ export function KanbanBoard({
       completed: [],
       failed: [],
       stopped: [],
+      archived: [],
     }
 
     for (const task of filteredTasks) {
@@ -132,9 +138,14 @@ export function KanbanBoard({
   // Determine which columns to show based on filter
   const visibleColumns = useMemo(() => {
     if (filters.status && filters.status !== 'all') {
+      // Show archived column only when explicitly filtered
+      if (filters.status === 'archived') {
+        return ['archived'] as TaskStatus[]
+      }
       return [filters.status]
     }
     // Show all columns that have tasks, plus always show pending, running, completed
+    // Archived is hidden by default unless explicitly filtered
     const columnsWithTasks = KANBAN_COLUMNS.filter(
       status =>
         tasksByStatus[status].length > 0 || SIMPLIFIED_COLUMNS.includes(status)
@@ -208,6 +219,24 @@ export function KanbanBoard({
     [onTaskSelect]
   )
 
+  const handleArchive = useCallback(
+    async (taskId: string) => {
+      try {
+        await updateTask.mutateAsync({
+          taskId,
+          updates: { status: 'archived' },
+        })
+        setArchiveConfirmTask(null)
+        if (selectedTaskId === taskId) {
+          onTaskSelect(null)
+        }
+      } catch (error) {
+        console.error('Failed to archive task:', error)
+      }
+    },
+    [updateTask, selectedTaskId, onTaskSelect]
+  )
+
   // Handle status change via drag-and-drop
   const handleStatusChange = useCallback(
     async (taskId: string, newStatus: TaskStatus) => {
@@ -252,8 +281,8 @@ export function KanbanBoard({
 
   return (
     <>
-      <ScrollArea className="h-full w-full">
-        <div className="flex gap-4 p-4 h-full min-h-[calc(100vh-180px)]">
+      <ScrollArea className="h-full w-full overflow-auto">
+        <div className="flex gap-4 p-4 h-full min-h[calc(100vh-180px)]">
           {visibleColumns.map(status => (
             <KanbanColumn
               canDrop={
@@ -264,6 +293,7 @@ export function KanbanBoard({
               draggingTaskId={dragState.taskId}
               isDropTarget={isDropTarget(status)}
               key={status}
+              onArchive={setArchiveConfirmTask}
               onDelete={setDeleteConfirmTask}
               onDragEnd={handleDragEnd}
               onDragLeave={handleDragLeave}
@@ -305,6 +335,31 @@ export function KanbanBoard({
               }
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        onOpenChange={(open: boolean) => !open && setArchiveConfirmTask(null)}
+        open={!!archiveConfirmTask}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive this task? You can view archived
+              tasks by filtering by status.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                archiveConfirmTask && handleArchive(archiveConfirmTask.id)
+              }
+            >
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

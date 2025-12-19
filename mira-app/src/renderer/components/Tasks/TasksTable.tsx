@@ -47,6 +47,7 @@ import {
   IconLoader2,
   IconAlertTriangle,
   IconRefresh,
+  IconArchive,
 } from '@tabler/icons-react'
 import { useTaskList } from 'renderer/stores/agent-task-store'
 import {
@@ -107,6 +108,11 @@ const STATUS_CONFIG: Record<
     label: 'Stopped',
     variant: 'outline',
     icon: <IconPlayerStop className="h-3 w-3" />,
+  },
+  archived: {
+    label: 'Archived',
+    variant: 'outline',
+    icon: <IconArchive className="h-3 w-3" />,
   },
 }
 

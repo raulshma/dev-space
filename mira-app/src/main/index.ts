@@ -28,6 +28,10 @@ import { ProcessManager } from 'main/services/agent/process-manager'
 import { TaskQueue } from 'main/services/agent/task-queue'
 import { OutputBuffer } from 'main/services/agent/output-buffer'
 import { JulesService } from 'main/services/agent/jules-service'
+import { WorkingDirectoryService } from 'main/services/agent/working-directory-service'
+
+// Running Projects import
+import { RunningProjectsService } from 'main/services/running-projects-service'
 
 // Initialize core services
 const db = new DatabaseService()
@@ -53,6 +57,7 @@ const processManager = new ProcessManager()
 const taskQueue = new TaskQueue()
 const outputBuffer = new OutputBuffer(db)
 const julesService = new JulesService(agentConfigService)
+const workingDirectoryService = new WorkingDirectoryService()
 
 // Get the base path for agent scripts (workspace root)
 const agentScriptsBasePath = ENVIRONMENT.IS_DEV
@@ -67,8 +72,12 @@ const agentExecutorService = new AgentExecutorService(
   agentConfigService,
   gitService,
   agentScriptsBasePath,
-  julesService
+  julesService,
+  workingDirectoryService
 )
+
+// Initialize Running Projects service
+const runningProjectsService = new RunningProjectsService(ptyManager, db)
 
 // Initialize IPC handlers with all services
 const ipcHandlers = new IPCHandlers(
@@ -81,7 +90,8 @@ const ipcHandlers = new IPCHandlers(
   agentExecutorService,
   agentConfigService,
   julesService,
-  requestLogger
+  requestLogger,
+  runningProjectsService
 )
 
 makeAppWithSingleInstanceLock(async () => {
@@ -136,6 +146,9 @@ makeAppWithSingleInstanceLock(async () => {
 
   const window = await makeAppSetup(MainWindow)
 
+  // Set main window for running projects service (for IPC events)
+  runningProjectsService.setMainWindow(window)
+
   if (ENVIRONMENT.IS_DEV) {
     await loadReactDevtools()
     /* This trick is necessary to get the new
@@ -167,6 +180,14 @@ app.on('before-quit', async () => {
 
   // Close database
   db.close()
+
+  // Stop all running projects
+  try {
+    await runningProjectsService.stopAll()
+    console.log('Running projects stopped')
+  } catch (error) {
+    console.error('Error stopping running projects:', error)
+  }
 
   // Kill all PTY processes
   ptyManager.killAll()

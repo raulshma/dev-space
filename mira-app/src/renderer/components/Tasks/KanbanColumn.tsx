@@ -16,6 +16,7 @@ import {
   IconX,
   IconPlayerStop,
   IconList,
+  IconArchive,
 } from '@tabler/icons-react'
 import { KanbanCard } from './KanbanCard'
 import type { AgentTask, TaskStatus } from 'shared/ai-types'
@@ -33,6 +34,7 @@ interface KanbanColumnProps {
   onResume: (taskId: string) => void
   onStop: (taskId: string) => void
   onDelete: (task: AgentTask) => void
+  onArchive: (task: AgentTask) => void
   onDragStart: (taskId: string, status: TaskStatus) => void
   onDragEnd: () => void
   onDragOver: (e: React.DragEvent, status: TaskStatus) => void
@@ -83,6 +85,11 @@ const COLUMN_CONFIG: Record<
     icon: <IconPlayerStop className="h-4 w-4" />,
     headerClass: 'bg-gray-500/10',
   },
+  archived: {
+    label: 'Archived',
+    icon: <IconArchive className="h-4 w-4" />,
+    headerClass: 'bg-slate-500/10',
+  },
 }
 
 export const KanbanColumn = memo(function KanbanColumn({
@@ -98,6 +105,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   onResume,
   onStop,
   onDelete,
+  onArchive,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -138,7 +146,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   // Determine column styling based on drag state
   const getColumnClass = () => {
     const base =
-      'flex flex-col h-full min-w-[280px] max-w-[320px] rounded-lg transition-all duration-200'
+      'flex flex-col h-full w-[280px] min-w-[280px] max-w-[280px] shrink-0 rounded-lg transition-all duration-200'
     if (isDropTarget && canDrop) {
       return `${base} bg-primary/10 ring-2 ring-primary ring-dashed`
     }
@@ -174,6 +182,7 @@ export const KanbanColumn = memo(function KanbanColumn({
               isDragging={draggingTaskId === task.id}
               isSelected={selectedTaskId === task.id}
               key={task.id}
+              onArchive={onArchive}
               onDelete={onDelete}
               onDragEnd={onDragEnd}
               onDragStart={onDragStart}

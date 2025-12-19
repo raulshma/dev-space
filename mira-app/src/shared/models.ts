@@ -198,6 +198,31 @@ export interface PinnedProcess {
   startTime: Date
 }
 
+// Running Project Types
+export type RunningProjectStatus =
+  | 'starting'
+  | 'running'
+  | 'stopping'
+  | 'stopped'
+  | 'error'
+
+export interface RunningProject {
+  id: string
+  projectId: string
+  projectName: string
+  projectPath: string
+  devCommand: string
+  ptyId: string
+  status: RunningProjectStatus
+  startedAt: Date
+  error?: string
+}
+
+export interface ProjectDevConfig {
+  projectId: string
+  devCommand: string
+}
+
 // Input types for creating/updating entities
 export interface CreateProjectInput {
   name: string

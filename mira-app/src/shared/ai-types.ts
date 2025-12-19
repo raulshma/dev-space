@@ -345,6 +345,7 @@ export type TaskStatus =
   | 'completed'
   | 'failed'
   | 'stopped'
+  | 'archived'
 
 /**
  * Parameters for agent execution
@@ -394,6 +395,70 @@ export interface FileChangeSummary {
 }
 
 /**
+ * Execution step for tracking agent progress
+ */
+export type ExecutionStep =
+  | 'pending'
+  | 'copying-project'
+  | 'initializing'
+  | 'running'
+  | 'capturing-changes'
+  | 'syncing-back'
+  | 'completed'
+  | 'failed'
+
+/**
+ * Execution step metadata
+ */
+export interface ExecutionStepInfo {
+  step: ExecutionStep
+  label: string
+  description: string
+}
+
+/**
+ * Available execution steps with metadata
+ */
+export const EXECUTION_STEPS: ExecutionStepInfo[] = [
+  {
+    step: 'pending',
+    label: 'Pending',
+    description: 'Task is waiting to start',
+  },
+  {
+    step: 'copying-project',
+    label: 'Copying Project',
+    description: 'Copying project to working directory',
+  },
+  {
+    step: 'initializing',
+    label: 'Initializing',
+    description: 'Setting up agent environment',
+  },
+  {
+    step: 'running',
+    label: 'Running Agent',
+    description: 'Agent is executing the task',
+  },
+  {
+    step: 'capturing-changes',
+    label: 'Capturing Changes',
+    description: 'Recording file changes made by agent',
+  },
+  {
+    step: 'syncing-back',
+    label: 'Syncing Changes',
+    description: 'Syncing changes back to original project',
+  },
+  {
+    step: 'completed',
+    label: 'Completed',
+    description: 'Task finished successfully',
+  },
+  { step: 'failed', label: 'Failed', description: 'Task encountered an error' },
+]
+
+/**
  * Agent task entity
  */
 export interface AgentTask {
@@ -417,6 +482,10 @@ export interface AgentTask {
   julesSessionId?: string
   /** Jules-specific parameters */
   julesParams?: JulesParameters
+  /** Working directory where agent runs (copy of targetDirectory) */
+  workingDirectory?: string
+  /** Current execution step for progress tracking */
+  executionStep?: ExecutionStep
 }
 
 /**
@@ -448,6 +517,10 @@ export interface UpdateAgentTaskInput {
   fileChanges?: FileChangeSummary
   startedAt?: Date
   completedAt?: Date
+  /** Working directory where agent runs */
+  workingDirectory?: string
+  /** Current execution step */
+  executionStep?: ExecutionStep
   /** Jules session ID */
   julesSessionId?: string
   /** Jules-specific parameters */

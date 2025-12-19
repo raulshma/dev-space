@@ -26,6 +26,7 @@ import {
   IconPlayerPause,
   IconPlayerStop,
   IconTrash,
+  IconArchive,
   IconRocket,
   IconGitBranch,
   IconClock,
@@ -48,6 +49,7 @@ interface KanbanCardProps {
   onResume: (taskId: string) => void
   onStop: (taskId: string) => void
   onDelete: (task: AgentTask) => void
+  onArchive: (task: AgentTask) => void
   onDragStart: (taskId: string, status: TaskStatus) => void
   onDragEnd: () => void
 }
@@ -60,6 +62,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   completed: 'border-l-emerald-500',
   failed: 'border-l-red-500',
   stopped: 'border-l-gray-500',
+  archived: 'border-l-slate-400',
 }
 
 function formatRelativeTime(date: Date): string {
@@ -86,6 +89,7 @@ export const KanbanCard = memo(function KanbanCard({
   onResume,
   onStop,
   onDelete,
+  onArchive,
   onDragStart,
   onDragEnd,
 }: KanbanCardProps): React.JSX.Element {
@@ -93,7 +97,14 @@ export const KanbanCard = memo(function KanbanCard({
   const canPause = task.status === 'running'
   const canResume = task.status === 'paused'
   const canStop = task.status === 'running' || task.status === 'paused'
-  const canDelete = task.status !== 'running' && task.status !== 'paused'
+  // Only pending (not started) tasks can be deleted
+  const canDelete = task.status === 'pending'
+  // Completed, failed, stopped tasks can be archived
+  const canArchive =
+    task.status === 'completed' ||
+    task.status === 'failed' ||
+    task.status === 'stopped' ||
+    task.status === 'queued'
 
   // Check if this task can be dragged (has valid drop targets)
   const canDrag = VALID_DROP_TARGETS[task.status]?.length > 0
@@ -138,7 +149,7 @@ export const KanbanCard = memo(function KanbanCard({
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <IconGripVertical
               className={`h-4 w-4 shrink-0 ${canDrag ? 'text-muted-foreground/50 cursor-grab' : 'text-muted-foreground/20'}`}
             />
@@ -147,13 +158,13 @@ export const KanbanCard = memo(function KanbanCard({
             ) : (
               <IconGitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
             )}
-            <CardTitle className="truncate text-sm">
+            <CardTitle className="line-clamp-2 text-sm leading-tight">
               {task.description}
             </CardTitle>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="shrink-0 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none hover:bg-accent h-6 w-6"
+              className="shrink-0 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none hover:bg-accent h-8 w-8 -mr-1 -mt-1"
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <IconDotsVertical className="h-4 w-4" />
@@ -213,6 +224,20 @@ export const KanbanCard = memo(function KanbanCard({
                   <IconRefresh className="mr-2 h-4 w-4" />
                   Retry
                 </DropdownMenuItem>
+              )}
+              {canArchive && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation()
+                      onArchive(task)
+                    }}
+                  >
+                    <IconArchive className="mr-2 h-4 w-4" />
+                    Archive
+                  </DropdownMenuItem>
+                </>
               )}
               {canDelete && (
                 <>

@@ -43,6 +43,7 @@ import {
   IconBrandGithub,
   IconFiles,
   IconGitCommit,
+  IconArchive,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -116,6 +117,11 @@ const STATUS_CONFIG: Record<
     label: 'Stopped',
     color: 'text-muted-foreground',
     icon: <IconPlayerStop className="h-4 w-4" />,
+  },
+  archived: {
+    label: 'Archived',
+    color: 'text-slate-500',
+    icon: <IconArchive className="h-4 w-4" />,
   },
 }
 

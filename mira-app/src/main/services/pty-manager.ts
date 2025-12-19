@@ -222,6 +222,14 @@ export class PTYManager {
   }
 
   /**
+   * Get the event emitter for a PTY instance
+   */
+  getEmitter(ptyId: string): EventEmitter | null {
+    const instance = this.instances.get(ptyId)
+    return instance?.emitter || null
+  }
+
+  /**
    * Get the default shell for the current platform
    */
   getDefaultShell(): string {

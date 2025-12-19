@@ -22,6 +22,7 @@ import {
   CollapsibleTrigger,
 } from 'renderer/components/ui/collapsible'
 import type { ProjectScript } from 'shared/ipc-types'
+import { DevCommandConfig } from './DevCommandConfig'
 
 interface ProjectScriptsProps {
   projectId: string
@@ -94,7 +95,13 @@ export function ProjectScripts({
   }
 
   if (!data?.hasPackageJson) {
-    return null // Don't show anything if no package.json
+    // Still show dev command config even without package.json
+    return (
+      <div className="flex flex-col">
+        <DevCommandConfig projectId={projectId} projectPath={projectPath} />
+        <Separator />
+      </div>
+    )
   }
 
   if (data.scripts.length === 0) {
@@ -113,6 +120,7 @@ export function ProjectScripts({
 
   return (
     <div className="flex flex-col">
+      <DevCommandConfig projectId={projectId} projectPath={projectPath} />
       <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
         <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold hover:bg-muted/50">
           <div className="flex items-center gap-2">
@@ -133,7 +141,7 @@ export function ProjectScripts({
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="max-h-48 overflow-y-auto bg-muted/30">
+          <div className="max-h-96 overflow-y-auto bg-muted/30">
             {data.scripts.map(script => (
               <button
                 className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-primary/5 focus:bg-primary/5 focus:outline-none group"

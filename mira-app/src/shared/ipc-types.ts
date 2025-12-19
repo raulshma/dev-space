@@ -164,6 +164,17 @@ export const IPC_CHANNELS = {
   CLI_GET_RECOMMENDED: 'cli:getRecommended',
   CLI_VERIFY_PATH: 'cli:verifyPath',
   CLI_CLEAR_CACHE: 'cli:clearCache',
+
+  // Running Projects operations
+  RUNNING_PROJECT_START: 'runningProject:start',
+  RUNNING_PROJECT_STOP: 'runningProject:stop',
+  RUNNING_PROJECT_RESTART: 'runningProject:restart',
+  RUNNING_PROJECT_LIST: 'runningProject:list',
+  RUNNING_PROJECT_GET_LOGS: 'runningProject:getLogs',
+  RUNNING_PROJECT_SET_DEV_COMMAND: 'runningProject:setDevCommand',
+  RUNNING_PROJECT_GET_DEV_COMMAND: 'runningProject:getDevCommand',
+  RUNNING_PROJECT_STATUS_UPDATE: 'runningProject:statusUpdate',
+  RUNNING_PROJECT_OUTPUT: 'runningProject:output',
 } as const
 
 // Project Request/Response Types
@@ -1113,4 +1124,76 @@ export interface CLIClearCacheRequest {}
 
 export interface CLIClearCacheResponse {
   success: boolean
+}
+
+// ============================================================================
+// Running Projects Request/Response Types
+// ============================================================================
+
+export interface RunningProjectStartRequest {
+  projectId: string
+  devCommand?: string
+}
+
+export interface RunningProjectStartResponse {
+  project: import('./models').RunningProject
+}
+
+export interface RunningProjectStopRequest {
+  projectId: string
+}
+
+export interface RunningProjectStopResponse {
+  success: boolean
+}
+
+export interface RunningProjectRestartRequest {
+  projectId: string
+}
+
+export interface RunningProjectRestartResponse {
+  project: import('./models').RunningProject
+}
+
+export interface RunningProjectListRequest {}
+
+export interface RunningProjectListResponse {
+  projects: import('./models').RunningProject[]
+}
+
+export interface RunningProjectGetLogsRequest {
+  projectId: string
+  lines?: number
+}
+
+export interface RunningProjectGetLogsResponse {
+  logs: string[]
+}
+
+export interface RunningProjectSetDevCommandRequest {
+  projectId: string
+  devCommand: string
+}
+
+export interface RunningProjectSetDevCommandResponse {
+  success: boolean
+}
+
+export interface RunningProjectGetDevCommandRequest {
+  projectId: string
+}
+
+export interface RunningProjectGetDevCommandResponse {
+  devCommand: string | null
+}
+
+export interface RunningProjectStatusUpdateData {
+  projectId: string
+  status: import('./models').RunningProjectStatus
+  error?: string
+}
+
+export interface RunningProjectOutputData {
+  projectId: string
+  data: string
 }

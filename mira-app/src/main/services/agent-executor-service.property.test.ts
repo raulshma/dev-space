@@ -331,13 +331,14 @@ describe('Agent Executor Service Property Tests', () => {
    */
   describe('Property 12: Task State Transitions', () => {
     const validTransitions: Record<TaskStatus, TaskStatus[]> = {
-      pending: ['queued', 'stopped'],
-      queued: ['running', 'pending', 'stopped'],
+      pending: ['queued', 'stopped', 'completed'],
+      queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
       running: ['paused', 'completed', 'failed', 'stopped'],
-      paused: ['running', 'stopped'],
-      completed: [],
-      failed: ['pending'],
-      stopped: ['pending'],
+      paused: ['running', 'stopped', 'completed'],
+      completed: ['pending', 'archived'],
+      failed: ['pending', 'queued', 'archived'],
+      stopped: ['pending', 'queued', 'archived'],
+      archived: ['pending'],
     }
 
     it('only valid state transitions are allowed', async () => {

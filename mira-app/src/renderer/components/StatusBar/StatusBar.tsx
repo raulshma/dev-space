@@ -26,13 +26,12 @@ import {
   IconLoader2,
   IconAlertTriangle,
   IconInfoCircle,
-  IconPlayerPlay,
   IconClipboardCheck,
   IconMessage,
   IconRefresh,
   IconExternalLink,
-  IconChevronUp,
 } from '@tabler/icons-react'
+import { RunningProjectsIndicator } from './RunningProjectsIndicator'
 import {
   useNotificationStore,
   usePersistentNotifications,
@@ -343,15 +342,6 @@ export function StatusBar(): React.JSX.Element {
     [setSelectedTask, setActiveView]
   )
 
-  // Don't render if nothing to show
-  if (
-    persistentNotifications.length === 0 &&
-    activeJulesStatuses.length === 0 &&
-    unreadCount === 0
-  ) {
-    return <div className="h-6 border-t border-border bg-muted/30" />
-  }
-
   return (
     <div className="border-t border-border bg-muted/30">
       {/* Jules status items */}
@@ -369,7 +359,7 @@ export function StatusBar(): React.JSX.Element {
         </div>
       )}
 
-      {/* Main status bar */}
+      {/* Main status bar - always visible like VS Code */}
       <div className="flex items-center justify-between h-6 px-2">
         <div className="flex items-center gap-2">
           {needsAttention && (
@@ -392,6 +382,9 @@ export function StatusBar(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Running projects indicator */}
+          <RunningProjectsIndicator />
+
           {/* Notification bell with popover */}
           <Popover>
             <PopoverTrigger

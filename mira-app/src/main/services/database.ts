@@ -99,6 +99,8 @@ interface AgentTaskRow {
   service_type: string | null
   jules_session_id: string | null
   jules_params_json: string | null
+  working_directory: string | null
+  execution_step: string | null
 }
 
 // Agent Task Output row interface
@@ -324,6 +326,16 @@ export class DatabaseService {
     }
     try {
       this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_params_json TEXT`)
+    } catch {
+      // Column already exists
+    }
+    try {
+      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN working_directory TEXT`)
+    } catch {
+      // Column already exists
+    }
+    try {
+      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN execution_step TEXT`)
     } catch {
       // Column already exists
     }
@@ -1409,6 +1421,16 @@ export class DatabaseService {
       params.push(JSON.stringify(data.julesParams))
     }
 
+    if (data.workingDirectory !== undefined) {
+      updates.push('working_directory = ?')
+      params.push(data.workingDirectory)
+    }
+
+    if (data.executionStep !== undefined) {
+      updates.push('execution_step = ?')
+      params.push(data.executionStep)
+    }
+
     if (updates.length === 0) {
       return this.getAgentTask(id)
     }
@@ -1463,6 +1485,9 @@ export class DatabaseService {
       julesParams: row.jules_params_json
         ? JSON.parse(row.jules_params_json)
         : undefined,
+      workingDirectory: row.working_directory ?? undefined,
+      executionStep:
+        (row.execution_step as AgentTask['executionStep']) ?? undefined,
     }
   }
 

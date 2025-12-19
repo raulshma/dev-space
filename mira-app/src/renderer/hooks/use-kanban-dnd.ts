@@ -120,13 +120,14 @@ export function useKanbanDnd(): UseKanbanDndReturn {
  * Some transitions don't make sense (e.g., can't drag to 'running')
  */
 export const VALID_DROP_TARGETS: Record<TaskStatus, TaskStatus[]> = {
-  pending: ['queued', 'stopped'], // Can queue or mark as stopped
-  queued: ['pending', 'stopped'], // Can move back to backlog or stop
+  pending: ['queued', 'stopped', 'completed'], // Can queue, mark as stopped, or mark as done
+  queued: ['pending', 'stopped', 'completed'], // Can move back to backlog, stop, or mark done
   running: [], // Can't drag running tasks
-  paused: ['pending', 'queued', 'stopped'], // Can move back or stop
-  completed: ['pending'], // Can reopen
-  failed: ['pending', 'queued'], // Can retry
-  stopped: ['pending', 'queued'], // Can requeue
+  paused: ['pending', 'queued', 'stopped', 'completed'], // Can move back, stop, or complete
+  completed: ['pending', 'archived'], // Can reopen or archive
+  failed: ['pending', 'queued', 'archived'], // Can retry or archive
+  stopped: ['pending', 'queued', 'archived'], // Can requeue or archive
+  archived: ['pending'], // Can restore from archive
 }
 
 /**

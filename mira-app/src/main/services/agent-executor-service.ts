@@ -56,7 +56,9 @@ import type {
   TaskStatus,
   FileChangeSummary,
   OutputLine,
+  ExecutionStep,
 } from 'shared/ai-types'
+import type { WorkingDirectoryService } from './agent/working-directory-service'
 import type {
   JulesSessionStatus,
   JulesTaskState,
@@ -98,13 +100,14 @@ export class AgentExecutorError extends Error {
  * Valid state transitions for agent tasks
  */
 const VALID_STATE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
-  pending: ['queued', 'stopped'],
-  queued: ['running', 'pending', 'stopped'],
+  pending: ['queued', 'stopped', 'completed'],
+  queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
   running: ['paused', 'completed', 'failed', 'stopped'],
-  paused: ['running', 'stopped'],
-  completed: [],
-  failed: ['pending'],
-  stopped: ['pending'],
+  paused: ['running', 'stopped', 'completed'],
+  completed: ['pending', 'archived'],
+  failed: ['pending', 'queued', 'archived'],
+  stopped: ['pending', 'queued', 'archived'],
+  archived: ['pending'],
 }
 
 /**
@@ -174,6 +177,7 @@ export class AgentExecutorService
   private configService: AgentConfigService
   private gitService: GitService
   private julesService: JulesService | null
+  private workingDirectoryService: WorkingDirectoryService | null
 
   /** Map of task IDs to their managed processes */
   private taskProcesses: Map<string, ManagedProcess> = new Map()
@@ -207,7 +211,8 @@ export class AgentExecutorService
     configService: AgentConfigService,
     gitService: GitService,
     agentScriptsBasePath: string,
-    julesService?: JulesService
+    julesService?: JulesService,
+    workingDirectoryService?: WorkingDirectoryService
   ) {
     super()
     this.db = db
@@ -218,6 +223,27 @@ export class AgentExecutorService
     this.gitService = gitService
     this.agentScriptsBasePath = agentScriptsBasePath
     this.julesService = julesService ?? null
+    this.workingDirectoryService = workingDirectoryService ?? null
+  }
+
+  /**
+   * Update the execution step for a task and emit output
+   */
+  private async updateExecutionStep(
+    taskId: string,
+    step: ExecutionStep,
+    message?: string
+  ): Promise<void> {
+    await this.updateTask(taskId, { executionStep: step })
+
+    if (message) {
+      const line = this.outputBuffer.append(
+        taskId,
+        `[Mira] ${message}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', taskId, line)
+    }
   }
 
   /**
@@ -1351,6 +1377,71 @@ export class AgentExecutorService
       )
     }
 
+    // Update task status to running
+    await this.updateTask(task.id, {
+      status: 'running',
+      startedAt: new Date(),
+      executionStep: 'copying-project',
+    })
+
+    const updatedTask = this.db.getAgentTask(task.id)!
+    this.emit('taskStarted', updatedTask)
+
+    // Copy project to working directory
+    let workingDirectory = task.targetDirectory
+
+    if (this.workingDirectoryService) {
+      try {
+        await this.updateExecutionStep(
+          task.id,
+          'copying-project',
+          `Copying project to isolated working directory...`
+        )
+
+        const copyResult =
+          await this.workingDirectoryService.copyToWorkingDirectory(
+            task.targetDirectory,
+            task.id,
+            message => {
+              const line = this.outputBuffer.append(
+                task.id,
+                `[Mira] ${message}\n`,
+                'stdout'
+              )
+              this.emit('outputReceived', task.id, line)
+            }
+          )
+
+        workingDirectory = copyResult.workingDirectory
+
+        await this.updateTask(task.id, { workingDirectory })
+
+        const line = this.outputBuffer.append(
+          task.id,
+          `[Mira] Project copied to: ${workingDirectory}\n` +
+            `[Mira] Files copied: ${copyResult.filesCopied}\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, line)
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
+        const line = this.outputBuffer.append(
+          task.id,
+          `[Mira] Warning: Could not create working directory, running in original location: ${errorMessage}\n`,
+          'stderr'
+        )
+        this.emit('outputReceived', task.id, line)
+      }
+    }
+
+    // Update step to initializing
+    await this.updateExecutionStep(
+      task.id,
+      'initializing',
+      'Setting up agent environment...'
+    )
+
     // Build environment variables
     const env = buildAgentEnvironment(
       {},
@@ -1366,23 +1457,24 @@ export class AgentExecutorService
       }
     )
 
-    // Build command arguments
-    const args = this.buildAgentArgs(task)
-
-    // Update task status to running
-    await this.updateTask(task.id, {
-      status: 'running',
-      startedAt: new Date(),
+    // Build command arguments (use working directory)
+    const args = this.buildAgentArgs({
+      ...task,
+      targetDirectory: workingDirectory,
     })
 
-    const updatedTask = this.db.getAgentTask(task.id)!
-    this.emit('taskStarted', updatedTask)
+    // Update step to running
+    await this.updateExecutionStep(
+      task.id,
+      'running',
+      'Starting agent execution...'
+    )
 
     // Spawn process
     const spawnConfig: SpawnConfig = {
       script: scriptPath,
       args,
-      cwd: task.targetDirectory,
+      cwd: workingDirectory,
       env,
       onStdout: (data: string) => {
         const line = this.outputBuffer.append(task.id, data, 'stdout')
@@ -1393,7 +1485,7 @@ export class AgentExecutorService
         this.emit('outputReceived', task.id, line)
       },
       onExit: async (code: number | null, signal: string | null) => {
-        await this.handleProcessExit(task.id, code, signal)
+        await this.handleProcessExit(task.id, code, signal, workingDirectory)
       },
     }
 
@@ -1453,11 +1545,13 @@ export class AgentExecutorService
    * @param taskId - The task ID
    * @param code - Exit code (null if killed by signal)
    * @param signal - Signal that killed the process (null if exited normally)
+   * @param workingDirectory - Working directory where agent ran (may differ from targetDirectory)
    */
   private async handleProcessExit(
     taskId: string,
     code: number | null,
-    signal: string | null
+    signal: string | null,
+    workingDirectory?: string
   ): Promise<void> {
     const task = this.db.getAgentTask(taskId)
     if (!task) {
@@ -1478,7 +1572,18 @@ export class AgentExecutorService
     // Determine final status
     const wasStoppedByUser = task.status === 'stopped'
     if (wasStoppedByUser) {
-      // Already handled by stopTask
+      // Clean up working directory if it exists
+      if (
+        workingDirectory &&
+        workingDirectory !== task.targetDirectory &&
+        this.workingDirectoryService
+      ) {
+        try {
+          await this.workingDirectoryService.cleanup(workingDirectory)
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
       await this.processNextTask()
       return
     }
@@ -1486,10 +1591,91 @@ export class AgentExecutorService
     const isSuccess = code === 0
     const newStatus: TaskStatus = isSuccess ? 'completed' : 'failed'
 
-    // Capture file changes for repository tasks
+    // Capture file changes
+    await this.updateExecutionStep(
+      taskId,
+      'capturing-changes',
+      'Capturing file changes...'
+    )
+
+    const effectiveWorkingDir =
+      workingDirectory || task.workingDirectory || task.targetDirectory
     let fileChanges: FileChangeSummary | undefined
+
     if (task.agentType === 'feature') {
-      fileChanges = await this.captureFileChanges(task.targetDirectory)
+      fileChanges = await this.captureFileChanges(effectiveWorkingDir)
+    }
+
+    // Sync changes back to original project if using working directory
+    if (
+      isSuccess &&
+      this.workingDirectoryService &&
+      effectiveWorkingDir !== task.targetDirectory
+    ) {
+      try {
+        await this.updateExecutionStep(
+          taskId,
+          'syncing-back',
+          'Syncing changes back to original project...'
+        )
+
+        const syncResult = await this.workingDirectoryService.syncChangesBack(
+          effectiveWorkingDir,
+          task.targetDirectory,
+          message => {
+            const line = this.outputBuffer.append(
+              taskId,
+              `[Mira] ${message}\n`,
+              'stdout'
+            )
+            this.emit('outputReceived', taskId, line)
+          }
+        )
+
+        // Update file changes with sync result
+        if (fileChanges) {
+          fileChanges.created = syncResult.filesCreated
+          fileChanges.modified = syncResult.filesModified
+          fileChanges.deleted = syncResult.filesDeleted
+        }
+
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Mira] Changes synced: ${syncResult.filesCreated.length} created, ` +
+            `${syncResult.filesModified.length} modified, ${syncResult.filesDeleted.length} deleted\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', taskId, line)
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error)
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Mira] Warning: Failed to sync changes back: ${errorMessage}\n` +
+            `[Mira] Changes are preserved in: ${effectiveWorkingDir}\n`,
+          'stderr'
+        )
+        this.emit('outputReceived', taskId, line)
+      }
+    }
+
+    // Clean up working directory on success
+    if (
+      isSuccess &&
+      this.workingDirectoryService &&
+      effectiveWorkingDir !== task.targetDirectory
+    ) {
+      try {
+        await this.workingDirectoryService.cleanup(effectiveWorkingDir)
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Mira] Working directory cleaned up\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', taskId, line)
+      } catch {
+        // Ignore cleanup errors
+      }
     }
 
     // Update task
@@ -1498,6 +1684,7 @@ export class AgentExecutorService
       exitCode: code ?? undefined,
       completedAt: new Date(),
       fileChanges,
+      executionStep: isSuccess ? 'completed' : 'failed',
     }
 
     if (!isSuccess) {

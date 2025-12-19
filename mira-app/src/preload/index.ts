@@ -192,6 +192,23 @@ import type {
   CLIVerifyPathResponse,
   CLIClearCacheRequest,
   CLIClearCacheResponse,
+  // Running Projects types
+  RunningProjectStartRequest,
+  RunningProjectStartResponse,
+  RunningProjectStopRequest,
+  RunningProjectStopResponse,
+  RunningProjectRestartRequest,
+  RunningProjectRestartResponse,
+  RunningProjectListRequest,
+  RunningProjectListResponse,
+  RunningProjectGetLogsRequest,
+  RunningProjectGetLogsResponse,
+  RunningProjectSetDevCommandRequest,
+  RunningProjectSetDevCommandResponse,
+  RunningProjectGetDevCommandRequest,
+  RunningProjectGetDevCommandResponse,
+  RunningProjectStatusUpdateData,
+  RunningProjectOutputData,
 } from 'shared/ipc-types'
 
 /**
@@ -616,6 +633,66 @@ const api = {
       request: CLIClearCacheRequest
     ): Promise<CLIClearCacheResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLI_CLEAR_CACHE, request),
+  },
+
+  // Running Projects operations
+  runningProjects: {
+    start: (
+      request: RunningProjectStartRequest
+    ): Promise<RunningProjectStartResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_START, request),
+    stop: (
+      request: RunningProjectStopRequest
+    ): Promise<RunningProjectStopResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_STOP, request),
+    restart: (
+      request: RunningProjectRestartRequest
+    ): Promise<RunningProjectRestartResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_RESTART, request),
+    list: (
+      request: RunningProjectListRequest
+    ): Promise<RunningProjectListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_LIST, request),
+    getLogs: (
+      request: RunningProjectGetLogsRequest
+    ): Promise<RunningProjectGetLogsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_GET_LOGS, request),
+    setDevCommand: (
+      request: RunningProjectSetDevCommandRequest
+    ): Promise<RunningProjectSetDevCommandResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_SET_DEV_COMMAND, request),
+    getDevCommand: (
+      request: RunningProjectGetDevCommandRequest
+    ): Promise<RunningProjectGetDevCommandResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.RUNNING_PROJECT_GET_DEV_COMMAND, request),
+    onStatusUpdate: (
+      callback: (data: RunningProjectStatusUpdateData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: RunningProjectStatusUpdateData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.RUNNING_PROJECT_STATUS_UPDATE, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.RUNNING_PROJECT_STATUS_UPDATE,
+          listener
+        )
+    },
+    onOutput: (
+      callback: (data: RunningProjectOutputData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: RunningProjectOutputData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.RUNNING_PROJECT_OUTPUT, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.RUNNING_PROJECT_OUTPUT,
+          listener
+        )
+    },
   },
 }
 

@@ -102,8 +102,17 @@ import type {
   CLIVerifyPathRequest,
   CLIClearCacheRequest,
   CLIType,
+  // Running Projects types
+  RunningProjectStartRequest,
+  RunningProjectStopRequest,
+  RunningProjectRestartRequest,
+  RunningProjectListRequest,
+  RunningProjectGetLogsRequest,
+  RunningProjectSetDevCommandRequest,
+  RunningProjectGetDevCommandRequest,
 } from 'shared/ipc-types'
 import { getCLIDetectorService } from 'main/services/cli-detector-service'
+import type { RunningProjectsService } from 'main/services/running-projects-service'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -128,6 +137,7 @@ export class IPCHandlers {
   private agentConfigService?: AgentConfigService
   private julesService?: JulesService
   private requestLogger?: RequestLogger
+  private runningProjectsService?: RunningProjectsService
 
   constructor(
     db: DatabaseService,
@@ -139,7 +149,8 @@ export class IPCHandlers {
     agentExecutorService?: AgentExecutorService,
     agentConfigService?: AgentConfigService,
     julesService?: JulesService,
-    requestLogger?: RequestLogger
+    requestLogger?: RequestLogger,
+    runningProjectsService?: RunningProjectsService
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -154,6 +165,7 @@ export class IPCHandlers {
     this.agentConfigService = agentConfigService
     this.julesService = julesService
     this.requestLogger = requestLogger
+    this.runningProjectsService = runningProjectsService
   }
 
   /**
@@ -182,6 +194,7 @@ export class IPCHandlers {
     this.registerJulesHandlers()
     this.registerJulesEventForwarding()
     this.registerCLIDetectorHandlers()
+    this.registerRunningProjectsHandlers()
   }
 
   /**
@@ -1855,6 +1868,166 @@ export class IPCHandlers {
         try {
           cliDetector.clearCache()
           return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Running Projects operation handlers
+   */
+  private registerRunningProjectsHandlers(): void {
+    // Start a project's dev server
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_START,
+      async (_event, request: RunningProjectStartRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          // Get project details from database
+          const project = this.db.getProject(request.projectId)
+          if (!project) {
+            return { error: 'Project not found', code: 'PROJECT_NOT_FOUND' }
+          }
+          const runningProject = await this.runningProjectsService.start(
+            request.projectId,
+            project.name,
+            project.path,
+            request.devCommand
+          )
+          return { project: runningProject }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stop a running project
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_STOP,
+      async (_event, request: RunningProjectStopRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const success = await this.runningProjectsService.stop(
+            request.projectId
+          )
+          return { success }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Restart a running project
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_RESTART,
+      async (_event, request: RunningProjectRestartRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const project = await this.runningProjectsService.restart(
+            request.projectId
+          )
+          return { project }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List all running projects
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_LIST,
+      async (_event, _request: RunningProjectListRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const projects = this.runningProjectsService.list()
+          return { projects }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get logs for a running project
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_GET_LOGS,
+      async (_event, request: RunningProjectGetLogsRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const logs = this.runningProjectsService.getLogs(
+            request.projectId,
+            request.lines
+          )
+          return { logs }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set dev command for a project
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_SET_DEV_COMMAND,
+      async (_event, request: RunningProjectSetDevCommandRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          this.runningProjectsService.setDevCommand(
+            request.projectId,
+            request.devCommand
+          )
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get dev command for a project
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_PROJECT_GET_DEV_COMMAND,
+      async (_event, request: RunningProjectGetDevCommandRequest) => {
+        try {
+          if (!this.runningProjectsService) {
+            return {
+              error: 'Running projects service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const devCommand = this.runningProjectsService.getDevCommand(
+            request.projectId
+          )
+          return { devCommand }
         } catch (error) {
           return this.handleError(error)
         }

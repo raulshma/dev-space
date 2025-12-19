@@ -14,6 +14,7 @@ import { ErrorToast } from 'renderer/components/ErrorToast'
 import { keyboardManager } from 'renderer/lib/keyboard-manager'
 import { useShortcuts } from 'renderer/hooks/use-shortcuts'
 import { SETTING_KEYS } from 'renderer/hooks/use-settings'
+import { useRunningProjectsManager } from 'renderer/hooks/use-running-projects'
 
 // The "api" type comes from preload/index.d.ts which declares Window.api globally
 
@@ -33,6 +34,9 @@ export function MainScreen() {
 
   // Load shortcuts from database
   const { data: shortcuts } = useShortcuts()
+
+  // Initialize running projects manager (sets up IPC subscriptions)
+  useRunningProjectsManager()
 
   // Restore last opened project on startup
   useEffect(() => {

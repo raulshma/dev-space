@@ -31,6 +31,7 @@ import {
   IconCheck,
   IconX,
   IconAlertTriangle,
+  IconArchive,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -45,7 +46,8 @@ import {
   useResumeAgentTask,
   useStopAgentTask,
 } from 'renderer/hooks/use-agent-tasks'
-import type { TaskStatus, OutputLine } from 'shared/ai-types'
+import type { TaskStatus, OutputLine, ExecutionStep } from 'shared/ai-types'
+import { EXECUTION_STEPS } from 'shared/ai-types'
 
 interface TaskDetailViewProps {
   taskId: string
@@ -90,6 +92,11 @@ const STATUS_CONFIG: Record<
     label: 'Stopped',
     color: 'text-muted-foreground',
     icon: <IconPlayerStop className="h-4 w-4" />,
+  },
+  archived: {
+    label: 'Archived',
+    color: 'text-slate-500',
+    icon: <IconArchive className="h-4 w-4" />,
   },
 }
 
@@ -185,6 +192,66 @@ function formatTimestamp(date: Date): string {
     second: '2-digit',
     fractionalSecondDigits: 3,
   })
+}
+
+/**
+ * Execution step indicator showing progress through task phases
+ */
+function ExecutionStepIndicator({
+  currentStep,
+}: {
+  currentStep?: ExecutionStep
+}): React.JSX.Element | null {
+  if (!currentStep || currentStep === 'pending') return null
+
+  // Filter to show only relevant steps for display
+  const displaySteps = EXECUTION_STEPS.filter(
+    s => !['pending', 'failed'].includes(s.step)
+  )
+
+  const currentIndex = displaySteps.findIndex(s => s.step === currentStep)
+  const currentStepInfo = EXECUTION_STEPS.find(s => s.step === currentStep)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1">
+        {displaySteps.map((step, index) => {
+          const isCompleted = index < currentIndex
+          const isCurrent = step.step === currentStep
+          const isFailed = currentStep === 'failed'
+
+          return (
+            <div className="flex items-center" key={step.step}>
+              <div
+                className={`h-2 w-2 rounded-full transition-colors ${
+                  isCompleted
+                    ? 'bg-green-500'
+                    : isCurrent
+                      ? isFailed
+                        ? 'bg-destructive'
+                        : 'bg-blue-500 animate-pulse'
+                      : 'bg-muted-foreground/30'
+                }`}
+                title={step.label}
+              />
+              {index < displaySteps.length - 1 && (
+                <div
+                  className={`h-0.5 w-4 transition-colors ${
+                    isCompleted ? 'bg-green-500' : 'bg-muted-foreground/30'
+                  }`}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {currentStepInfo && (
+        <p className="text-xs text-muted-foreground">
+          {currentStepInfo.description}
+        </p>
+      )}
+    </div>
+  )
 }
 
 function OutputLineComponent({
@@ -351,7 +418,21 @@ export function TaskDetailView({
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 space-y-3">
+          {/* Execution step progress */}
+          {task.executionStep && task.status === 'running' && (
+            <ExecutionStepIndicator currentStep={task.executionStep} />
+          )}
+
+          {/* Working directory info */}
+          {task.workingDirectory &&
+            task.workingDirectory !== task.targetDirectory && (
+              <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                <span className="font-medium">Working directory:</span>{' '}
+                <span className="font-mono">{task.workingDirectory}</span>
+              </div>
+            )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>Created: {task.createdAt.toLocaleString()}</span>
