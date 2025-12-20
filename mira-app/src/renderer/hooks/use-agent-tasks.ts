@@ -652,3 +652,52 @@ export function useRejectPlanForTask() {
     },
   })
 }
+
+// ============================================================================
+// Real-time Status Subscription Hook
+// ============================================================================
+
+/**
+ * Hook to subscribe to real-time task status updates
+ *
+ * Listens for task status changes from the main process and updates
+ * the Zustand store immediately, enabling instant header updates
+ * without waiting for polling.
+ */
+export function useTaskStatusSubscription() {
+  const { updateTask } = useAgentTaskStore()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const cleanup = window.api.agentTasks.onStatusUpdate(data => {
+      const task = {
+        ...data.task,
+        createdAt:
+          data.task.createdAt instanceof Date
+            ? data.task.createdAt
+            : new Date(data.task.createdAt as unknown as string),
+        startedAt: data.task.startedAt
+          ? data.task.startedAt instanceof Date
+            ? data.task.startedAt
+            : new Date(data.task.startedAt as unknown as string)
+          : undefined,
+        completedAt: data.task.completedAt
+          ? data.task.completedAt instanceof Date
+            ? data.task.completedAt
+            : new Date(data.task.completedAt as unknown as string)
+          : undefined,
+      }
+
+      // Update Zustand store immediately for instant UI updates
+      updateTask(task.id, task)
+
+      // Invalidate queries to keep TanStack Query cache in sync
+      queryClient.invalidateQueries({
+        queryKey: agentTaskKeys.detail(task.id),
+      })
+      queryClient.invalidateQueries({ queryKey: agentTaskKeys.lists() })
+    })
+
+    return cleanup
+  }, [updateTask, queryClient])
+}

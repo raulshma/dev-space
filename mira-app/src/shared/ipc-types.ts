@@ -116,6 +116,7 @@ export const IPC_CHANNELS = {
   AGENT_TASK_LOAD_OUTPUT: 'agentTask:loadOutput',
   AGENT_TASK_OUTPUT_STREAM: 'agentTask:outputStream',
   AGENT_TASK_SUBSCRIBE_OUTPUT: 'agentTask:subscribeOutput',
+  AGENT_TASK_STATUS_UPDATE: 'agentTask:statusUpdate', // event for real-time status updates
 
   // Agent Configuration operations
   AGENT_CONFIG_GET: 'agentConfig:get',
@@ -936,6 +937,10 @@ export interface AgentTaskGetOutputResponse {
 export interface AgentTaskOutputStreamData {
   taskId: string
   line: import('./ai-types').OutputLine
+}
+
+export interface AgentTaskStatusUpdateData {
+  task: import('./ai-types').AgentTask
 }
 
 // ============================================================================

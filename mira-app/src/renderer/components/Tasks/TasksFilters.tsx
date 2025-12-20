@@ -101,6 +101,7 @@ export const TasksFilters = memo(function TasksFilters({
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
                 <SelectItem value="stopped">Stopped</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>

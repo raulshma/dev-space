@@ -277,6 +277,7 @@ export class IPCHandlers {
     this.registerAgentConfigHandlers()
     this.registerJulesHandlers()
     this.registerJulesEventForwarding()
+    this.registerTaskStatusEventForwarding()
     this.registerCLIDetectorHandlers()
     this.registerRunningProjectsHandlers()
     this.registerDevToolsHandlers()
@@ -311,6 +312,27 @@ export class IPCHandlers {
           window.webContents.send(IPC_CHANNELS.JULES_STATUS_UPDATE, {
             taskId,
             status,
+          })
+        }
+      }
+    )
+  }
+
+  /**
+   * Set up event forwarding for task status updates
+   * Enables real-time header updates without polling
+   */
+  private registerTaskStatusEventForwarding(): void {
+    if (!this.agentExecutorService) return
+
+    // Forward task status updates to all renderer windows
+    this.agentExecutorService.on(
+      'taskUpdated',
+      (task: import('shared/ai-types').AgentTask) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const window of windows) {
+          window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+            task,
           })
         }
       }

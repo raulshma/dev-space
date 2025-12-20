@@ -136,6 +136,7 @@ import type {
   AgentTaskGetOutputRequest,
   AgentTaskGetOutputResponse,
   AgentTaskOutputStreamData,
+  AgentTaskStatusUpdateData,
   // Agent Config types
   AgentConfigGetRequest,
   AgentConfigGetResponse,
@@ -628,6 +629,20 @@ const api = {
       return () =>
         ipcRenderer.removeListener(
           IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM,
+          listener
+        )
+    },
+    onStatusUpdate: (
+      callback: (data: AgentTaskStatusUpdateData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AgentTaskStatusUpdateData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE,
           listener
         )
     },

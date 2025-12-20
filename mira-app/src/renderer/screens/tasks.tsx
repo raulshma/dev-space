@@ -15,7 +15,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
-import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
+import { useAgentTasks, useTaskStatusSubscription } from 'renderer/hooks/use-agent-tasks'
 import { useProject } from 'renderer/hooks/use-projects'
 import { ErrorBoundary } from 'renderer/components/ErrorBoundary'
 import {
@@ -99,6 +99,9 @@ function TasksScreenContent(): React.JSX.Element {
 
   // Load tasks
   useAgentTasks()
+
+  // Subscribe to real-time task status updates for instant header updates
+  useTaskStatusSubscription()
 
   const setActiveProject = useAppStore(state => state.setActiveProject)
 
