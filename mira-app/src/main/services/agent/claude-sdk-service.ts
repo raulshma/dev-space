@@ -43,10 +43,16 @@ export interface ClaudeExecutionConfig {
   canUseTool?: CanUseTool
   /** Session ID to resume */
   resumeSessionId?: string
+  /** Fork the session instead of continuing it */
+  forkSession?: boolean
   /** Allowed tools (restrict which tools the agent can use) */
   allowedTools?: string[]
   /** Disallowed tools (exclude specific tools) */
   disallowedTools?: string[]
+  /** Settings sources to load (user, project, local) */
+  settingSources?: Array<'user' | 'project' | 'local'>
+  /** Beta features to enable */
+  betas?: Array<'context-1m-2025-08-07'>
 }
 
 /**
@@ -184,6 +190,11 @@ export class ClaudeSdkService extends EventEmitter {
         options.resume = config.resumeSessionId
       }
 
+      // Add fork session option
+      if (config.forkSession) {
+        options.forkSession = config.forkSession
+      }
+
       // Add tool restrictions if provided
       if (config.allowedTools && config.allowedTools.length > 0) {
         options.allowedTools = config.allowedTools
@@ -191,6 +202,16 @@ export class ClaudeSdkService extends EventEmitter {
 
       if (config.disallowedTools && config.disallowedTools.length > 0) {
         options.disallowedTools = config.disallowedTools
+      }
+
+      // Add settings sources if provided
+      if (config.settingSources) {
+        options.settingSources = config.settingSources
+      }
+
+      // Add beta features if provided
+      if (config.betas && config.betas.length > 0) {
+        options.betas = config.betas
       }
 
       // Execute query with streaming
@@ -300,6 +321,7 @@ export class ClaudeSdkService extends EventEmitter {
       input?: Record<string, unknown>
       result?: string
       error?: { message?: string; type?: string } | string
+      content?: string | Array<{ type: string; text?: string; name?: string; input?: unknown }>
     }
 
     switch (message.type) {
@@ -319,7 +341,10 @@ export class ClaudeSdkService extends EventEmitter {
         if (this.isAssistantMessage(message)) {
           // Extract text content from the assistant message
           const content = message.message?.content
-          if (Array.isArray(content)) {
+          if (typeof content === 'string') {
+            // Handle string content directly
+            this.emit('output', `${content}\n`, 'stdout')
+          } else if (Array.isArray(content)) {
             for (const block of content) {
               if (block.type === 'text' && 'text' in block) {
                 this.emit('output', `${block.text}\n`, 'stdout')
@@ -368,10 +393,9 @@ export class ClaudeSdkService extends EventEmitter {
         break
 
       default:
-        // Handle any other message types that may come from the SDK
-        // This provides forward compatibility with new SDK versions
+        // Handle any other message types for forward compatibility
+        // Tool results and errors may come through as different message structures
         if (msg.tool_name && msg.result !== undefined) {
-          // Tool result message
           const result = String(msg.result || '')
           this.emit('toolResult', msg.tool_name, result)
           const truncatedResult =
@@ -384,7 +408,6 @@ export class ClaudeSdkService extends EventEmitter {
             )
           }
         } else if (msg.error) {
-          // Error message
           const errorMsg =
             typeof msg.error === 'string'
               ? msg.error

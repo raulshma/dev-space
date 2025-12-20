@@ -99,6 +99,23 @@ const arbitraryPythonPath: fc.Arbitrary<string> = fc.constantFrom(
 const arbitraryAgentConfig = fc.record({
   anthropicAuthToken: arbitraryAuthToken,
   anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
+  anthropicApiKey: fc.option(fc.string({ maxLength: 50 }), { nil: undefined }),
+  anthropicDefaultSonnetModel: fc.option(
+    fc.constantFrom(
+      'openai/gpt-5.1-codex-max',
+      '@preset/my-coding-setup',
+      'anthropic/claude-3-sonnet'
+    ),
+    { nil: undefined }
+  ),
+  anthropicDefaultOpusModel: fc.option(
+    fc.constantFrom('openai/gpt-5.2-pro', '@preset/advanced-setup'),
+    { nil: undefined }
+  ),
+  anthropicDefaultHaikuModel: fc.option(
+    fc.constantFrom('minimax/minimax-m2:exacto', 'google/gemini-flash'),
+    { nil: undefined }
+  ),
   apiTimeoutMs: arbitraryPositiveTimeout,
   pythonPath: arbitraryPythonPath,
   customEnvVars: arbitraryCustomEnvVars,
@@ -218,6 +235,93 @@ describe('Process Manager Property Tests', () => {
       )
     })
 
+    it('ANTHROPIC_API_KEY is present when configured (including empty string for OpenRouter)', () => {
+      fc.assert(
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
+
+            // If API key is configured (including empty string), it must be present
+            if (agentConfig.anthropicApiKey !== undefined) {
+              return result.ANTHROPIC_API_KEY === agentConfig.anthropicApiKey
+            }
+
+            // If not configured, it should not be present
+            return result.ANTHROPIC_API_KEY === undefined
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('ANTHROPIC_DEFAULT_SONNET_MODEL is present when configured', () => {
+      fc.assert(
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
+
+            if (agentConfig.anthropicDefaultSonnetModel) {
+              return (
+                result.ANTHROPIC_DEFAULT_SONNET_MODEL ===
+                agentConfig.anthropicDefaultSonnetModel
+              )
+            }
+
+            return result.ANTHROPIC_DEFAULT_SONNET_MODEL === undefined
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('ANTHROPIC_DEFAULT_OPUS_MODEL is present when configured', () => {
+      fc.assert(
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
+
+            if (agentConfig.anthropicDefaultOpusModel) {
+              return (
+                result.ANTHROPIC_DEFAULT_OPUS_MODEL ===
+                agentConfig.anthropicDefaultOpusModel
+              )
+            }
+
+            return result.ANTHROPIC_DEFAULT_OPUS_MODEL === undefined
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('ANTHROPIC_DEFAULT_HAIKU_MODEL is present when configured', () => {
+      fc.assert(
+        fc.property(
+          arbitraryBaseEnv,
+          arbitraryAgentConfig,
+          (baseEnv, agentConfig) => {
+            const result = buildAgentEnvironment(baseEnv, agentConfig)
+
+            if (agentConfig.anthropicDefaultHaikuModel) {
+              return (
+                result.ANTHROPIC_DEFAULT_HAIKU_MODEL ===
+                agentConfig.anthropicDefaultHaikuModel
+              )
+            }
+
+            return result.ANTHROPIC_DEFAULT_HAIKU_MODEL === undefined
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
     it('base environment variables are preserved unless overridden', () => {
       fc.assert(
         fc.property(
@@ -230,6 +334,10 @@ describe('Process Manager Property Tests', () => {
             const reservedKeys = new Set([
               'ANTHROPIC_AUTH_TOKEN',
               'ANTHROPIC_BASE_URL',
+              'ANTHROPIC_API_KEY',
+              'ANTHROPIC_DEFAULT_SONNET_MODEL',
+              'ANTHROPIC_DEFAULT_OPUS_MODEL',
+              'ANTHROPIC_DEFAULT_HAIKU_MODEL',
               'API_TIMEOUT_MS',
               'PYTHON_PATH',
               ...Object.keys(agentConfig.customEnvVars),
@@ -264,6 +372,10 @@ describe('Process Manager Property Tests', () => {
               [
                 'ANTHROPIC_AUTH_TOKEN',
                 'ANTHROPIC_BASE_URL',
+                'ANTHROPIC_API_KEY',
+                'ANTHROPIC_DEFAULT_SONNET_MODEL',
+                'ANTHROPIC_DEFAULT_OPUS_MODEL',
+                'ANTHROPIC_DEFAULT_HAIKU_MODEL',
                 'API_TIMEOUT_MS',
                 'PYTHON_PATH',
               ].includes(key)
