@@ -2,15 +2,15 @@
   "displayName": "Mira App",
   "name": "mira-app",
   "description": "An Electron application with React and TypeScript",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "main": "./node_modules/.dev/main/index.mjs",
   "resources": "src/resources",
   "author": {
-    "name": "Mira",
-    "email": "mira@example.com"
+    "name": "raulshma",
+    "email": "me@raulshma.xyz"
   },
   "license": "MIT",
-  "homepage": "https://electron-vite.org",
+  "homepage": "https://mira.raulshma.xyz",
   "packageManager": "pnpm@10.0.0",
   "pnpm": {
     "onlyBuiltDependenciesFile": "./trusted-dependencies-scripts.json"

@@ -1,17 +1,22 @@
 /** biome-ignore-all lint/suspicious/noTemplateCurlyInString: <> */
-import type { Configuration } from 'electron-builder'
+const { normalize, dirname } = require('node:path')
+const packageJSON = require('./package.json')
 
-import {
+function getDevFolder(path) {
+  const [nodeModules, devFolder] = normalize(dirname(path)).split(/\/|\\/g)
+
+  return [nodeModules, devFolder].join('/')
+}
+
+const {
   main,
   name,
   version,
   resources,
   description,
   displayName,
-  author as _author,
-} from './package.json'
-
-import { getDevFolder } from './src/lib/electron-app/release/utils/path'
+  author: _author,
+} = packageJSON
 
 const author = _author?.name ?? _author
 const currentYear = new Date().getFullYear()
@@ -20,10 +25,11 @@ const appId = `com.${authorInKebabCase}.${name}`.toLowerCase()
 
 const artifactName = [`${name}-v${version}`, '-${os}.${ext}'].join('')
 
-export default {
+module.exports = {
   appId,
   productName: displayName,
-  copyright: `Copyright © ${currentYear} — ${author}`,
+  copyright: `Copyright © ${currentYear} \u2025 ${author}`,
+  cscLink: null,
 
   directories: {
     app: getDevFolder(main),
@@ -32,7 +38,7 @@ export default {
 
   mac: {
     artifactName,
-    icon: `${resources}/build/icons/icon.icns`,
+    icon: `${resources}/icon.png`,
     category: 'public.app-category.utilities',
     target: ['zip', 'dmg', 'dir'],
   },
@@ -46,7 +52,10 @@ export default {
 
   win: {
     artifactName,
-    icon: `${resources}/build/icons/icon.ico`,
+    icon: `${resources}/icon.png`,
     target: ['zip', 'portable'],
+    forceCodeSigning: false,
+    signAndEditExecutable: false,
+    cscLink: "",
   },
-} satisfies Configuration
+}
