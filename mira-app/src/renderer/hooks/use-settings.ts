@@ -22,7 +22,7 @@ export const SETTING_KEYS = {
   TERMINAL_SCROLLBACK: 'terminal.scrollback',
   TERMINAL_SHELL: 'terminal.shell',
 
-  // Editor
+  // Editor (not yet exposed in UI - reserved for future code editor feature)
   EDITOR_TAB_SIZE: 'editor.tabSize',
   EDITOR_WORD_WRAP: 'editor.wordWrap',
   EDITOR_LINE_NUMBERS: 'editor.lineNumbers',

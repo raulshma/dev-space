@@ -101,15 +101,21 @@ export function AISettings(): React.JSX.Element {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Stream Responses */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between opacity-60">
             <div className="space-y-0.5">
-              <Label>Stream Responses</Label>
+              <div className="flex items-center gap-2">
+                <Label>Stream Responses</Label>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  Coming Soon
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Show AI responses as they are generated
               </p>
             </div>
             <Switch
               checked={streamResponses}
+              disabled
               onCheckedChange={checked => {
                 setStreamResponses(checked)
                 handleSettingChange(
@@ -121,10 +127,15 @@ export function AISettings(): React.JSX.Element {
           </div>
 
           {/* Max Tokens */}
-          <div className="space-y-3">
+          <div className="space-y-3 opacity-60">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Max Response Tokens</Label>
+                <div className="flex items-center gap-2">
+                  <Label>Max Response Tokens</Label>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    Coming Soon
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Maximum length of AI responses ({maxTokens.toLocaleString()}{' '}
                   tokens)
@@ -136,6 +147,7 @@ export function AISettings(): React.JSX.Element {
             </div>
             <Slider
               className="w-full"
+              disabled
               max={16384}
               min={256}
               onValueChange={value => {

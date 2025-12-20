@@ -100,10 +100,10 @@ export function useWorkspaceSession({
         centerPanelLayout: centerLayout,
         expandedPanelSizes: { ...lastExpandedSizesRef.current },
         sidebarCollapsed: appState.sidebarCollapsed,
-        agentPanelCollapsed: appState.agentPanelCollapsed,
+        devToolsPanelCollapsed: appState.devToolsPanelCollapsed,
         zenMode: appState.zenMode,
         previousSidebarState: appState.previousSidebarState,
-        previousAgentPanelState: appState.previousAgentPanelState,
+        previousDevToolsPanelState: appState.previousDevToolsPanelState,
         activeSidebarTab: sidebarState.activeTab,
         openFilePaths: editorState.openFiles
           .filter(f => !f.isDiff)
@@ -172,11 +172,11 @@ export function useWorkspaceSession({
       if (session?.workspace) {
         hydrateWorkspaceState({
           sidebarCollapsed: session.workspace.sidebarCollapsed ?? false,
-          agentPanelCollapsed: session.workspace.agentPanelCollapsed ?? false,
+          devToolsPanelCollapsed: session.workspace.devToolsPanelCollapsed ?? false,
           zenMode: session.workspace.zenMode ?? false,
           previousSidebarState: session.workspace.previousSidebarState ?? false,
-          previousAgentPanelState:
-            session.workspace.previousAgentPanelState ?? false,
+          previousDevToolsPanelState:
+            session.workspace.previousDevToolsPanelState ?? false,
         })
 
         // Restore expanded panel sizes for collapsed panels

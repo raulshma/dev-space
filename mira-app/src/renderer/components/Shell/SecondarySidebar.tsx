@@ -1,149 +1,151 @@
 /**
  * SecondarySidebar Component
  *
- * Right sidebar for agent tasks and contextual panels.
+ * Right sidebar for developer tools.
  */
 
-import { useState, useCallback, memo } from 'react'
-import { IconRobot, IconPlus } from '@tabler/icons-react'
-import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
-import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
-import { useProject } from 'renderer/hooks/use-projects'
-import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
-import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
-import { TaskCompletionView } from 'renderer/components/Agent/TaskCompletionView'
-import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
-import { Button } from 'renderer/components/ui/button'
-import { useAppStore } from 'renderer/stores/app-store'
-import type { AgentTask } from 'shared/ai-types'
+import { useState, memo, lazy, Suspense } from 'react'
+import {
+  IconTool,
+  IconPlug,
+  IconCpu,
+  IconKey,
+  IconBraces,
+} from '@tabler/icons-react'
+import { Spinner } from 'renderer/components/ui/spinner'
+import { cn } from 'renderer/lib/utils'
 
-interface SecondarySidebarProps {
-  projectId: string | null
+// Lazy load tool components
+const PortKiller = lazy(() =>
+  import('renderer/components/DevTools/PortKiller').then(m => ({
+    default: m.PortKiller,
+  }))
+)
+const TaskKiller = lazy(() =>
+  import('renderer/components/DevTools/TaskKiller').then(m => ({
+    default: m.TaskKiller,
+  }))
+)
+const JWTDecoder = lazy(() =>
+  import('renderer/components/DevTools/JWTDecoder').then(m => ({
+    default: m.JWTDecoder,
+  }))
+)
+const JSONFormatter = lazy(() =>
+  import('renderer/components/DevTools/JSONFormatter').then(m => ({
+    default: m.JSONFormatter,
+  }))
+)
+
+type ToolId = 'ports' | 'tasks' | 'jwt' | 'json'
+
+interface ToolConfig {
+  id: ToolId
+  label: string
+  description: string
+  icon: React.ComponentType<{ className?: string }>
+  component: React.LazyExoticComponent<() => React.JSX.Element>
 }
 
-export const SecondarySidebar = memo(function SecondarySidebar({
-  projectId,
-}: SecondarySidebarProps) {
-  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>(
-    'list'
-  )
-  const [showTaskCreation, setShowTaskCreation] = useState(false)
-  const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
-  const setActiveView = useAppStore(state => state.setActiveView)
+const tools: ToolConfig[] = [
+  {
+    id: 'ports',
+    label: 'Port Killer',
+    description: 'Find and kill processes by port',
+    icon: IconPlug,
+    component: PortKiller,
+  },
+  {
+    id: 'tasks',
+    label: 'Task Killer',
+    description: 'View and kill running processes',
+    icon: IconCpu,
+    component: TaskKiller,
+  },
+  {
+    id: 'jwt',
+    label: 'JWT Decoder',
+    description: 'Decode and inspect JWT tokens',
+    icon: IconKey,
+    component: JWTDecoder,
+  },
+  {
+    id: 'json',
+    label: 'JSON Formatter',
+    description: 'Format, validate, and minify JSON',
+    icon: IconBraces,
+    component: JSONFormatter,
+  },
+]
 
-  // Get project data to access the path
-  const { data: project } = useProject(projectId)
+export const SecondarySidebar = memo(function SecondarySidebar() {
+  const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
-  // Load tasks
-  useAgentTasks()
-
-  const handleTaskSelect = useCallback(
-    (taskId: string) => {
-      setSelectedTask(taskId)
-      setActiveView('tasks')
-    },
-    [setSelectedTask, setActiveView]
-  )
-
-  const handleTaskCreated = useCallback(
-    (taskId: string) => {
-      setSelectedTask(taskId)
-      setTaskView('list')
-    },
-    [setSelectedTask]
-  )
-
-  const handleBackToTaskList = useCallback(() => {
-    setTaskView('list')
-    setSelectedTask(null)
-  }, [setSelectedTask])
-
-  const handleEditTask = useCallback(
-    (task: AgentTask) => {
-      setSelectedTask(task.id)
-      setActiveView('tasks')
-    },
-    [setSelectedTask, setActiveView]
-  )
+  const selectedTool = tools.find(t => t.id === activeTool)
 
   return (
     <aside className="h-full flex flex-col overflow-hidden bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <span className="text-sm font-medium flex items-center gap-2">
-          <IconRobot className="h-4 w-4" />
-          Agent Tasks
+          <IconTool className="h-4 w-4" />
+          Developer Tools
         </span>
       </div>
 
-      {/* Sub-header with actions */}
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-        {taskView !== 'list' && (
-          <Button
-            className="text-xs h-6"
-            onClick={handleBackToTaskList}
-            size="sm"
-            variant="ghost"
-          >
-            ← Back
-          </Button>
-        )}
-        {taskView === 'list' && (
-          <>
-            <span className="text-xs text-muted-foreground">Recent Tasks</span>
-            <div className="flex items-center gap-1">
-              <Button
-                className="text-xs h-6"
-                onClick={() => setActiveView('tasks')}
-                size="sm"
-                variant="ghost"
-              >
-                View All
-              </Button>
-              <Button
-                className="h-6 w-6"
-                onClick={() => setShowTaskCreation(true)}
-                size="icon-sm"
-                title="New task"
-                variant="ghost"
-              >
-                <IconPlus className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Tool list or active tool */}
+      {activeTool && selectedTool ? (
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Tool header with back button */}
+          <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
+            <button
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setActiveTool(null)}
+              type="button"
+            >
+              ← Back
+            </button>
+            <span className="text-xs font-medium">{selectedTool.label}</span>
+          </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {taskView === 'list' && (
-          <TaskBacklogList
-            onEditTask={handleEditTask}
-            onTaskSelect={handleTaskSelect}
-          />
-        )}
-        {taskView === 'detail' && selectedTaskId && (
-          <TaskDetailView
-            onBack={handleBackToTaskList}
-            taskId={selectedTaskId}
-          />
-        )}
-        {taskView === 'completion' && selectedTaskId && (
-          <TaskCompletionView
-            onBack={handleBackToTaskList}
-            onViewOutput={() => setTaskView('detail')}
-            taskId={selectedTaskId}
-          />
-        )}
-      </div>
-
-      {/* Task creation dialog */}
-      <TaskCreationDialog
-        defaultDirectory={project?.path}
-        onOpenChange={setShowTaskCreation}
-        onTaskCreated={handleTaskCreated}
-        open={showTaskCreation}
-      />
+          {/* Tool content */}
+          <div className="flex-1 overflow-auto p-2">
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-32">
+                  <Spinner className="h-5 w-5" />
+                </div>
+              }
+            >
+              <selectedTool.component />
+            </Suspense>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-2">
+          <div className="space-y-1">
+            {tools.map(tool => (
+              <button
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-md',
+                  'hover:bg-muted/50 transition-colors text-left group'
+                )}
+                key={tool.id}
+                onClick={() => setActiveTool(tool.id)}
+                type="button"
+              >
+                <tool.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{tool.label}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {tool.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </aside>
   )
 })

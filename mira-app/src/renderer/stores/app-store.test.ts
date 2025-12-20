@@ -7,13 +7,13 @@ describe('AppStore', () => {
     // Reset store state before each test
     useAppStore.setState({
       sidebarCollapsed: false,
-      agentPanelCollapsed: false,
+      devToolsPanelCollapsed: false,
       zenMode: false,
       activeProjectId: null,
       activeTerminalId: null,
       commandPaletteOpen: false,
       previousSidebarState: false,
-      previousAgentPanelState: false,
+      previousDevToolsPanelState: false,
     })
   })
 
@@ -39,70 +39,70 @@ describe('AppStore', () => {
     expect(useAppStore.getState().sidebarCollapsed).toBe(false)
   })
 
-  it('should toggle agent panel', () => {
-    const { toggleAgentPanel } = useAppStore.getState()
+  it('should toggle dev tools panel', () => {
+    const { toggleDevToolsPanel } = useAppStore.getState()
 
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(false)
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(false)
 
-    toggleAgentPanel()
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(true)
+    toggleDevToolsPanel()
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(true)
 
-    toggleAgentPanel()
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(false)
+    toggleDevToolsPanel()
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(false)
   })
 
-  it('should set agent panel collapsed state', () => {
-    const { setAgentPanelCollapsed } = useAppStore.getState()
+  it('should set dev tools panel collapsed state', () => {
+    const { setDevToolsPanelCollapsed } = useAppStore.getState()
 
-    setAgentPanelCollapsed(true)
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(true)
+    setDevToolsPanelCollapsed(true)
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(true)
 
-    setAgentPanelCollapsed(false)
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(false)
+    setDevToolsPanelCollapsed(false)
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(false)
   })
 
   it('should toggle zen mode and save previous state', () => {
-    const { toggleZenMode, setSidebarCollapsed, setAgentPanelCollapsed } =
+    const { toggleZenMode, setSidebarCollapsed, setDevToolsPanelCollapsed } =
       useAppStore.getState()
 
-    // Set sidebar and agent panel to visible
+    // Set sidebar and dev tools panel to visible
     setSidebarCollapsed(false)
-    setAgentPanelCollapsed(false)
+    setDevToolsPanelCollapsed(false)
 
     // Enter zen mode
     toggleZenMode()
     expect(useAppStore.getState().zenMode).toBe(true)
     expect(useAppStore.getState().sidebarCollapsed).toBe(true)
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(true)
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(true)
     expect(useAppStore.getState().previousSidebarState).toBe(false)
-    expect(useAppStore.getState().previousAgentPanelState).toBe(false)
+    expect(useAppStore.getState().previousDevToolsPanelState).toBe(false)
 
     // Exit zen mode
     toggleZenMode()
     expect(useAppStore.getState().zenMode).toBe(false)
     expect(useAppStore.getState().sidebarCollapsed).toBe(false)
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(false)
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(false)
   })
 
   it('should restore previous panel states when exiting zen mode', () => {
-    const { toggleZenMode, setSidebarCollapsed, setAgentPanelCollapsed } =
+    const { toggleZenMode, setSidebarCollapsed, setDevToolsPanelCollapsed } =
       useAppStore.getState()
 
-    // Set sidebar collapsed and agent panel visible
+    // Set sidebar collapsed and dev tools panel visible
     setSidebarCollapsed(true)
-    setAgentPanelCollapsed(false)
+    setDevToolsPanelCollapsed(false)
 
     // Enter zen mode
     toggleZenMode()
     expect(useAppStore.getState().zenMode).toBe(true)
     expect(useAppStore.getState().sidebarCollapsed).toBe(true)
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(true)
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(true)
 
     // Exit zen mode - should restore previous states
     toggleZenMode()
     expect(useAppStore.getState().zenMode).toBe(false)
     expect(useAppStore.getState().sidebarCollapsed).toBe(true) // Was collapsed before
-    expect(useAppStore.getState().agentPanelCollapsed).toBe(false) // Was visible before
+    expect(useAppStore.getState().devToolsPanelCollapsed).toBe(false) // Was visible before
   })
 
   it('should set active project', () => {

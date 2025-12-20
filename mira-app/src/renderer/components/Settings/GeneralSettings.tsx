@@ -266,15 +266,21 @@ export function GeneralSettings(): React.JSX.Element {
           </div>
 
           {/* Telemetry */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between opacity-60">
             <div className="space-y-0.5">
-              <Label>Usage Analytics</Label>
+              <div className="flex items-center gap-2">
+                <Label>Usage Analytics</Label>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  Coming Soon
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Help improve Mira by sending anonymous usage data
               </p>
             </div>
             <Switch
               checked={telemetryEnabled}
+              disabled
               onCheckedChange={checked => {
                 setTelemetryEnabled(checked)
                 handleSettingChange(

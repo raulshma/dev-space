@@ -8,7 +8,7 @@ export type ActiveView = 'dashboard' | 'workspace' | 'tasks' | 'running-agents'
 export interface AppState {
   // UI State
   sidebarCollapsed: boolean
-  agentPanelCollapsed: boolean
+  devToolsPanelCollapsed: boolean
   zenMode: boolean
   activeProjectId: string | null
   activeTerminalId: string | null
@@ -19,23 +19,23 @@ export interface AppState {
 
   // Previous state for Zen Mode restoration
   previousSidebarState: boolean
-  previousAgentPanelState: boolean
+  previousDevToolsPanelState: boolean
 
   // Actions
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
-  toggleAgentPanel: () => void
-  setAgentPanelCollapsed: (collapsed: boolean) => void
+  toggleDevToolsPanel: () => void
+  setDevToolsPanelCollapsed: (collapsed: boolean) => void
   toggleZenMode: () => void
   hydrateWorkspaceState: (
     state: Partial<
       Pick<
         AppState,
         | 'sidebarCollapsed'
-        | 'agentPanelCollapsed'
+        | 'devToolsPanelCollapsed'
         | 'zenMode'
         | 'previousSidebarState'
-        | 'previousAgentPanelState'
+        | 'previousDevToolsPanelState'
       >
     >
   ) => void
@@ -52,7 +52,7 @@ export interface AppState {
 export const useAppStore = create<AppState>(set => ({
   // Initial state
   sidebarCollapsed: false,
-  agentPanelCollapsed: false,
+  devToolsPanelCollapsed: false,
   zenMode: false,
   activeProjectId: null,
   activeTerminalId: null,
@@ -61,7 +61,7 @@ export const useAppStore = create<AppState>(set => ({
   activeView: 'dashboard',
   previousView: null,
   previousSidebarState: false,
-  previousAgentPanelState: false,
+  previousDevToolsPanelState: false,
 
   // Actions
   toggleSidebar: () =>
@@ -74,14 +74,14 @@ export const useAppStore = create<AppState>(set => ({
       sidebarCollapsed: collapsed,
     }),
 
-  toggleAgentPanel: () =>
+  toggleDevToolsPanel: () =>
     set(state => ({
-      agentPanelCollapsed: !state.agentPanelCollapsed,
+      devToolsPanelCollapsed: !state.devToolsPanelCollapsed,
     })),
 
-  setAgentPanelCollapsed: (collapsed: boolean) =>
+  setDevToolsPanelCollapsed: (collapsed: boolean) =>
     set({
-      agentPanelCollapsed: collapsed,
+      devToolsPanelCollapsed: collapsed,
     }),
 
   toggleZenMode: () =>
@@ -91,16 +91,16 @@ export const useAppStore = create<AppState>(set => ({
         return {
           zenMode: true,
           previousSidebarState: state.sidebarCollapsed,
-          previousAgentPanelState: state.agentPanelCollapsed,
+          previousDevToolsPanelState: state.devToolsPanelCollapsed,
           sidebarCollapsed: true,
-          agentPanelCollapsed: true,
+          devToolsPanelCollapsed: true,
         }
       }
       // Exiting Zen Mode - restore previous state
       return {
         zenMode: false,
         sidebarCollapsed: state.previousSidebarState,
-        agentPanelCollapsed: state.previousAgentPanelState,
+        devToolsPanelCollapsed: state.previousDevToolsPanelState,
       }
     }),
 

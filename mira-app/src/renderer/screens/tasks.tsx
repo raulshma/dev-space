@@ -149,7 +149,6 @@ function TasksScreenContent(): React.JSX.Element {
   return (
     <div className="flex flex-col h-screen bg-background">
       <TasksHeader
-        onBack={handleBack}
         onCreateTask={handleOpenTaskCreation}
         onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}
         onViewModeChange={setViewMode}

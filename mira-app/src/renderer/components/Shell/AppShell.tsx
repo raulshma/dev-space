@@ -37,10 +37,10 @@ export function AppShell(): React.JSX.Element {
   const closeSettingsPanel = useAppStore(state => state.closeSettingsPanel)
   const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
   const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
-  const agentPanelCollapsed = useAppStore(state => state.agentPanelCollapsed)
+  const devToolsPanelCollapsed = useAppStore(state => state.devToolsPanelCollapsed)
   const zenMode = useAppStore(state => state.zenMode)
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
-  const toggleAgentPanel = useAppStore(state => state.toggleAgentPanel)
+  const toggleDevToolsPanel = useAppStore(state => state.toggleDevToolsPanel)
   const toggleZenMode = useAppStore(state => state.toggleZenMode)
   const activeView = useAppStore(state => state.activeView)
 
@@ -73,7 +73,7 @@ export function AppShell(): React.JSX.Element {
   // Sync panel collapse state with app store
   useEffect(() => {
     const shouldCollapseLeft = zenMode || sidebarCollapsed
-    const shouldCollapseRight = zenMode || agentPanelCollapsed
+    const shouldCollapseRight = zenMode || devToolsPanelCollapsed
     const panelGroup = panelGroupRef.current
     const leftPanel = leftPanelRef.current
     const rightPanel = rightPanelRef.current
@@ -118,7 +118,7 @@ export function AppShell(): React.JSX.Element {
     } catch {
       // Panel may not be ready
     }
-  }, [sidebarCollapsed, agentPanelCollapsed, zenMode])
+  }, [sidebarCollapsed, devToolsPanelCollapsed, zenMode])
 
   const handleTabChange = useCallback(
     (tab: ActivityBarTab) => {
@@ -128,7 +128,7 @@ export function AppShell(): React.JSX.Element {
   )
 
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
-  const isRightPanelVisible = !zenMode && !agentPanelCollapsed
+  const isRightPanelVisible = !zenMode && !devToolsPanelCollapsed
 
   // Determine what to show in main content
   const renderMainContent = () => {
@@ -144,10 +144,10 @@ export function AppShell(): React.JSX.Element {
       <TopNav
         leftSidebarCollapsed={sidebarCollapsed}
         onToggleLeftSidebar={toggleSidebar}
-        onToggleRightSidebar={toggleAgentPanel}
+        onToggleRightSidebar={toggleDevToolsPanel}
         onToggleZenMode={toggleZenMode}
         projectId={activeProjectId}
-        rightSidebarCollapsed={agentPanelCollapsed}
+        rightSidebarCollapsed={devToolsPanelCollapsed}
         zenMode={zenMode}
       />
 
@@ -209,9 +209,7 @@ export function AppShell(): React.JSX.Element {
             minSize={15}
             ref={rightPanelRef}
           >
-            {isRightPanelVisible && (
-              <SecondarySidebar projectId={activeProjectId} />
-            )}
+            {isRightPanelVisible && <SecondarySidebar />}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

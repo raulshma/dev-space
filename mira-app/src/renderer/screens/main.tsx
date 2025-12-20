@@ -11,6 +11,7 @@ import { SETTING_KEYS } from 'renderer/hooks/use-settings'
 import { useRunningProjectsInit } from 'renderer/hooks/use-running-projects'
 import { useRunningTasksInit } from 'renderer/hooks/use-running-tasks'
 import { useTheme } from 'renderer/hooks/use-theme'
+import { useAppearance } from 'renderer/hooks/use-appearance'
 
 export function MainScreen() {
   const activeProjectId = useAppStore(state => state.activeProjectId)
@@ -22,6 +23,9 @@ export function MainScreen() {
 
   // Apply project theme
   useTheme(activeProjectId)
+
+  // Apply global appearance settings (font size, font family)
+  useAppearance()
 
   // Track if we've restored the last project
   const hasRestoredLastProject = useRef(false)

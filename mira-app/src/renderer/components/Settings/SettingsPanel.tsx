@@ -19,6 +19,7 @@ import {
   IconSparkles,
   IconListCheck,
   IconPalette,
+  IconX,
 } from '@tabler/icons-react'
 import { Sheet, SheetContent } from 'renderer/components/ui/sheet'
 import {
@@ -37,6 +38,7 @@ import { ApiKeyManager } from 'renderer/components/Agent/ApiKeyManager'
 import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
 import { AgentConfigPanel } from 'renderer/components/Agent/AgentConfigPanel'
 import { ThemeBuilder } from './ThemeBuilder'
+import { Button } from 'renderer/components/ui/button'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -50,12 +52,21 @@ export function SettingsPanel({
   return (
     <Sheet onOpenChange={onClose} open={isOpen}>
       <SheetContent
-        className="w-[900px]! min-w-[70vw]! p-0 overflow-hidden"
+        className="w-[90vw]! min-w-[90vw]! p-0 overflow-hidden"
         side="right"
       >
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-6 py-4 border-b shrink-0 bg-background relative z-10">
+          <div className="px-6 py-4 border-b shrink-0 bg-background relative z-10 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 rounded-full"
+            >
+              <IconX className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
           </div>
 
           <Tabs

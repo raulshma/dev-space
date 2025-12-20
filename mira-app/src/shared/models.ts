@@ -43,10 +43,10 @@ export interface WorkspaceSessionState {
 
   /** UI state for restoring the workspace experience */
   sidebarCollapsed?: boolean
-  agentPanelCollapsed?: boolean
+  devToolsPanelCollapsed?: boolean
   zenMode?: boolean
   previousSidebarState?: boolean
-  previousAgentPanelState?: boolean
+  previousDevToolsPanelState?: boolean
 
   /** Active sidebar tab (files, git, scripts, commands) */
   activeSidebarTab?: string

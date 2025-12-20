@@ -21,17 +21,11 @@ import {
   useRemoveTagFromProject,
 } from 'renderer/hooks/use-tags'
 import { useAppStore } from 'renderer/stores/app-store'
-import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
-import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { LeftSidebar } from 'renderer/components/LeftSidebar'
 import { CodeEditorPanel } from 'renderer/components/CodeEditor'
 import { useEditorStore } from 'renderer/stores/editor-store'
-import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
-import { TaskDetailView } from 'renderer/components/Agent/TaskDetailView'
-import { TaskCompletionView } from 'renderer/components/Agent/TaskCompletionView'
-import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
 import { Button } from 'renderer/components/ui/button'
 import {
   ResizablePanelGroup,
@@ -41,7 +35,6 @@ import {
   type PanelImperativeHandle,
 } from 'renderer/components/ui/resizable'
 import type { Tag } from 'shared/models'
-import type { AgentTask } from 'shared/ai-types'
 
 interface ProjectWorkspaceProps {
   projectId: string
@@ -62,11 +55,11 @@ interface WorkspaceHeaderProps {
   availableTags: Tag[]
   zenMode: boolean
   sidebarCollapsed: boolean
-  agentPanelCollapsed: boolean
+  devToolsPanelCollapsed: boolean
   onBackToDashboard: () => void
   onToggleZenMode: () => void
   onToggleSidebar: () => void
-  onToggleAgentPanel: () => void
+  onToggleDevToolsPanel: () => void
   onOpenSettings: () => void
   onAddTag: (tagId: string) => void
   onRemoveTag: (tagId: string) => void
@@ -80,11 +73,11 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
   availableTags,
   zenMode,
   sidebarCollapsed,
-  agentPanelCollapsed,
+  devToolsPanelCollapsed,
   onBackToDashboard,
   onToggleZenMode,
   onToggleSidebar,
-  onToggleAgentPanel,
+  onToggleDevToolsPanel,
   onOpenSettings,
   onAddTag,
   onRemoveTag,
@@ -227,10 +220,10 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
               </button>
               <button
                 className="px-3 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-sm text-sm"
-                onClick={onToggleAgentPanel}
-                title="Toggle Agent Panel"
+                onClick={onToggleDevToolsPanel}
+                title="Toggle Dev Tools Panel"
               >
-                {agentPanelCollapsed ? '🤖' : '→'}
+                {devToolsPanelCollapsed ? '🔧' : '→'}
               </button>
             </>
           )}
@@ -247,140 +240,144 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
   )
 })
 
-// Agent panel component
-interface AgentPanelProps {
-  projectId: string
-  projectPath: string
+// Dev tools panel component
+interface DevToolsPanelProps {
   isVisible: boolean
   onTogglePanel: () => void
-  onNavigateToTasks: (taskId?: string) => void
 }
 
-const AgentPanel = memo(function AgentPanel({
-  projectPath,
+const DevToolsPanel = memo(function DevToolsPanel({
   isVisible,
   onTogglePanel,
-  onNavigateToTasks,
-}: AgentPanelProps) {
-  const [taskView, setTaskView] = useState<'list' | 'detail' | 'completion'>(
-    'list'
-  )
-  const [showTaskCreation, setShowTaskCreation] = useState(false)
-  const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
-
-  useAgentTasks()
-
-  const handleTaskSelect = useCallback(
-    (taskId: string) => {
-      setSelectedTask(taskId)
-      onNavigateToTasks(taskId)
-    },
-    [setSelectedTask, onNavigateToTasks]
-  )
-
-  const handleTaskCreated = useCallback(
-    (taskId: string) => {
-      setSelectedTask(taskId)
-      setTaskView('list')
-    },
-    [setSelectedTask]
-  )
-
-  const handleBackToTaskList = useCallback(() => {
-    setTaskView('list')
-    setSelectedTask(null)
-  }, [setSelectedTask])
-
-  const handleEditTask = useCallback(
-    (task: AgentTask) => {
-      setSelectedTask(task.id)
-      onNavigateToTasks(task.id)
-    },
-    [setSelectedTask, onNavigateToTasks]
-  )
+}: DevToolsPanelProps) {
+  const [activeTool, setActiveTool] = useState<
+    'ports' | 'tasks' | 'jwt' | 'json' | null
+  >(null)
 
   if (!isVisible) return null
+
+  const tools = [
+    {
+      id: 'ports' as const,
+      label: 'Port Killer',
+      description: 'Find and kill processes by port',
+      icon: '🔌',
+    },
+    {
+      id: 'tasks' as const,
+      label: 'Task Killer',
+      description: 'View and kill running processes',
+      icon: '⚙️',
+    },
+    {
+      id: 'jwt' as const,
+      label: 'JWT Decoder',
+      description: 'Decode and inspect JWT tokens',
+      icon: '🔑',
+    },
+    {
+      id: 'json' as const,
+      label: 'JSON Formatter',
+      description: 'Format, validate, and minify JSON',
+      icon: '{ }',
+    },
+  ]
+
+  const selectedTool = tools.find(t => t.id === activeTool)
 
   return (
     <aside className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <span className="text-sm font-medium">🤖 Agent Tasks</span>
+        <span className="text-sm font-medium">🔧 Developer Tools</span>
         <button
           className="text-muted-foreground hover:text-foreground"
           onClick={onTogglePanel}
-          title="Hide Agent Panel"
+          title="Hide Dev Tools Panel"
         >
           ✕
         </button>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border px-4 py-2">
-          {taskView !== 'list' && (
+      {activeTool && selectedTool ? (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2">
             <Button
               className="text-xs"
-              onClick={handleBackToTaskList}
+              onClick={() => setActiveTool(null)}
               size="sm"
               variant="ghost"
             >
-              ← Back to List
+              ← Back
             </Button>
-          )}
-          {taskView === 'list' && (
-            <span className="text-sm font-medium">Tasks</span>
-          )}
-          {taskView === 'list' && (
-            <div className="flex items-center gap-2">
-              <Button
-                className="text-xs"
-                onClick={() => onNavigateToTasks()}
-                size="sm"
-                variant="ghost"
-              >
-                View All
-              </Button>
-              <Button
-                className="text-xs"
-                onClick={() => setShowTaskCreation(true)}
-                size="sm"
-                variant="outline"
-              >
-                + New Task
-              </Button>
-            </div>
-          )}
+            <span className="text-sm font-medium">{selectedTool.label}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {activeTool === 'ports' && <PortKillerInline />}
+            {activeTool === 'tasks' && <TaskKillerInline />}
+            {activeTool === 'jwt' && <JWTDecoderInline />}
+            {activeTool === 'json' && <JSONFormatterInline />}
+          </div>
         </div>
-
+      ) : (
         <div className="flex-1 overflow-y-auto p-4">
-          {taskView === 'list' && (
-            <TaskBacklogList
-              onEditTask={handleEditTask}
-              onTaskSelect={handleTaskSelect}
-            />
-          )}
-          {taskView === 'detail' && selectedTaskId && (
-            <TaskDetailView
-              onBack={handleBackToTaskList}
-              taskId={selectedTaskId}
-            />
-          )}
-          {taskView === 'completion' && selectedTaskId && (
-            <TaskCompletionView
-              onBack={handleBackToTaskList}
-              onViewOutput={() => setTaskView('detail')}
-              taskId={selectedTaskId}
-            />
-          )}
+          <div className="space-y-2">
+            {tools.map(tool => (
+              <button
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-md hover:bg-muted/50 transition-colors text-left"
+                key={tool.id}
+                onClick={() => setActiveTool(tool.id)}
+                type="button"
+              >
+                <span className="text-lg">{tool.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{tool.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {tool.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
-
-      <TaskCreationDialog
-        defaultDirectory={projectPath}
-        onOpenChange={setShowTaskCreation}
-        onTaskCreated={handleTaskCreated}
-        open={showTaskCreation}
-      />
+      )}
     </aside>
+  )
+})
+
+// Inline dev tool components (simplified versions for sidebar)
+const PortKillerInline = memo(function PortKillerInline() {
+  return (
+    <div className="text-sm text-muted-foreground">
+      <p>Port Killer tool - Find and kill processes by port number.</p>
+      <p className="mt-2">Use the full dev tools panel for this feature.</p>
+    </div>
+  )
+})
+
+const TaskKillerInline = memo(function TaskKillerInline() {
+  return (
+    <div className="text-sm text-muted-foreground">
+      <p>Task Killer tool - View and terminate running processes.</p>
+      <p className="mt-2">Use the full dev tools panel for this feature.</p>
+    </div>
+  )
+})
+
+const JWTDecoderInline = memo(function JWTDecoderInline() {
+  return (
+    <div className="text-sm text-muted-foreground">
+      <p>JWT Decoder tool - Decode and inspect JWT tokens.</p>
+      <p className="mt-2">Use the full dev tools panel for this feature.</p>
+    </div>
+  )
+})
+
+const JSONFormatterInline = memo(function JSONFormatterInline() {
+  return (
+    <div className="text-sm text-muted-foreground">
+      <p>JSON Formatter tool - Format, validate, and minify JSON.</p>
+      <p className="mt-2">Use the full dev tools panel for this feature.</p>
+    </div>
   )
 })
 
@@ -512,12 +509,11 @@ export function ProjectWorkspace({
 
   // App store
   const setActiveProject = useAppStore(state => state.setActiveProject)
-  const setActiveView = useAppStore(state => state.setActiveView)
   const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
-  const agentPanelCollapsed = useAppStore(state => state.agentPanelCollapsed)
+  const devToolsPanelCollapsed = useAppStore(state => state.devToolsPanelCollapsed)
   const zenMode = useAppStore(state => state.zenMode)
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
-  const toggleAgentPanel = useAppStore(state => state.toggleAgentPanel)
+  const toggleDevToolsPanel = useAppStore(state => state.toggleDevToolsPanel)
   const toggleZenMode = useAppStore(state => state.toggleZenMode)
   const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
 
@@ -575,7 +571,7 @@ export function ProjectWorkspace({
   // Panel collapse sync
   useEffect(() => {
     const shouldCollapseLeft = zenMode || sidebarCollapsed
-    const shouldCollapseRight = zenMode || agentPanelCollapsed
+    const shouldCollapseRight = zenMode || devToolsPanelCollapsed
     const leftPanel = leftPanelRef.current
     const rightPanel = rightPanelRef.current
 
@@ -614,7 +610,7 @@ export function ProjectWorkspace({
     scheduleSave()
   }, [
     sidebarCollapsed,
-    agentPanelCollapsed,
+    devToolsPanelCollapsed,
     zenMode,
     scheduleSave,
     lastExpandedSizesRef,
@@ -650,13 +646,6 @@ export function ProjectWorkspace({
     setActiveProject(null)
   }, [saveNow, setActiveProject])
 
-  const handleNavigateToTasks = useCallback(
-    (_taskId?: string) => {
-      setActiveView('tasks')
-    },
-    [setActiveView]
-  )
-
   const handleLayoutChange = useCallback(
     (layout: { [panelId: string]: number }) => {
       // Update refs with new layout
@@ -685,7 +674,7 @@ export function ProjectWorkspace({
 
   // Visibility states
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
-  const isRightPanelVisible = !zenMode && !agentPanelCollapsed
+  const isRightPanelVisible = !zenMode && !devToolsPanelCollapsed
 
   // Loading state - wait for both project and session to be ready
   if (projectLoading || !isSessionReady) {
@@ -716,14 +705,14 @@ export function ProjectWorkspace({
   return (
     <div className="flex flex-col h-screen bg-background">
       <WorkspaceHeader
-        agentPanelCollapsed={agentPanelCollapsed}
+        devToolsPanelCollapsed={devToolsPanelCollapsed}
         availableTags={availableTags}
         gitTelemetry={gitTelemetryData}
         onAddTag={handleAddTag}
         onBackToDashboard={handleBackToDashboard}
         onOpenSettings={openSettingsPanel}
         onRemoveTag={handleRemoveTag}
-        onToggleAgentPanel={toggleAgentPanel}
+        onToggleDevToolsPanel={toggleDevToolsPanel}
         onToggleSidebar={toggleSidebar}
         onToggleZenMode={toggleZenMode}
         projectName={project.name}
@@ -785,12 +774,9 @@ export function ProjectWorkspace({
           minSize={10}
           ref={rightPanelRef}
         >
-          <AgentPanel
+          <DevToolsPanel
             isVisible={isRightPanelVisible}
-            onNavigateToTasks={handleNavigateToTasks}
-            onTogglePanel={toggleAgentPanel}
-            projectId={projectId}
-            projectPath={project.path}
+            onTogglePanel={toggleDevToolsPanel}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
