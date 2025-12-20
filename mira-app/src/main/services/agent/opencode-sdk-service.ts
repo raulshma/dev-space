@@ -476,6 +476,86 @@ export class OpencodeSdkService extends EventEmitter {
   }
 
   /**
+   * Format tool call details for output display
+   * Shows tool name and relevant input parameters
+   */
+  private formatToolCallDetails(
+    toolName: string,
+    input: Record<string, unknown>
+  ): string {
+    const lines: string[] = [`[Tool] ${toolName}`]
+
+    // Format input based on tool type for better readability
+    switch (toolName) {
+      case 'Read':
+      case 'ReadFile':
+        if (input.file_path) lines.push(`  file: ${input.file_path}`)
+        break
+
+      case 'Write':
+      case 'WriteFile':
+        if (input.file_path) lines.push(`  file: ${input.file_path}`)
+        break
+
+      case 'Edit':
+      case 'EditFile':
+        if (input.file_path) lines.push(`  file: ${input.file_path}`)
+        break
+
+      case 'Bash':
+      case 'Execute':
+        if (input.command) lines.push(`  command: ${input.command}`)
+        break
+
+      case 'Glob':
+      case 'ListFiles':
+        if (input.pattern) lines.push(`  pattern: ${input.pattern}`)
+        if (input.path) lines.push(`  path: ${input.path}`)
+        break
+
+      case 'Grep':
+      case 'Search':
+        if (input.pattern) lines.push(`  pattern: ${input.pattern}`)
+        if (input.path) lines.push(`  path: ${input.path}`)
+        break
+
+      case 'WebFetch':
+        if (input.url) lines.push(`  url: ${input.url}`)
+        break
+
+      case 'WebSearch':
+        if (input.query) lines.push(`  query: ${input.query}`)
+        break
+
+      case 'TodoWrite':
+        if (input.todos) {
+          const todos = input.todos as Array<{ content: string }>
+          lines.push(`  todos: ${todos.length} item(s)`)
+        }
+        break
+
+      default:
+        // For unknown tools, show all non-empty string/number inputs
+        for (const [key, value] of Object.entries(input)) {
+          if (
+            value !== undefined &&
+            value !== null &&
+            (typeof value === 'string' || typeof value === 'number')
+          ) {
+            const strValue = String(value)
+            // Truncate long values
+            const displayValue =
+              strValue.length > 100 ? `${strValue.slice(0, 100)}...` : strValue
+            lines.push(`  ${key}: ${displayValue}`)
+          }
+        }
+        break
+    }
+
+    return `${lines.join('\n')}\n`
+  }
+
+  /**
    * Handle an event from the OpenCode server
    */
   private handleEvent(
@@ -505,7 +585,8 @@ export class OpencodeSdkService extends EventEmitter {
           const toolName = String(properties.name)
           const input = (properties.input as Record<string, unknown>) || {}
           this.emit('toolCall', toolName, input)
-          this.emit('output', `[Tool] ${toolName}\n`, 'stdout')
+          const toolDetails = this.formatToolCallDetails(toolName, input)
+          this.emit('output', toolDetails, 'stdout')
         }
         break
 

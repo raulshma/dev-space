@@ -308,6 +308,86 @@ export class ClaudeSdkService extends EventEmitter {
   }
 
   /**
+   * Format tool call details for output display
+   * Shows tool name and relevant input parameters
+   */
+  private formatToolCallDetails(
+    toolName: string,
+    input: Record<string, unknown>
+  ): string {
+    const lines: string[] = [`[Tool] ${toolName}`]
+
+    // Format input based on tool type for better readability
+    switch (toolName) {
+      case 'Read':
+      case 'ReadFile':
+        if (input.file_path) lines.push(`  file: ${input.file_path}`)
+        break
+
+      case 'Write':
+      case 'WriteFile':
+        if (input.file_path) lines.push(`  file: ${input.file_path}`)
+        break
+
+      case 'Edit':
+      case 'EditFile':
+        if (input.file_path) lines.push(`  file: ${input.file_path}`)
+        break
+
+      case 'Bash':
+      case 'Execute':
+        if (input.command) lines.push(`  command: ${input.command}`)
+        break
+
+      case 'Glob':
+      case 'ListFiles':
+        if (input.pattern) lines.push(`  pattern: ${input.pattern}`)
+        if (input.path) lines.push(`  path: ${input.path}`)
+        break
+
+      case 'Grep':
+      case 'Search':
+        if (input.pattern) lines.push(`  pattern: ${input.pattern}`)
+        if (input.path) lines.push(`  path: ${input.path}`)
+        break
+
+      case 'WebFetch':
+        if (input.url) lines.push(`  url: ${input.url}`)
+        break
+
+      case 'WebSearch':
+        if (input.query) lines.push(`  query: ${input.query}`)
+        break
+
+      case 'TodoWrite':
+        if (input.todos) {
+          const todos = input.todos as Array<{ content: string }>
+          lines.push(`  todos: ${todos.length} item(s)`)
+        }
+        break
+
+      default:
+        // For unknown tools, show all non-empty string/number inputs
+        for (const [key, value] of Object.entries(input)) {
+          if (
+            value !== undefined &&
+            value !== null &&
+            (typeof value === 'string' || typeof value === 'number')
+          ) {
+            const strValue = String(value)
+            // Truncate long values
+            const displayValue =
+              strValue.length > 100 ? `${strValue.slice(0, 100)}...` : strValue
+            lines.push(`  ${key}: ${displayValue}`)
+          }
+        }
+        break
+    }
+
+    return `${lines.join('\n')}\n`
+  }
+
+  /**
    * Handle a message from the Claude SDK stream
    */
   private handleMessage(
@@ -351,16 +431,17 @@ export class ClaudeSdkService extends EventEmitter {
               if (block.type === 'text' && 'text' in block) {
                 this.emit('output', `${block.text}\n`, 'stdout')
               } else if (block.type === 'tool_use' && 'name' in block) {
-                this.emit('output', `[Tool] ${block.name}\n`, 'stdout')
-                // Emit tool call event from assistant message
-                this.emit(
-                  'toolCall',
+                const toolInput = (
+                  'input' in block ? block.input : {}
+                ) as Record<string, unknown>
+                // Format tool call with details
+                const toolDetails = this.formatToolCallDetails(
                   block.name as string,
-                  ('input' in block ? block.input : {}) as Record<
-                    string,
-                    unknown
-                  >
+                  toolInput
                 )
+                this.emit('output', toolDetails, 'stdout')
+                // Emit tool call event from assistant message
+                this.emit('toolCall', block.name as string, toolInput)
               }
             }
           }
