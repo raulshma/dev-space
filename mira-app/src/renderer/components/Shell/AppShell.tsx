@@ -190,6 +190,14 @@ export function AppShell(): React.JSX.Element {
     [setActiveTab]
   )
 
+  const handleCenterLayoutChange = useCallback(
+    (layout: any) => {
+      lastCenterLayoutRef.current = layout
+      scheduleSave()
+    },
+    [scheduleSave, lastCenterLayoutRef]
+  )
+
   if (activeProjectId && project && !isSessionReady) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
@@ -201,6 +209,8 @@ export function AppShell(): React.JSX.Element {
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
   const isRightPanelVisible = !zenMode && !devToolsPanelCollapsed
 
+
+
   // Determine what to show in main content
   const renderMainContent = () => {
     if (activeView === 'tasks') {
@@ -210,10 +220,7 @@ export function AppShell(): React.JSX.Element {
       <MainContent
         centerPanelGroupRef={centerPanelGroupRef}
         isSessionReady={isSessionReady}
-        onCenterLayoutChange={(layout: any) => {
-          lastCenterLayoutRef.current = layout
-          scheduleSave()
-        }}
+        onCenterLayoutChange={handleCenterLayoutChange}
         projectId={activeProjectId}
         restoredCenterLayout={restoredCenterLayout}
       />
@@ -221,7 +228,7 @@ export function AppShell(): React.JSX.Element {
   }
 
   return (
-    <div className="h-screen w-full bg-background text-foreground flex flex-col">
+    <div className="h-screen w-full bg-background text-foreground flex flex-col overflow-hidden">
       {/* Top navigation */}
       <TopNav
         leftSidebarCollapsed={sidebarCollapsed}
@@ -234,7 +241,7 @@ export function AppShell(): React.JSX.Element {
       />
 
       {/* Main layout */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Activity bar - always visible unless zen mode */}
         {!zenMode && (
           <ActivityBar
@@ -250,14 +257,13 @@ export function AppShell(): React.JSX.Element {
           className="flex-1"
           defaultLayout={restoredLayout}
           id="app-shell-layout"
-          key={activeProjectId || 'none'}
           onLayoutChange={handleLayoutChange}
           orientation="horizontal"
           ref={panelGroupRef}
         >
           {/* Primary sidebar */}
           <ResizablePanel
-            className="bg-card"
+            className="bg-card overflow-hidden"
             collapsedSize={0}
             collapsible
             defaultSize={20}
@@ -274,14 +280,14 @@ export function AppShell(): React.JSX.Element {
             )}
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          <ResizableHandle id="handle-primary" withHandle />
 
           {/* Main content */}
           <ResizablePanel defaultSize={60} id="main-content" minSize={30}>
             {renderMainContent()}
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          <ResizableHandle id="handle-secondary" withHandle />
 
           {/* Secondary sidebar - lazy loaded */}
           <ResizablePanel

@@ -84,9 +84,9 @@ export const ActivityBar = memo(function ActivityBar({
                 render={
                   <button
                     className={cn(
-                      'flex items-center justify-center w-10 h-10 rounded-md transition-colors',
+                      'flex items-center justify-center w-10 h-10 rounded-md transition-colors relative',
                       isActive
-                        ? 'bg-primary/10 text-primary border-l-2 border-primary'
+                        ? 'bg-primary/10 text-primary'
                         : isDisabled
                           ? 'text-muted-foreground/40 cursor-not-allowed'
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -95,6 +95,9 @@ export const ActivityBar = memo(function ActivityBar({
                     onClick={() => !isDisabled && onTabChange(tab.id)}
                     type="button"
                   >
+                    {isActive && (
+                      <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-primary rounded-r-full" />
+                    )}
                     <Icon className="h-5 w-5" />
                   </button>
                 }

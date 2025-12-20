@@ -157,6 +157,15 @@ export function useWorkspaceSession({
 
   // Restore session once data is ready
   useEffect(() => {
+    // Reset restoration state when project changes
+    isRestoredRef.current = false
+    isRestoringRef.current = true
+    setIsReady(false)
+    setRestoredLayout(undefined)
+    setRestoredCenterLayout(undefined)
+  }, [projectId])
+
+  useEffect(() => {
     // Wait for all data to be loaded before restoring
     if (isRestoredRef.current || sessionLoading || projectLoading || !project)
       return
@@ -183,7 +192,10 @@ export function useWorkspaceSession({
 
       // Sync activity bar tab
       if (activeSidebarTab) {
-        useShellStore.getState().setActiveTab(activeSidebarTab as ShellTab)
+        const currentActiveTab = useShellStore.getState().activeTab
+        if (currentActiveTab !== activeSidebarTab) {
+          useShellStore.getState().setActiveTab(activeSidebarTab as ShellTab)
+        }
       }
 
       editorStore.closeAllFiles()

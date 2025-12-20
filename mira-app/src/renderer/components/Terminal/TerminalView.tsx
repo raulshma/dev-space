@@ -116,6 +116,19 @@ export function TerminalView({
   // Use ref for terminal buffer to avoid re-renders causing terminal recreation
   const terminalBufferRef = useRef<string>('')
 
+  // Use refs for callbacks to prevent terminal recreation when they change
+  const onTitleChangeRef = useRef(onTitleChange)
+  const onExitRef = useRef(onExit)
+  const onErrorContextRef = useRef(onErrorContext)
+  const addErrorRef = useRef(addError)
+
+  useEffect(() => {
+    onTitleChangeRef.current = onTitleChange
+    onExitRef.current = onExit
+    onErrorContextRef.current = onErrorContext
+    addErrorRef.current = addError
+  }, [onTitleChange, onExit, onErrorContext, addError])
+
   useEffect(() => {
     const container = terminalRef.current
     if (!container || !isContainerReady) return
@@ -260,7 +273,7 @@ export function TerminalView({
           lineNumber: terminal.buffer.active.cursorY,
         }
 
-        addError(error)
+        addErrorRef.current(error)
       }
 
       // Clear buffer after processing
@@ -270,8 +283,8 @@ export function TerminalView({
       // Maintain terminal focus after command execution
       terminal.focus()
 
-      if (onExit) {
-        onExit(code)
+      if (onExitRef.current) {
+        onExitRef.current(code)
       }
     })
 
@@ -284,8 +297,8 @@ export function TerminalView({
 
     // Handle terminal title changes
     const titleDisposable = terminal.onTitleChange((title: string) => {
-      if (onTitleChange) {
-        onTitleChange(title)
+      if (onTitleChangeRef.current) {
+        onTitleChangeRef.current(title)
       }
     })
 
@@ -329,7 +342,7 @@ export function TerminalView({
       container.removeEventListener('click', handleContainerClick)
       terminal.dispose()
     }
-  }, [ptyId, terminalId, onTitleChange, onExit, addError, isContainerReady])
+  }, [ptyId, terminalId, isContainerReady])
 
   // Update terminal settings when they change (without recreating terminal)
   useEffect(() => {

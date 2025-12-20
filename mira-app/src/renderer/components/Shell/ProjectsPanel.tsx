@@ -106,7 +106,7 @@ const ProjectItem = memo(function ProjectItem({
   )
 })
 
-export function ProjectsPanel(): React.JSX.Element {
+export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false)
@@ -249,19 +249,20 @@ export function ProjectsPanel(): React.JSX.Element {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <span className="text-sm font-medium">Projects</span>
         <Button
+          className="size-6 p-0"
           onClick={() => setShowAddProjectDialog(true)}
-          size="icon-sm"
+          size="sm"
           title="Add project"
           variant="ghost"
         >
-          <IconPlus className="h-4 w-4" />
+          <IconPlus className="size-4" />
         </Button>
       </div>
 
       {/* Search */}
       <div className="px-3 py-2 border-b border-border">
         <div className="relative">
-          <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
           <Input
             className="h-7 pl-7 text-xs"
             onChange={e => setSearchQuery(e.target.value)}
@@ -323,7 +324,7 @@ export function ProjectsPanel(): React.JSX.Element {
       )}
 
       {/* Project list */}
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2 scrollbar-gutter-stable">
         {projectsLoading ? (
           <p className="text-xs text-muted-foreground px-2">Loading...</p>
         ) : projects.length === 0 ? (
@@ -507,4 +508,4 @@ export function ProjectsPanel(): React.JSX.Element {
       </Dialog>
     </div>
   )
-}
+})

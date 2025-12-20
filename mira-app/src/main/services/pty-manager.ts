@@ -40,6 +40,52 @@ export class PTYManager {
   private nextId = 1
 
   /**
+   * Get a clean environment for PTY spawning.
+   * Strips npm/pnpm-specific env vars that get inherited from the dev server
+   * and can cause issues like "package field missing or empty" errors.
+   */
+  private getCleanEnv(): Record<string, string> {
+    const env = { ...process.env } as Record<string, string>
+
+    // Remove npm/pnpm-specific environment variables that cause issues
+    // when running commands in child terminals
+    const varsToRemove = [
+      // npm/pnpm package info - points to wrong package.json
+      'npm_package_json',
+      'npm_package_name',
+      'npm_package_version',
+      // npm/pnpm config - stale paths from dev server
+      'npm_config_local_prefix',
+      'npm_config_globalconfig',
+      'npm_config_userconfig',
+      'npm_config_prefix',
+      'npm_config_user_agent',
+      // npm lifecycle - indicates we're in a script context
+      'npm_lifecycle_event',
+      'npm_lifecycle_script',
+      'npm_node_execpath',
+      'npm_execpath',
+      // pnpm specific
+      'PNPM_SCRIPT_SRC_DIR',
+      // Init CWD - points to wrong directory
+      'INIT_CWD',
+    ]
+
+    for (const varName of varsToRemove) {
+      delete env[varName]
+    }
+
+    // Also remove any npm_package_* variables dynamically
+    for (const key of Object.keys(env)) {
+      if (key.startsWith('npm_package_')) {
+        delete env[key]
+      }
+    }
+
+    return env
+  }
+
+  /**
    * Create a new PTY instance
    * Requirements: 9.1
    */
@@ -49,13 +95,16 @@ export class PTYManager {
     // Determine shell based on platform
     const shell = options.shell || this.getDefaultShell()
 
+    // Get clean environment and merge with any passed options
+    const baseEnv = this.getCleanEnv()
+
     // Create PTY instance
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
       cwd: options.cwd,
-      env: { ...process.env, ...options.env } as Record<string, string>,
+      env: { ...baseEnv, ...options.env },
     })
 
     const emitter = new EventEmitter()

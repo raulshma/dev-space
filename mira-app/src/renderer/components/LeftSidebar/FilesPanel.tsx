@@ -349,11 +349,29 @@ export const FilesPanel = memo(function FilesPanel({
   if (isLoading) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="text-sm font-medium">Explorer</span>
+          <div className="flex items-center gap-1">
+            <Button className="size-6 p-0" disabled size="sm" variant="ghost">
+              <IconRefresh className="size-3" />
+            </Button>
+            <Button className="size-6 p-0" disabled size="sm" variant="ghost">
+              <IconFolderPlus className="size-3" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center justify-center flex-1">
-          <Spinner className="h-5 w-5" />
+
+        {/* Project root header placeholder */}
+        <div className="px-3 py-1.5 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-2">
+            <IconFolder className="size-4 text-amber-500/50 shrink-0" />
+            <div className="h-3 w-24 bg-muted-foreground/20 animate-pulse rounded" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center flex-1 scrollbar-gutter-stable">
+          <Spinner className="size-5" />
         </div>
       </div>
     )
@@ -365,7 +383,7 @@ export const FilesPanel = memo(function FilesPanel({
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="text-sm font-medium">Explorer</span>
         </div>
-        <div className="p-4 text-sm text-destructive">{error}</div>
+        <div className="p-4 text-sm text-destructive scrollbar-gutter-stable">{error}</div>
       </div>
     )
   }
@@ -377,22 +395,22 @@ export const FilesPanel = memo(function FilesPanel({
         <span className="text-sm font-medium">Explorer</span>
         <div className="flex items-center gap-1">
           <Button
-            className="h-6 w-6 p-0"
+            className="size-6 p-0"
             onClick={loadFiles}
             size="sm"
             title="Refresh"
             variant="ghost"
           >
-            <IconRefresh className="h-3 w-3" />
+            <IconRefresh className="size-3" />
           </Button>
           <Button
-            className="h-6 w-6 p-0"
+            className="size-6 p-0"
             onClick={handleOpenInExplorer}
             size="sm"
             title="Open in File Explorer"
             variant="ghost"
           >
-            <IconFolderPlus className="h-3 w-3" />
+            <IconFolderPlus className="size-3" />
           </Button>
         </div>
       </div>
@@ -400,7 +418,7 @@ export const FilesPanel = memo(function FilesPanel({
       {/* Project root header */}
       <div className="px-3 py-1.5 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
-          <IconFolder className="h-4 w-4 text-amber-500 shrink-0" />
+          <IconFolder className="size-4 text-amber-500 shrink-0" />
           <span className="text-xs font-semibold uppercase tracking-wider truncate">
             {projectPath.split(/[/\\]/).pop()}
           </span>
@@ -408,7 +426,7 @@ export const FilesPanel = memo(function FilesPanel({
       </div>
 
       {/* File tree */}
-      <div className="flex-1 min-h-0 max-h-[80vh] overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/40">
+      <div className="flex-1 min-h-0 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/40 scrollbar-gutter-stable">
         {files.length > 0 ? (
           files.map(node => (
             <FileTreeItem

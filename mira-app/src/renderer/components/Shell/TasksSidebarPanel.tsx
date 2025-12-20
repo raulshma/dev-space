@@ -60,7 +60,7 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <span className="text-sm font-medium flex items-center gap-2">
-          <IconRocket className="h-4 w-4" />
+          <IconRocket className="size-4" />
           Tasks
         </span>
         <div className="flex items-center gap-1">
@@ -73,18 +73,19 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
             View All
           </Button>
           <Button
+            className="size-6 p-0"
             onClick={() => setShowTaskCreation(true)}
-            size="icon-sm"
+            size="sm"
             title="New task"
             variant="ghost"
           >
-            <IconPlus className="h-4 w-4" />
+            <IconPlus className="size-4" />
           </Button>
         </div>
       </div>
 
       {/* Task list */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 min-h-0 overflow-y-auto p-2 scrollbar-gutter-stable">
         <TaskBacklogList
           onEditTask={handleEditTask}
           onTaskSelect={handleTaskSelect}

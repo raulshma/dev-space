@@ -183,6 +183,12 @@
   --tracking-widest: calc(var(--tracking-normal) + 0.1em);
 }
 
+@layer utilities {
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
+}
+
 body {
   letter-spacing: var(--tracking-normal);
 }
@@ -191,11 +197,12 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply font-sans bg-background text-foreground;
-  }
   html {
-    @apply font-sans;
+    @apply font-sans overflow-hidden;
+  }
+
+  body {
+    @apply font-sans bg-background text-foreground overflow-hidden;
   }
 
   /* Theme-aware native scrollbar styling */

@@ -7,7 +7,7 @@
  * Requirements: 9.2
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { TerminalView } from './TerminalView'
 import {
   useTerminalStore,
@@ -41,6 +41,15 @@ function PaneLayout({
 
   const terminal = useTerminal(pane.terminalId)
   const updateTerminal = useTerminalStore(state => state.updateTerminal)
+
+  const handleTitleChange = useCallback(
+    (title: string) => {
+      if (terminal) {
+        updateTerminal(terminal.id, { title })
+      }
+    },
+    [terminal?.id, updateTerminal]
+  )
 
   const handleMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault()
@@ -155,11 +164,13 @@ function PaneLayout({
     )
   }
 
+
+
   return (
     <div className="relative w-full h-full group">
       <TerminalView
         onErrorContext={onErrorContext}
-        onTitleChange={title => updateTerminal(terminal.id, { title })}
+        onTitleChange={handleTitleChange}
         ptyId={terminal.ptyId}
         terminalId={terminal.id}
       />

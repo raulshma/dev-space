@@ -21,6 +21,7 @@ import { useGitTelemetry } from 'renderer/hooks/use-git-telemetry'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
 import { useEditorStore } from 'renderer/stores/editor-store'
 import { Button } from 'renderer/components/ui/button'
+import { Spinner } from 'renderer/components/ui/spinner'
 import { Separator } from 'renderer/components/ui/separator'
 import {
   Collapsible,
@@ -336,8 +337,22 @@ export const GitPanel = memo(function GitPanel({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-4">
-        <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Header with branch info skeleton */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+          <div className="flex items-center gap-2 min-w-0">
+            <IconGitBranch className="size-4 text-muted-foreground/50 shrink-0" />
+            <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button className="size-6 p-0" disabled size="sm" variant="ghost">
+              <IconRefresh className="size-3" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center justify-center flex-1 scrollbar-gutter-stable">
+          <Spinner className="size-5" />
+        </div>
       </div>
     )
   }
@@ -373,7 +388,7 @@ export const GitPanel = memo(function GitPanel({
       {/* Header with branch info */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <IconGitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
+          <IconGitBranch className="size-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium truncate">
             {telemetry.branch}
           </span>
@@ -381,29 +396,29 @@ export const GitPanel = memo(function GitPanel({
         <div className="flex items-center gap-1">
           {telemetry.ahead > 0 && (
             <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-0.5">
-              <IconArrowUp className="h-3 w-3" />
+              <IconArrowUp className="size-3" />
               {telemetry.ahead}
             </span>
           )}
           {telemetry.behind > 0 && (
             <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-0.5">
-              <IconArrowDown className="h-3 w-3" />
+              <IconArrowDown className="size-3" />
               {telemetry.behind}
             </span>
           )}
           <Button
-            className="h-6 w-6 p-0"
+            className="size-6 p-0"
             onClick={() => refetch()}
             size="sm"
             title="Refresh"
             variant="ghost"
           >
-            <IconRefresh className="h-3 w-3" />
+            <IconRefresh className="size-3" />
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-gutter-stable">
         {/* Changed Files Section */}
         <Collapsible onOpenChange={setChangesExpanded} open={changesExpanded}>
           <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/50">

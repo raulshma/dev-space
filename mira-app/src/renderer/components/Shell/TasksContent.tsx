@@ -116,7 +116,7 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
   }, [setActiveView])
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       <TasksHeader
         onCreateTask={() => setShowTaskCreation(true)}
         onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}

@@ -14,7 +14,7 @@ export const AgentsSidebarPanel = memo(function AgentsSidebarPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <span className="text-sm font-medium flex items-center gap-2">
-          <IconRobot className="h-4 w-4" />
+          <IconRobot className="size-4" />
           Running Agents
         </span>
       </div>

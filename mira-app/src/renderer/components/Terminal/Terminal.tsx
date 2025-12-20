@@ -5,6 +5,7 @@
  * Requirements: 9.1, 9.2, 9.3
  */
 
+import { useCallback, Suspense, lazy } from 'react'
 import { TerminalTabs } from './TerminalTabs'
 import { TerminalPanes } from './TerminalPanes'
 import {
@@ -33,7 +34,7 @@ export function Terminal({
   // Fetch custom shell setting
   const { data: customShell } = useSetting(SETTING_KEYS.TERMINAL_SHELL)
 
-  const handleCreateTerminal = async (): Promise<void> => {
+  const handleCreateTerminal = useCallback(async (): Promise<void> => {
     try {
       // Use custom shell if set, otherwise let PTY manager use default
       const shell =
@@ -57,7 +58,7 @@ export function Terminal({
     } catch (error) {
       console.error('Failed to create terminal:', error)
     }
-  }
+  }, [projectId, projectPath, customShell, addTerminal])
 
   // Show loading state while restoring terminals to prevent flash
   const showLoading = isRestoring && terminals.length === 0
