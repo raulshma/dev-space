@@ -688,7 +688,8 @@ export function AgentConfigPanel(): React.JSX.Element {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">API Settings</CardTitle>
             <CardDescription>
-              Configure API endpoint and timeout
+              Configure API endpoint and timeout. For third-party providers, see
+              documentation below.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -704,11 +705,7 @@ export function AgentConfigPanel(): React.JSX.Element {
                 value={config.anthropicBaseUrl || ''}
               />
               <p className="text-xs text-muted-foreground">
-                Leave empty to use the default Anthropic API endpoint. For
-                OpenRouter, use{' '}
-                <code className="rounded bg-muted px-1 py-0.5">
-                  https://openrouter.ai/api
-                </code>
+                Custom API endpoint for third-party providers or proxies
               </p>
             </div>
 
@@ -719,14 +716,12 @@ export function AgentConfigPanel(): React.JSX.Element {
                 onChange={e =>
                   setConfig({ ...config, anthropicApiKey: e.target.value })
                 }
-                placeholder="Leave empty for direct Anthropic, or set to empty string for OpenRouter"
+                placeholder="Leave empty for direct Anthropic"
                 type="text"
                 value={config.anthropicApiKey ?? ''}
               />
               <p className="text-xs text-muted-foreground">
-                <strong>Important for OpenRouter:</strong> Set this to an empty
-                value (blank) to prevent Claude Code from trying to authenticate
-                with Anthropic servers directly.
+                Some providers require this to be explicitly empty
               </p>
             </div>
 
@@ -739,8 +734,8 @@ export function AgentConfigPanel(): React.JSX.Element {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Model Overrides</CardTitle>
             <CardDescription>
-              Override default model aliases to use any OpenRouter model (e.g.,
-              OpenAI, Google, or Llama models)
+              Override default model aliases (Sonnet, Opus, Haiku) with
+              alternative models
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -756,18 +751,10 @@ export function AgentConfigPanel(): React.JSX.Element {
                     anthropicDefaultSonnetModel: e.target.value,
                   })
                 }
-                placeholder="e.g., openai/gpt-5.1-codex-max"
+                placeholder="Override for Sonnet model alias"
                 type="text"
                 value={config.anthropicDefaultSonnetModel || ''}
               />
-              <p className="text-xs text-muted-foreground">
-                Override the &quot;Sonnet&quot; alias with any model ID or
-                preset (e.g.,{' '}
-                <code className="rounded bg-muted px-1 py-0.5">
-                  @preset/my-coding-setup
-                </code>
-                )
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -782,13 +769,10 @@ export function AgentConfigPanel(): React.JSX.Element {
                     anthropicDefaultOpusModel: e.target.value,
                   })
                 }
-                placeholder="e.g., openai/gpt-5.2-pro"
+                placeholder="Override for Opus model alias"
                 type="text"
                 value={config.anthropicDefaultOpusModel || ''}
               />
-              <p className="text-xs text-muted-foreground">
-                Override the &quot;Opus&quot; alias with any model ID or preset
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -803,28 +787,33 @@ export function AgentConfigPanel(): React.JSX.Element {
                     anthropicDefaultHaikuModel: e.target.value,
                   })
                 }
-                placeholder="e.g., minimax/minimax-m2:exacto"
+                placeholder="Override for Haiku model alias"
                 type="text"
                 value={config.anthropicDefaultHaikuModel || ''}
               />
-              <p className="text-xs text-muted-foreground">
-                Override the &quot;Haiku&quot; alias with any model ID or preset
-              </p>
             </div>
 
             <Alert className="py-2">
               <IconInfoCircle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <strong>Tip:</strong> Create presets at{' '}
+                <strong>Integration Guides:</strong>{' '}
                 <a
                   className="text-primary underline"
-                  href="https://openrouter.ai/settings/presets"
+                  href="https://openrouter.ai/docs/guides/claude-code-integration"
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  openrouter.ai/settings/presets
-                </a>{' '}
-                to manage fallback models and custom system prompts.
+                  OpenRouter
+                </a>
+                {' · '}
+                <a
+                  className="text-primary underline"
+                  href="https://docs.z.ai/devpack/tool/claude"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Z.AI
+                </a>
               </AlertDescription>
             </Alert>
           </CardContent>
