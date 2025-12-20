@@ -109,6 +109,8 @@ export interface IAIService {
   setDefaultModel(modelId: string): Promise<void>
   setActionModel(action: AIAction, modelId: string): Promise<void>
   getModelForAction(action: AIAction): AIModel | undefined
+  getDefaultModelId(): string | null
+  getActionModels(): Map<AIAction, string>
   generateText(params: GenerateTextParams): Promise<GenerateTextResult>
   streamText(params: StreamTextParams): AsyncIterable<StreamTextChunk>
   getConversation(projectId: string): ConversationMessage[]
@@ -211,6 +213,20 @@ export class AIService implements IAIService {
    */
   getModelForAction(action: AIAction): AIModel | undefined {
     return this.modelRegistry.getModelForAction(action)
+  }
+
+  /**
+   * Get the default model ID
+   */
+  getDefaultModelId(): string | null {
+    return this.modelRegistry.getDefaultModelId()
+  }
+
+  /**
+   * Get action models mapping
+   */
+  getActionModels(): Map<AIAction, string> {
+    return this.modelRegistry.getActionModels()
   }
 
   /**

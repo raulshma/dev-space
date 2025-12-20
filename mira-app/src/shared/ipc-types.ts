@@ -99,6 +99,7 @@ export const IPC_CHANNELS = {
   AI_CLEAR_CONVERSATION: 'ai:clearConversation',
   AI_GET_REQUEST_LOGS: 'ai:getRequestLogs',
   AI_GET_REQUEST_LOG: 'ai:getRequestLog',
+  AI_GET_MODEL_SETTINGS: 'ai:getModelSettings',
 
   // Agent Executor operations
   AGENT_TASK_CREATE: 'agentTask:create',
@@ -747,6 +748,8 @@ export interface AIGetModelsRequest {}
 
 export interface AIGetModelsResponse {
   models: import('./ai-types').AIModel[]
+  defaultModelId: string | null
+  actionModels: Record<import('./ai-types').AIAction, string>
 }
 
 export interface AISetDefaultModelRequest {
@@ -796,6 +799,13 @@ export interface AIGetRequestLogRequest {
 
 export interface AIGetRequestLogResponse {
   log: import('./ai-types').AIRequestLog | null
+}
+
+export interface AIGetModelSettingsRequest {}
+
+export interface AIGetModelSettingsResponse {
+  defaultModelId: string | null
+  actionModels: Record<import('./ai-types').AIAction, string>
 }
 
 // ============================================================================

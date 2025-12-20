@@ -1094,7 +1094,20 @@ export class IPCHandlers {
             }
           }
           const models = await this.aiService.getAvailableModels()
-          return { models }
+          const defaultModelId = this.aiService.getDefaultModelId()
+          const actionModelsMap = this.aiService.getActionModels()
+          
+          // Convert Map to Record for IPC serialization
+          const actionModels: Record<string, string> = {}
+          actionModelsMap.forEach((modelId, action) => {
+            actionModels[action] = modelId
+          })
+          
+          return { 
+            models, 
+            defaultModelId, 
+            actionModels 
+          }
         } catch (error) {
           return this.handleError(error)
         }

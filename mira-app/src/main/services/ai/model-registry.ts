@@ -40,6 +40,9 @@ export interface IModelRegistry {
   /** Get the default model */
   getDefaultModel(): AIModel | undefined
 
+  /** Get the default model ID */
+  getDefaultModelId(): string | null
+
   /** Set the default model */
   setDefaultModel(modelId: string): void
 
@@ -182,6 +185,15 @@ export class ModelRegistry implements IModelRegistry {
       return models.length > 0 ? models[0] : undefined
     }
     return this.models.get(this.defaultModelId)
+  }
+
+  /**
+   * Get the default model ID
+   *
+   * @returns The default model ID or null if not set
+   */
+  getDefaultModelId(): string | null {
+    return this.defaultModelId
   }
 
   /**
