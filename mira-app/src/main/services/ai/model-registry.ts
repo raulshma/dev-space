@@ -328,6 +328,15 @@ export class ModelRegistry implements IModelRegistry {
       this.models.set(model.id, model)
     }
 
+    // Restore lastFetchTime from the newest cached model timestamp
+    // This ensures the cache TTL is honored across app restarts
+    if (cachedModels.length > 0) {
+      const newestCacheTime = Math.max(
+        ...cachedModels.map(m => m.cachedAt.getTime())
+      )
+      this.lastFetchTime = newestCacheTime
+    }
+
     this.usingFallback = true
     return models
   }
