@@ -67,7 +67,7 @@ export function PortKiller(): React.JSX.Element {
   const ports = data || []
 
   return (
-    <div className="flex flex-col h-full gap-3 overflow-hidden">
+    <div className="flex flex-col h-full w-full gap-3 overflow-hidden min-w-0">
       <div className="flex items-center gap-2 shrink-0">
         <div className="relative flex-1">
           <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -105,30 +105,29 @@ export function PortKiller(): React.JSX.Element {
           <div className="space-y-1">
             {ports.map((port: PortInfo) => (
               <div
-                className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 group"
+                className="grid grid-cols-[3.5rem_1fr_4.5rem_1.5rem] gap-2 items-center p-2 rounded-md hover:bg-muted/50 group"
                 key={`${port.port}-${port.pid}`}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Badge className="font-mono" variant="secondary">
-                    :{port.port}
-                  </Badge>
-                  <span className="text-xs truncate">{port.processName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    PID: {port.pid}
-                  </span>
+                <Badge className="font-mono text-[10px] px-1 justify-center shrink-0" variant="secondary">
+                  :{port.port}
+                </Badge>
+                <div className="text-xs truncate min-w-0" title={port.processName}>
+                  {port.processName}
                 </div>
+                <span className="text-[10px] text-muted-foreground tabular-nums text-right shrink-0">
+                  PID: {port.pid}
+                </span>
                 <Tooltip>
                   <TooltipTrigger
                     render={
-                      <Button
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      <button
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive disabled:opacity-50"
                         disabled={killMutation.isPending}
                         onClick={() => handleKill(port.port)}
-                        size="icon-sm"
-                        variant="ghost"
+                        type="button"
                       >
-                        <IconX className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
+                        <IconX className="h-3.5 w-3.5" />
+                      </button>
                     }
                   />
                   <TooltipContent>Kill process</TooltipContent>

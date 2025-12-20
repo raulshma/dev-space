@@ -95,7 +95,7 @@ export const SecondarySidebar = memo(function SecondarySidebar() {
 
       {/* Tool list or active tool */}
       {activeTool && selectedTool ? (
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {/* Tool header with back button */}
           <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
             <button
@@ -109,7 +109,7 @@ export const SecondarySidebar = memo(function SecondarySidebar() {
           </div>
 
           {/* Tool content */}
-          <div className="flex-1 overflow-auto p-2">
+          <div className="flex-1 overflow-hidden p-2">
             <Suspense
               fallback={
                 <div className="flex items-center justify-center h-32">

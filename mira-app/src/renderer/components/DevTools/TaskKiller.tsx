@@ -69,7 +69,7 @@ export function TaskKiller(): React.JSX.Element {
   const processes = data || []
 
   return (
-    <div className="flex flex-col h-full gap-3 overflow-hidden">
+    <div className="flex flex-col h-full w-full gap-3 overflow-hidden min-w-0">
       <div className="flex items-center gap-2 shrink-0">
         <div className="relative flex-1">
           <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

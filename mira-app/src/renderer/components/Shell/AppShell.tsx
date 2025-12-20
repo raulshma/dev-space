@@ -201,7 +201,7 @@ export function AppShell(): React.JSX.Element {
 
           {/* Secondary sidebar */}
           <ResizablePanel
-            className="bg-card"
+            className="bg-card overflow-hidden"
             collapsedSize={0}
             collapsible
             defaultSize={20}

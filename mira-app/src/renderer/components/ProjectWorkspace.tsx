@@ -766,7 +766,7 @@ export function ProjectWorkspace({
         <ResizableHandle withHandle />
 
         <ResizablePanel
-          className="bg-card"
+          className="bg-card overflow-hidden"
           collapsedSize={0}
           collapsible
           defaultSize={15}
