@@ -6,6 +6,15 @@ import { AppRoutes } from './routes'
 
 import './globals.css'
 
+// Hide the loading screen once React is ready
+const hideLoader = () => {
+  const loader = document.getElementById('app-loader')
+  if (loader) {
+    loader.classList.add('hidden')
+    setTimeout(() => loader.remove(), 200)
+  }
+}
+
 ReactDom.createRoot(document.querySelector('app') as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -13,3 +22,6 @@ ReactDom.createRoot(document.querySelector('app') as HTMLElement).render(
     </QueryClientProvider>
   </React.StrictMode>
 )
+
+// Hide loader after initial render
+hideLoader()

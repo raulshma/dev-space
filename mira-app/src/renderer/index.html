@@ -10,9 +10,51 @@
         <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
     -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' * data: blob:; script-src 'self' * blob:; style-src 'self' 'unsafe-inline' *; font-src 'self' data:; worker-src 'self' blob:;" />
+    <style>
+      /* Inline critical styles for instant loading screen */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: oklch(0.1797 0.0043 308.1928);
+      }
+      #app-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: oklch(0.1797 0.0043 308.1928);
+        z-index: 9999;
+        transition: opacity 0.2s ease-out;
+      }
+      #app-loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #app-loader svg {
+        width: 48px;
+        height: 48px;
+        animation: spin 1s linear infinite;
+      }
+      #app-loader svg circle {
+        stroke: oklch(0.7214 0.1337 49.9802);
+        stroke-linecap: round;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
 
   <body>
+    <div id="app-loader">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="31.4 31.4" stroke-dashoffset="0" opacity="0.25"></circle>
+        <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="31.4 31.4" stroke-dashoffset="23.55"></circle>
+      </svg>
+    </div>
     <app></app>
     <script type="module" src="index.tsx"></script>
   </body>
