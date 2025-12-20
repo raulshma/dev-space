@@ -7,20 +7,19 @@
  * - Main content area (center)
  * - Secondary sidebar (right panel)
  * - Status bar (bottom)
+ *
+ * Performance optimized with lazy loading for heavy components.
  */
 
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, Suspense, lazy, memo } from 'react'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useShellStore, type ShellTab } from 'renderer/stores/shell-store'
 import { ActivityBar, type ActivityBarTab } from './ActivityBar'
 import { TopNav } from './TopNav'
 import { PrimarySidebar } from './PrimarySidebar'
-import { SecondarySidebar } from './SecondarySidebar'
 import { MainContent } from './MainContent'
 import { TasksContent } from './TasksContent'
 import { StatusBar } from 'renderer/components/StatusBar'
-import { CommandPalette } from 'renderer/components/CommandPalette'
-import { SettingsPanel } from 'renderer/components/Settings'
 import { ErrorToast } from 'renderer/components/ErrorToast'
 import { useProject } from 'renderer/hooks/use-projects'
 import {
@@ -30,6 +29,20 @@ import {
   type GroupImperativeHandle,
   type PanelImperativeHandle,
 } from 'renderer/components/ui/resizable'
+
+// Lazy load heavy overlay components that aren't needed immediately
+const CommandPalette = lazy(() =>
+  import('renderer/components/CommandPalette').then(m => ({ default: m.CommandPalette }))
+)
+const SettingsPanel = lazy(() =>
+  import('renderer/components/Settings').then(m => ({ default: m.SettingsPanel }))
+)
+const SecondarySidebar = lazy(() =>
+  import('./SecondarySidebar').then(m => ({ default: m.SecondarySidebar }))
+)
+
+// Fallback for lazy-loaded components
+const LazyFallback = memo(() => null)
 
 export function AppShell(): React.JSX.Element {
   const activeProjectId = useAppStore(state => state.activeProjectId)
@@ -199,7 +212,7 @@ export function AppShell(): React.JSX.Element {
 
           <ResizableHandle withHandle />
 
-          {/* Secondary sidebar */}
+          {/* Secondary sidebar - lazy loaded */}
           <ResizablePanel
             className="bg-card overflow-hidden"
             collapsedSize={0}
@@ -209,7 +222,11 @@ export function AppShell(): React.JSX.Element {
             minSize={15}
             ref={rightPanelRef}
           >
-            {isRightPanelVisible && <SecondarySidebar />}
+            {isRightPanelVisible && (
+              <Suspense fallback={<LazyFallback />}>
+                <SecondarySidebar />
+              </Suspense>
+            )}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
@@ -217,10 +234,15 @@ export function AppShell(): React.JSX.Element {
       {/* Status bar */}
       <StatusBar />
 
-      {/* Overlays */}
-      <CommandPalette />
-      <SettingsPanel isOpen={settingsPanelOpen} onClose={closeSettingsPanel} />
+      {/* Overlays - lazy loaded */}
+      <Suspense fallback={<LazyFallback />}>
+        <CommandPalette />
+      </Suspense>
+      <Suspense fallback={<LazyFallback />}>
+        <SettingsPanel isOpen={settingsPanelOpen} onClose={closeSettingsPanel} />
+      </Suspense>
       <ErrorToast />
     </div>
   )
 }
+

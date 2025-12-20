@@ -17,12 +17,17 @@ const tsconfigPaths = tsconfigPathsPlugin({
   projects: [resolve('tsconfig.json')],
 })
 
+const isProduction = process.env.NODE_ENV === 'production'
+
 export default defineConfig({
   main: {
-    mode: 'es2022',
     plugins: [tsconfigPaths, externalizeDepsPlugin()],
 
     build: {
+      // Enable minification in production
+      minify: isProduction ? 'esbuild' : false,
+      sourcemap: isProduction ? false : 'inline',
+
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
@@ -32,15 +37,23 @@ export default defineConfig({
           dir: resolve(devPath, 'main'),
           format: 'es',
         },
+
+        // Tree shake unused exports
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false,
+        },
       },
     },
   },
 
   preload: {
-    mode: 'es2022',
     plugins: [tsconfigPaths, externalizeDepsPlugin()],
 
     build: {
+      minify: isProduction ? 'esbuild' : false,
+      sourcemap: isProduction ? false : 'inline',
+
       rollupOptions: {
         output: {
           dir: resolve(devPath, 'preload'),
@@ -57,6 +70,8 @@ export default defineConfig({
 
     server: {
       port: settings.port,
+      // Enable HMR for faster development
+      hmr: true,
     },
 
     plugins: [
@@ -74,6 +89,10 @@ export default defineConfig({
 
     build: {
       outDir: resolve(devPath, 'renderer'),
+      minify: isProduction ? 'esbuild' : false,
+      sourcemap: isProduction ? false : 'inline',
+      // Increase chunk size warning limit to reduce noise
+      chunkSizeWarningLimit: 1000,
 
       rollupOptions: {
         plugins: [
@@ -89,8 +108,34 @@ export default defineConfig({
 
         output: {
           dir: resolve(devPath, 'renderer'),
+          // Split vendor chunks for better caching in production
+          manualChunks: isProduction ? {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'ui-vendor': ['@tabler/icons-react', 'recharts', 'sonner'],
+            'state-vendor': ['zustand', '@tanstack/react-query'],
+            'monaco': ['monaco-editor', '@monaco-editor/react'],
+            'terminal': ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl'],
+          } : undefined,
+        },
+
+        // Better tree shaking
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false,
         },
       },
+    },
+
+    // Optimize dependencies for faster dev startup
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        'zustand',
+        '@tanstack/react-query',
+      ],
+      exclude: ['@lydell/node-pty'],
     },
   },
 })

@@ -61,11 +61,12 @@ export async function MainWindow() {
   const defaultWidth = 1200
   const defaultHeight = 800
 
-  // Determine initial window options
+  // Determine initial window options - optimized for fast startup
   const windowOptions: Electron.BrowserWindowConstructorOptions = {
     title: displayName,
     width: savedState?.width ?? defaultWidth,
     height: savedState?.height ?? defaultHeight,
+    // Don't show until ready-to-show for smoother startup
     show: false,
     movable: true,
     resizable: true,
@@ -73,6 +74,10 @@ export async function MainWindow() {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
+      // Performance optimizations
+      spellcheck: false,
+      // Enable offscreen rendering optimization
+      offscreen: false,
     },
   }
 
@@ -117,12 +122,17 @@ export async function MainWindow() {
   window.on('maximize', debouncedSave)
   window.on('unmaximize', debouncedSave)
 
-  window.webContents.on('did-finish-load', () => {
-    if (ENVIRONMENT.IS_DEV) {
-      window.webContents.openDevTools({ mode: 'detach' })
-    }
-
+  // Use ready-to-show for faster perceived startup
+  // This fires before did-finish-load and ensures window is painted
+  window.once('ready-to-show', () => {
     window.show()
+
+    // Defer devtools to after window is visible for better perceived startup
+    if (ENVIRONMENT.IS_DEV) {
+      setTimeout(() => {
+        window.webContents.openDevTools({ mode: 'detach' })
+      }, 100)
+    }
   })
 
   window.webContents.setWindowOpenHandler(details => {

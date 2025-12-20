@@ -1,200 +1,367 @@
-import { app } from 'electron'
-import { join } from 'node:path'
+import { app, Menu } from 'electron'
 
 import { makeAppWithSingleInstanceLock } from 'lib/electron-app/factories/app/instance'
 import { makeAppSetup } from 'lib/electron-app/factories/app/setup'
-import { loadReactDevtools } from 'lib/electron-app/utils'
 import { ENVIRONMENT } from 'shared/constants'
-import { waitFor } from 'shared/utils'
 import { MainWindow } from './windows/main'
 
-import { DatabaseService } from 'main/services/database'
-import { PTYManager } from 'main/services/pty-manager'
-import { GitService } from 'main/services/git-service'
-import { KeychainService } from 'main/services/keychain-service'
-import { IPCHandlers } from 'main/ipc/handlers'
+// Disable default menu early for better startup performance
+// https://github.com/electron/electron/blob/main/docs/tutorial/performance.md
+Menu.setApplicationMenu(null)
 
-// AI Service imports
-import { AIService } from 'main/services/ai-service'
-import { ProviderRegistry } from 'main/services/ai/provider-registry'
-import { ModelRegistry } from 'main/services/ai/model-registry'
-import { RequestLogger } from 'main/services/ai/request-logger'
+// ============================================================================
+// Service Type Imports (types only - no runtime cost)
+// ============================================================================
+import type { DatabaseService } from 'main/services/database'
+import type { PTYManager } from 'main/services/pty-manager'
+import type { GitService } from 'main/services/git-service'
+import type { KeychainService } from 'main/services/keychain-service'
+import type { AIService } from 'main/services/ai-service'
+import type { ProviderRegistry } from 'main/services/ai/provider-registry'
+import type { ModelRegistry } from 'main/services/ai/model-registry'
+import type { RequestLogger } from 'main/services/ai/request-logger'
+import type { AgentExecutorService } from 'main/services/agent-executor-service'
+import type { AgentConfigService } from 'main/services/agent/agent-config-service'
+import type { ProcessManager } from 'main/services/agent/process-manager'
+import type { TaskQueue } from 'main/services/agent/task-queue'
+import type { OutputBuffer } from 'main/services/agent/output-buffer'
+import type { JulesService } from 'main/services/agent/jules-service'
+import type { WorkingDirectoryService } from 'main/services/agent/working-directory-service'
+import type { AgentServiceV2 } from 'main/services/agent-service-v2'
+import type { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
+import type { FeatureLoader } from 'main/services/feature-loader'
+import type { RunningProjectsService } from 'main/services/running-projects-service'
+import type { IPCHandlers } from 'main/ipc/handlers'
+import type { BrowserWindow } from 'electron'
 
-// Agent Executor imports
-import { AgentExecutorService } from 'main/services/agent-executor-service'
-import { AgentConfigService } from 'main/services/agent/agent-config-service'
-import { ProcessManager } from 'main/services/agent/process-manager'
-import { TaskQueue } from 'main/services/agent/task-queue'
-import { OutputBuffer } from 'main/services/agent/output-buffer'
-import { JulesService } from 'main/services/agent/jules-service'
-import { WorkingDirectoryService } from 'main/services/agent/working-directory-service'
+// ============================================================================
+// Service Instances (lazy-loaded)
+// ============================================================================
+let db: DatabaseService
+let ptyManager: PTYManager
+let gitService: GitService
+let keychainService: KeychainService
+let providerRegistry: ProviderRegistry
+let modelRegistry: ModelRegistry
+let requestLogger: RequestLogger
+let aiService: AIService
+let agentConfigService: AgentConfigService
+let processManager: ProcessManager
+let taskQueue: TaskQueue
+let outputBuffer: OutputBuffer
+let julesService: JulesService
+let workingDirectoryService: WorkingDirectoryService
+let agentExecutorService: AgentExecutorService
+let agentServiceV2: AgentServiceV2
+let featureLoader: FeatureLoader
+let autoModeServiceV2: AutoModeServiceV2
+let runningProjectsService: RunningProjectsService
+let ipcHandlers: IPCHandlers
 
-// V2 Services (Claude SDK integration)
-import { AgentServiceV2 } from 'main/services/agent-service-v2'
-import { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
-import { FeatureLoader } from 'main/services/feature-loader'
+/**
+ * Initialize core services that are required immediately
+ * These are loaded synchronously to enable basic app functionality
+ */
+async function initializeCoreServices(): Promise<void> {
+  const startTime = performance.now()
+  console.log('[Startup] Initializing core services...')
 
-// Running Projects import
-import { RunningProjectsService } from 'main/services/running-projects-service'
+  // Import core services - these are needed immediately
+  const [
+    { DatabaseService: DbService },
+    { PTYManager: PTYMgr },
+    { GitService: GitSvc },
+    { KeychainService: KeychainSvc },
+  ] = await Promise.all([
+    import('main/services/database'),
+    import('main/services/pty-manager'),
+    import('main/services/git-service'),
+    import('main/services/keychain-service'),
+  ])
 
-// Initialize core services
-const db = new DatabaseService()
-const ptyManager = new PTYManager()
-const gitService = new GitService()
-const keychainService = new KeychainService()
+  db = new DbService()
+  ptyManager = new PTYMgr()
+  gitService = new GitSvc()
+  keychainService = new KeychainSvc()
 
-// Initialize AI services
-const providerRegistry = new ProviderRegistry()
-const modelRegistry = new ModelRegistry(db)
-const requestLogger = new RequestLogger(db)
-const aiService = new AIService(
-  providerRegistry,
-  modelRegistry,
-  requestLogger,
-  keychainService
-)
-
-// Initialize Agent Executor services
-const agentConfigService = new AgentConfigService(db, keychainService)
-const processManager = new ProcessManager()
-const taskQueue = new TaskQueue()
-const outputBuffer = new OutputBuffer(db)
-const julesService = new JulesService(agentConfigService)
-const workingDirectoryService = new WorkingDirectoryService()
-
-const agentExecutorService = new AgentExecutorService(
-  db,
-  processManager,
-  taskQueue,
-  outputBuffer,
-  agentConfigService,
-  gitService,
-  julesService,
-  workingDirectoryService
-)
-
-// Initialize V2 Services (Claude SDK integration)
-const agentServiceV2 = new AgentServiceV2()
-const featureLoader = new FeatureLoader()
-const autoModeServiceV2 = new AutoModeServiceV2(featureLoader)
-
-// Initialize Running Projects service
-const runningProjectsService = new RunningProjectsService(ptyManager, db)
-
-// Initialize IPC handlers with all services
-const ipcHandlers = new IPCHandlers(
-  db,
-  ptyManager,
-  gitService,
-  keychainService,
-  aiService,
-  agentExecutorService,
-  agentConfigService,
-  julesService,
-  requestLogger,
-  runningProjectsService,
-  agentServiceV2,
-  autoModeServiceV2
-)
-
-makeAppWithSingleInstanceLock(async () => {
-  await app.whenReady()
-
-  // Initialize database
+  // Initialize database - required before other services
   db.initialize()
-  db.migrate()
 
-  // Initialize keychain service (loads persisted API keys)
-  try {
-    await keychainService.initialize()
-    console.log('Keychain service initialized successfully')
-  } catch (error) {
-    console.warn('Failed to initialize keychain service:', error)
-  }
+  // Initialize keychain in parallel (loads persisted API keys)
+  const keychainPromise = keychainService.initialize().catch(error => {
+    console.warn('[Startup] Failed to initialize keychain service:', error)
+  })
+
+  await keychainPromise
+
+  const duration = performance.now() - startTime
+  console.log(`[Startup] Core services initialized in ${duration.toFixed(2)}ms`)
+}
+
+/**
+ * Initialize AI services
+ * Loaded after core services are ready
+ */
+async function initializeAIServices(): Promise<void> {
+  const startTime = performance.now()
+  console.log('[Startup] Initializing AI services...')
+
+  // Import AI services in parallel
+  const [
+    { ProviderRegistry: ProvReg },
+    { ModelRegistry: ModelReg },
+    { RequestLogger: ReqLogger },
+    { AIService: AISvc },
+  ] = await Promise.all([
+    import('main/services/ai/provider-registry'),
+    import('main/services/ai/model-registry'),
+    import('main/services/ai/request-logger'),
+    import('main/services/ai-service'),
+  ])
+
+  providerRegistry = new ProvReg()
+  modelRegistry = new ModelReg(db)
+  requestLogger = new ReqLogger(db)
+  aiService = new AISvc(providerRegistry, modelRegistry, requestLogger, keychainService)
 
   // Initialize services that depend on database
   modelRegistry.initialize()
   requestLogger.initialize()
 
   // Initialize AI service (loads API key from keychain and sets up provider)
-  // Requirements: 1.1
   try {
     await aiService.initialize()
-    console.log('AI service initialized successfully')
+    console.log('[Startup] AI service initialized successfully')
   } catch (error) {
-    console.warn('Failed to initialize AI service:', error)
+    console.warn('[Startup] Failed to initialize AI service:', error)
     // Continue without AI service - user can configure later
   }
 
-  // Initialize Agent Executor service (recovers interrupted tasks)
+  const duration = performance.now() - startTime
+  console.log(`[Startup] AI services initialized in ${duration.toFixed(2)}ms`)
+}
+
+/**
+ * Initialize Agent services
+ * Loaded in parallel with AI services after core services
+ */
+async function initializeAgentServices(): Promise<void> {
+  const startTime = performance.now()
+  console.log('[Startup] Initializing Agent services...')
+
+  // Import agent services in parallel
+  const [
+    { AgentConfigService: ConfigSvc },
+    { ProcessManager: ProcMgr },
+    { TaskQueue: TaskQ },
+    { OutputBuffer: OutBuf },
+    { JulesService: JulesSvc },
+    { WorkingDirectoryService: WorkDirSvc },
+    { AgentExecutorService: ExecSvc },
+    { AgentServiceV2: AgentSvcV2 },
+    { FeatureLoader: FeatLoader },
+    { AutoModeServiceV2: AutoModeSvcV2 },
+    { RunningProjectsService: RunProjSvc },
+  ] = await Promise.all([
+    import('main/services/agent/agent-config-service'),
+    import('main/services/agent/process-manager'),
+    import('main/services/agent/task-queue'),
+    import('main/services/agent/output-buffer'),
+    import('main/services/agent/jules-service'),
+    import('main/services/agent/working-directory-service'),
+    import('main/services/agent-executor-service'),
+    import('main/services/agent-service-v2'),
+    import('main/services/feature-loader'),
+    import('main/services/auto-mode-service-v2'),
+    import('main/services/running-projects-service'),
+  ])
+
+  agentConfigService = new ConfigSvc(db, keychainService)
+  processManager = new ProcMgr()
+  taskQueue = new TaskQ()
+  outputBuffer = new OutBuf(db)
+  julesService = new JulesSvc(agentConfigService)
+  workingDirectoryService = new WorkDirSvc()
+
+  agentExecutorService = new ExecSvc(
+    db,
+    processManager,
+    taskQueue,
+    outputBuffer,
+    agentConfigService,
+    gitService,
+    julesService,
+    workingDirectoryService
+  )
+
+  agentServiceV2 = new AgentSvcV2()
+  featureLoader = new FeatLoader()
+  autoModeServiceV2 = new AutoModeSvcV2(featureLoader)
+  runningProjectsService = new RunProjSvc(ptyManager, db)
+
+  const duration = performance.now() - startTime
+  console.log(`[Startup] Agent services initialized in ${duration.toFixed(2)}ms`)
+}
+
+/**
+ * Initialize Agent Executor (requires agent services to be ready)
+ */
+async function initializeAgentExecutor(): Promise<void> {
+  const startTime = performance.now()
+
   try {
     await agentExecutorService.initialize()
-    console.log('Agent executor service initialized successfully')
+    console.log('[Startup] Agent executor service initialized successfully')
 
     // Check if auto-resume is enabled and resume interrupted Claude Code tasks
     const autoResumeSetting = db.getSetting('tasks.autoResume')
     if (autoResumeSetting === 'true') {
-      const resumedCount =
-        await agentExecutorService.autoResumeInterruptedTasks()
+      const resumedCount = await agentExecutorService.autoResumeInterruptedTasks()
       if (resumedCount > 0) {
-        console.log(`Auto-resumed ${resumedCount} interrupted task(s)`)
+        console.log(`[Startup] Auto-resumed ${resumedCount} interrupted task(s)`)
       }
     }
   } catch (error) {
-    console.warn('Failed to initialize agent executor service:', error)
+    console.warn('[Startup] Failed to initialize agent executor service:', error)
   }
 
-  // Register IPC handlers
+  const duration = performance.now() - startTime
+  console.log(`[Startup] Agent executor initialized in ${duration.toFixed(2)}ms`)
+}
+
+/**
+ * Initialize IPC handlers
+ */
+async function initializeIPCHandlers(): Promise<void> {
+  const startTime = performance.now()
+  console.log('[Startup] Initializing IPC handlers...')
+
+  const { IPCHandlers } = await import('main/ipc/handlers')
+
+  ipcHandlers = new IPCHandlers(
+    db,
+    ptyManager,
+    gitService,
+    keychainService,
+    aiService,
+    agentExecutorService,
+    agentConfigService,
+    julesService,
+    requestLogger,
+    runningProjectsService,
+    agentServiceV2,
+    autoModeServiceV2
+  )
+
   ipcHandlers.registerHandlers()
 
+  const duration = performance.now() - startTime
+  console.log(`[Startup] IPC handlers initialized in ${duration.toFixed(2)}ms`)
+}
+
+/**
+ * Load React DevTools in development mode
+ * Deferred to after window is visible for better perceived startup
+ */
+async function loadDevTools(window: BrowserWindow): Promise<void> {
+  if (!ENVIRONMENT.IS_DEV) return
+
+  // Defer devtools loading to after window is visible
+  setTimeout(async () => {
+    try {
+      const { loadReactDevtools } = await import('lib/electron-app/utils')
+      await loadReactDevtools()
+      console.log('[DevTools] React Developer Tools loaded')
+    } catch (error) {
+      console.warn('[DevTools] Failed to load React Developer Tools:', error)
+    }
+  }, 100)
+}
+
+// ============================================================================
+// Main Application Entry Point
+// ============================================================================
+
+makeAppWithSingleInstanceLock(async () => {
+  const appStartTime = performance.now()
+  console.log('[Startup] Application starting...')
+
+  await app.whenReady()
+  const readyTime = performance.now()
+  console.log(`[Startup] App ready in ${(readyTime - appStartTime).toFixed(2)}ms`)
+
+  // Initialize core services first (required for everything else)
+  await initializeCoreServices()
+
+  // Initialize AI and Agent services in parallel
+  await Promise.all([
+    initializeAIServices(),
+    initializeAgentServices(),
+  ])
+
+  // Initialize agent executor (depends on agent services)
+  await initializeAgentExecutor()
+
+  // Initialize IPC handlers
+  await initializeIPCHandlers()
+
+  // Create and show window
   const window = await makeAppSetup(MainWindow)
 
   // Set main window for running projects service (for IPC events)
   runningProjectsService.setMainWindow(window)
 
-  if (ENVIRONMENT.IS_DEV) {
-    await loadReactDevtools()
-    /* This trick is necessary to get the new
-      React Developer Tools working at app initial load.
-      Otherwise, it only works on manual reload.
-    */
-    window.webContents.once('devtools-opened', async () => {
-      await waitFor(1000)
-      window.webContents.reload()
-    })
-  }
+  // Load dev tools deferred (doesn't block startup)
+  loadDevTools(window)
+
+  const totalTime = performance.now() - appStartTime
+  console.log(`[Startup] Application fully initialized in ${totalTime.toFixed(2)}ms`)
 })
 
-// Cleanup on quit
-// Requirements: 8.5 - Gracefully terminate agents and persist task state
+// ============================================================================
+// Cleanup on Quit
+// ============================================================================
+
 app.on('before-quit', async () => {
-  console.log('Application shutting down...')
+  console.log('[Shutdown] Application shutting down...')
 
   // Gracefully shutdown agent executor (stops running tasks, persists state)
-  try {
-    await agentExecutorService.shutdown()
-    console.log('Agent executor shutdown complete')
-  } catch (error) {
-    console.error('Error during agent executor shutdown:', error)
+  if (agentExecutorService) {
+    try {
+      await agentExecutorService.shutdown()
+      console.log('[Shutdown] Agent executor shutdown complete')
+    } catch (error) {
+      console.error('[Shutdown] Error during agent executor shutdown:', error)
+    }
   }
 
   // Stop request logger cleanup timer
-  requestLogger.stopPeriodicCleanup()
+  if (requestLogger) {
+    requestLogger.stopPeriodicCleanup()
+  }
 
   // Close database
-  db.close()
+  if (db) {
+    db.close()
+  }
 
   // Stop all running projects
-  try {
-    await runningProjectsService.stopAll()
-    console.log('Running projects stopped')
-  } catch (error) {
-    console.error('Error stopping running projects:', error)
+  if (runningProjectsService) {
+    try {
+      await runningProjectsService.stopAll()
+      console.log('[Shutdown] Running projects stopped')
+    } catch (error) {
+      console.error('[Shutdown] Error stopping running projects:', error)
+    }
   }
 
   // Kill all PTY processes
-  ptyManager.killAll()
+  if (ptyManager) {
+    ptyManager.killAll()
+  }
 
   // Stop git telemetry refreshes
-  gitService.stopAllRefreshes()
+  if (gitService) {
+    gitService.stopAllRefreshes()
+  }
 })
