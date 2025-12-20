@@ -299,6 +299,7 @@ export function TaskDetailView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const lastScrollTop = useRef(0)
+  const outputLengthRef = useRef(0)
 
   // Fetch initial output
   useAgentTaskOutput(taskId)
@@ -321,12 +322,19 @@ export function TaskDetailView({
 
   // Auto-scroll to bottom when new output arrives
   useEffect(() => {
+    // Only scroll if output length has actually changed
+    if (output.length === outputLengthRef.current) return
+    outputLengthRef.current = output.length
+
     if (isAutoScrollEnabled && !isUserScrolling && scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
         '[data-radix-scroll-area-viewport]'
       )
       if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight
+        })
       }
     }
   }, [output, isAutoScrollEnabled, isUserScrolling])
@@ -338,10 +346,12 @@ export function TaskDetailView({
       const { scrollTop, scrollHeight, clientHeight } = target
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 50
 
-      // Detect if user is scrolling up
+      // Detect if user is scrolling up (and not at bottom)
       if (scrollTop < lastScrollTop.current && !isAtBottom) {
-        setIsUserScrolling(true)
-        setAutoScroll(false)
+        if (!isUserScrolling) {
+          setIsUserScrolling(true)
+          setAutoScroll(false)
+        }
       }
 
       // Re-enable auto-scroll when user scrolls to bottom
