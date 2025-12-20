@@ -6,7 +6,6 @@
 
 import { memo, useRef, useEffect } from 'react'
 import { useProject } from 'renderer/hooks/use-projects'
-import { useWorkspaceSession } from 'renderer/hooks/use-workspace-session'
 import { useWorkspaceTerminals } from 'renderer/hooks/use-workspace-terminals'
 import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
@@ -23,30 +22,23 @@ import {
 
 interface MainContentProps {
   projectId: string | null
+  restoredCenterLayout?: { [panelId: string]: number }
+  onCenterLayoutChange?: (layout: { [panelId: string]: number }) => void
+  centerPanelGroupRef?: React.RefObject<GroupImperativeHandle | null>
+  isSessionReady?: boolean
 }
 
 export const MainContent = memo(function MainContent({
   projectId,
+  restoredCenterLayout,
+  onCenterLayoutChange,
+  centerPanelGroupRef,
+  isSessionReady,
 }: MainContentProps) {
   const { data: project, isLoading: projectLoading } = useProject(projectId)
   const hasOpenFiles = useEditorStore(state => state.openFiles.length > 0)
   const setActiveView = useAppStore(state => state.setActiveView)
-  const centerPanelGroupRef = useRef<GroupImperativeHandle | null>(null)
   const appliedLayoutRef = useRef<string | null>(null)
-
-  // Session management
-  const {
-    isReady: isSessionReady,
-    lastCenterLayoutRef,
-    restoredCenterLayout,
-    scheduleSave,
-  } = useWorkspaceSession({
-    projectId: projectId || '',
-    project,
-    projectLoading,
-    panelGroupRef: { current: null },
-    centerPanelGroupRef,
-  })
 
   // Terminal management
   const { isRestoring: isRestoringTerminals } = useWorkspaceTerminals({
@@ -99,11 +91,6 @@ export const MainContent = memo(function MainContent({
       appliedLayoutRef.current = null
     }
   }, [hasOpenFiles])
-
-  const handleCenterLayoutChange = (layout: { [panelId: string]: number }) => {
-    lastCenterLayoutRef.current = layout
-    scheduleSave()
-  }
 
   // No project selected - show welcome
   if (!projectId) {
@@ -160,7 +147,7 @@ export const MainContent = memo(function MainContent({
         <ResizablePanelGroup
           className="h-full"
           defaultLayout={restoredCenterLayout}
-          onLayoutChange={handleCenterLayoutChange}
+          onLayoutChange={onCenterLayoutChange}
           orientation="vertical"
           ref={centerPanelGroupRef}
         >

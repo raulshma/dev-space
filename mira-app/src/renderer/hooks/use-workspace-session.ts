@@ -8,6 +8,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useSession, useSaveSession } from 'renderer/hooks/use-sessions'
 import { useAppStore } from 'renderer/stores/app-store'
+import { useShellStore, type ShellTab } from 'renderer/stores/shell-store'
 import { useSidebarStore } from 'renderer/stores/sidebar-store'
 import { useEditorStore } from 'renderer/stores/editor-store'
 import { useTerminalStore } from 'renderer/stores/terminal-store'
@@ -78,6 +79,17 @@ export function useWorkspaceSession({
       centerPanelGroupRef?.current?.getLayout() ??
       undefined
 
+    // Helper to extract layout values regardless if they are object or array
+    const getLayoutValue = (
+      layoutData: any,
+      id: string,
+      index: number
+    ): number | undefined => {
+      if (!layoutData) return undefined
+      if (Array.isArray(layoutData)) return layoutData[index]
+      return layoutData[id]
+    }
+
     const openDiffFiles = editorState.openFiles
       .filter(f => f.isDiff)
       .map(f => ({
@@ -111,6 +123,8 @@ export function useWorkspaceSession({
         activeFilePath: editorState.activeFilePath,
         expandedFolderPaths: Array.from(sidebarState.expandedFolderPaths),
         openDiffFiles,
+        activeView: appState.activeView,
+        tasksViewMode: appState.tasksViewMode,
       },
     }
   }, [projectId, panelGroupRef, centerPanelGroupRef])
@@ -166,6 +180,12 @@ export function useWorkspaceSession({
       useSidebarStore
         .getState()
         .hydrateSidebarState(activeSidebarTab, expandedFolderPaths)
+
+      // Sync activity bar tab
+      if (activeSidebarTab) {
+        useShellStore.getState().setActiveTab(activeSidebarTab as ShellTab)
+      }
+
       editorStore.closeAllFiles()
 
       // Restore workspace UI state
@@ -179,6 +199,24 @@ export function useWorkspaceSession({
           previousDevToolsPanelState:
             session.workspace.previousDevToolsPanelState ?? false,
         })
+
+        if (
+          session.workspace.activeView === 'workspace' ||
+          session.workspace.activeView === 'tasks'
+        ) {
+          useAppStore
+            .getState()
+            .setActiveView(session.workspace.activeView as any)
+        }
+
+        if (
+          session.workspace.tasksViewMode === 'table' ||
+          session.workspace.tasksViewMode === 'kanban'
+        ) {
+          useAppStore
+            .getState()
+            .setTasksViewMode(session.workspace.tasksViewMode as any)
+        }
 
         // Restore expanded panel sizes for collapsed panels
         if (session.workspace.expandedPanelSizes) {
@@ -226,43 +264,54 @@ export function useWorkspaceSession({
         // Restore panel layout
         if (session.workspace.panelLayout) {
           const layout = session.workspace.panelLayout
-          const expectedIds = [
-            'project-workspace-left',
-            'project-workspace-center',
-            'project-workspace-right',
-          ]
+          const hasObjectLayout =
+            !Array.isArray(layout) &&
+            ('primary-sidebar' in layout || 'project-workspace-left' in layout)
+          const hasArrayLayout = Array.isArray(layout) && layout.length >= 2
 
-          if (expectedIds.some(id => id in layout)) {
-            // Use the layout as-is since react-resizable-panels handles validation
-            // Just ensure all expected panel IDs are present
-            const clampedLayout = { ...layout }
+          if (hasObjectLayout || hasArrayLayout) {
+            lastLayoutRef.current = layout
+            setRestoredLayout(layout)
 
-            lastLayoutRef.current = clampedLayout
+            // Update expanded sizes from restored layout
+            let leftSize: number | undefined
+            let rightSize: number | undefined
 
-            // Only update expanded sizes from layout if panels were actually expanded
-            // Otherwise keep the values from expandedPanelSizes (restored earlier)
-            const leftSize = layout['project-workspace-left']
-            const rightSize = layout['project-workspace-right']
+            if (Array.isArray(layout)) {
+              if (layout.length >= 3) {
+                leftSize = layout[0]
+                rightSize = layout[2]
+              } else if (layout.length === 2) {
+                leftSize = layout[0]
+              }
+            } else {
+              leftSize =
+                (layout as any)['project-workspace-left'] ??
+                (layout as any)['primary-sidebar']
+              rightSize =
+                (layout as any)['project-workspace-right'] ??
+                (layout as any)['secondary-sidebar']
+            }
+
             if (typeof leftSize === 'number' && leftSize > 0) {
               lastExpandedSizesRef.current.left = leftSize
             }
             if (typeof rightSize === 'number' && rightSize > 0) {
               lastExpandedSizesRef.current.right = rightSize
             }
-
-            // Set the restored layout to be used as defaultLayout
-            setRestoredLayout(clampedLayout)
           }
         }
 
         // Restore center panel layout (editor/terminal split)
         if (session.workspace.centerPanelLayout) {
           const centerLayout = session.workspace.centerPanelLayout
-          const expectedCenterIds = ['center-editor', 'center-terminal']
+          const hasObjectLayout =
+            !Array.isArray(centerLayout) && 'center-editor' in centerLayout
+          const hasArrayLayout = Array.isArray(centerLayout)
 
-          if (expectedCenterIds.some(id => id in centerLayout)) {
-            lastCenterLayoutRef.current = { ...centerLayout }
-            setRestoredCenterLayout({ ...centerLayout })
+          if (hasObjectLayout || hasArrayLayout) {
+            lastCenterLayoutRef.current = centerLayout
+            setRestoredCenterLayout(centerLayout)
           }
         }
       }

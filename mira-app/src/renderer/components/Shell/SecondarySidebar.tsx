@@ -11,9 +11,11 @@ import {
   IconCpu,
   IconKey,
   IconBraces,
+  IconX,
 } from '@tabler/icons-react'
 import { Spinner } from 'renderer/components/ui/spinner'
 import { cn } from 'renderer/lib/utils'
+import { useAppStore } from 'renderer/stores/app-store'
 
 // Lazy load tool components
 const PortKiller = lazy(() =>
@@ -79,6 +81,7 @@ const tools: ToolConfig[] = [
 ]
 
 export const SecondarySidebar = memo(function SecondarySidebar() {
+  const toggleDevToolsPanel = useAppStore(state => state.toggleDevToolsPanel)
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
   const selectedTool = tools.find(t => t.id === activeTool)
@@ -91,6 +94,14 @@ export const SecondarySidebar = memo(function SecondarySidebar() {
           <IconTool className="h-4 w-4" />
           Developer Tools
         </span>
+        <button
+          className="text-muted-foreground hover:text-foreground p-1 rounded-sm hover:bg-muted transition-colors"
+          onClick={toggleDevToolsPanel}
+          title="Hide Dev Tools Panel"
+          type="button"
+        >
+          <IconX size={16} />
+        </button>
       </div>
 
       {/* Tool list or active tool */}

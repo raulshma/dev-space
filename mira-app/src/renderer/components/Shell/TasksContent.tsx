@@ -40,13 +40,12 @@ export interface TasksFilter {
 export const TasksContent = memo(function TasksContent(): React.JSX.Element {
   const setActiveView = useAppStore(state => state.setActiveView)
   const activeProjectId = useAppStore(state => state.activeProjectId)
+  const viewMode = useAppStore(state => state.tasksViewMode)
+  const setViewMode = useAppStore(state => state.setTasksViewMode)
   const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
 
   // Get project data
   const { data: project } = useProject(activeProjectId)
-
-  // View mode state
-  const [viewMode, setViewMode] = useState<TasksViewMode>('kanban')
 
   // Filter state
   const [filters, setFilters] = useState<TasksFilter>({

@@ -41,6 +41,12 @@ export interface WorkspaceSessionState {
   /** Expanded sizes for collapsed panels (to restore when uncollapsed) */
   expandedPanelSizes?: { left: number; right: number }
 
+  /** Active view (workspace/tasks) */
+  activeView?: string
+
+  /** Active tasks view mode (kanban/table) */
+  tasksViewMode?: string
+
   /** UI state for restoring the workspace experience */
   sidebarCollapsed?: boolean
   devToolsPanelCollapsed?: boolean

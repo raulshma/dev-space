@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useRef, useEffect, Suspense, lazy, memo } from 'react'
+import { useWorkspaceSession } from 'renderer/hooks/use-workspace-session'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useShellStore, type ShellTab } from 'renderer/stores/shell-store'
 import { ActivityBar, type ActivityBarTab } from './ActivityBar'
@@ -22,6 +23,7 @@ import { TasksContent } from './TasksContent'
 import { StatusBar } from 'renderer/components/StatusBar'
 import { ErrorToast } from 'renderer/components/ErrorToast'
 import { useProject } from 'renderer/hooks/use-projects'
+import { Spinner } from 'renderer/components/ui/spinner'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -66,78 +68,120 @@ export function AppShell(): React.JSX.Element {
   const activeTab = useShellStore(state => state.activeTab)
   const setActiveTab = useShellStore(state => state.setActiveTab)
 
-  const { data: project } = useProject(activeProjectId)
+  const { data: project, isLoading: projectLoading } = useProject(activeProjectId)
 
   // Panel refs for collapse/expand
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null)
   const leftPanelRef = useRef<PanelImperativeHandle | null>(null)
   const rightPanelRef = useRef<PanelImperativeHandle | null>(null)
-  const lastExpandedSizesRef = useRef({ left: 20, right: 20 })
+  const centerPanelGroupRef = useRef<GroupImperativeHandle | null>(null)
 
-  // Track layout changes to save expanded sizes
+  // Session management
+  const {
+    isReady: isSessionReady,
+    lastLayoutRef,
+    lastCenterLayoutRef,
+    lastExpandedSizesRef,
+    restoredLayout,
+    restoredCenterLayout,
+    scheduleSave,
+  } = useWorkspaceSession({
+    projectId: activeProjectId || '',
+    project,
+    projectLoading,
+    panelGroupRef,
+    centerPanelGroupRef,
+  })
+
   const handleLayoutChange = useCallback(
-    (layout: { [panelId: string]: number }) => {
-      const leftSize = layout['primary-sidebar']
-      const rightSize = layout['secondary-sidebar']
-      if (typeof leftSize === 'number' && leftSize > 0) {
-        lastExpandedSizesRef.current.left = leftSize
+    (layout: any) => {
+      lastLayoutRef.current = layout
+
+      // Support both array and object layout formats
+      let leftSize: number | undefined
+      let rightSize: number | undefined
+
+      if (Array.isArray(layout)) {
+        if (layout.length >= 3) {
+          leftSize = layout[0]
+          rightSize = layout[2]
+        } else if (layout.length === 2) {
+          // If only 2 panels, it might be [left, center] or [center, right]
+          // But in AppShell it's usually [left, center, right]
+          // If it's 2, we can't be sure without more info, but let's assume [left, center]
+          leftSize = layout[0]
+        }
+      } else if (layout && typeof layout === 'object') {
+        leftSize = layout['primary-sidebar']
+        rightSize = layout['secondary-sidebar']
       }
-      if (typeof rightSize === 'number' && rightSize > 0) {
-        lastExpandedSizesRef.current.right = rightSize
+
+      const {
+        sidebarCollapsed: currentSidebarCollapsed,
+        devToolsPanelCollapsed: currentDevToolsCollapsed,
+        setSidebarCollapsed,
+        setDevToolsPanelCollapsed,
+      } = useAppStore.getState()
+
+      if (typeof leftSize === 'number') {
+        if (leftSize > 0) {
+          lastExpandedSizesRef.current.left = leftSize
+          if (currentSidebarCollapsed) setSidebarCollapsed(false)
+        } else if (leftSize === 0) {
+          if (!currentSidebarCollapsed) setSidebarCollapsed(true)
+        }
       }
+
+      if (typeof rightSize === 'number') {
+        if (rightSize > 0) {
+          lastExpandedSizesRef.current.right = rightSize
+          if (currentDevToolsCollapsed) setDevToolsPanelCollapsed(false)
+        } else if (rightSize === 0) {
+          if (!currentDevToolsCollapsed) setDevToolsPanelCollapsed(true)
+        }
+      }
+
+      scheduleSave()
     },
-    []
+    [scheduleSave, lastLayoutRef, lastExpandedSizesRef]
   )
 
   // Sync panel collapse state with app store
   useEffect(() => {
+    const panelGroup = panelGroupRef.current
+    if (!panelGroup || !isSessionReady) return
+
     const shouldCollapseLeft = zenMode || sidebarCollapsed
     const shouldCollapseRight = zenMode || devToolsPanelCollapsed
-    const panelGroup = panelGroupRef.current
-    const leftPanel = leftPanelRef.current
-    const rightPanel = rightPanelRef.current
 
-    if (!panelGroup || !leftPanel || !rightPanel) return
+    // Calculate target sizes
+    const leftSize = shouldCollapseLeft
+      ? 0
+      : (lastExpandedSizesRef.current.left || 20)
+    const rightSize = shouldCollapseRight
+      ? 0
+      : (lastExpandedSizesRef.current.right || 20)
+    const centerSize = 100 - leftSize - rightSize
 
+    // Use layoutHint to determine format without calling getLayout (which can throw)
+    const layoutHint = lastLayoutRef.current || restoredLayout
+    
     try {
-      const isLeftCollapsed = leftPanel.isCollapsed()
-      const isRightCollapsed = rightPanel.isCollapsed()
-
-      // Get current layout to calculate new layout
-      const currentLayout = panelGroup.getLayout()
-      const currentLeft = currentLayout['primary-sidebar'] ?? 0
-      const currentCenter = currentLayout['main-content'] ?? 60
-      const currentRight = currentLayout['secondary-sidebar'] ?? 0
-
-      // Save sizes before collapsing
-      if (currentLeft > 0) lastExpandedSizesRef.current.left = currentLeft
-      if (currentRight > 0) lastExpandedSizesRef.current.right = currentRight
-
-      // Determine target sizes
-      const targetLeft = shouldCollapseLeft
-        ? 0
-        : isLeftCollapsed
-          ? lastExpandedSizesRef.current.left
-          : currentLeft
-      const targetRight = shouldCollapseRight
-        ? 0
-        : isRightCollapsed
-          ? lastExpandedSizesRef.current.right
-          : currentRight
-
-      // Calculate center to fill remaining space
-      const targetCenter = 100 - targetLeft - targetRight
-
-      // Apply new layout using setLayout on the group
-      panelGroup.setLayout({
-        'primary-sidebar': targetLeft,
-        'main-content': targetCenter,
-        'secondary-sidebar': targetRight,
-      })
-    } catch {
-      // Panel may not be ready
+      if (Array.isArray(layoutHint)) {
+        panelGroup.setLayout([leftSize, centerSize, rightSize] as any)
+      } else {
+        // Fallback to object format or check if we should try getLayout safely
+        panelGroup.setLayout({
+          'primary-sidebar': leftSize,
+          'main-content': centerSize,
+          'secondary-sidebar': rightSize,
+        } as any)
+      }
+    } catch (err) {
+      // If setLayout fails or throws, the component is likely still mounting
+      console.debug('AppShell: Layout sync postponed (panel group not ready)', err)
     }
-  }, [sidebarCollapsed, devToolsPanelCollapsed, zenMode])
+  }, [sidebarCollapsed, devToolsPanelCollapsed, zenMode, isSessionReady])
 
   const handleTabChange = useCallback(
     (tab: ActivityBarTab) => {
@@ -145,6 +189,14 @@ export function AppShell(): React.JSX.Element {
     },
     [setActiveTab]
   )
+
+  if (activeProjectId && project && !isSessionReady) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-background">
+        <Spinner className="h-8 w-8" />
+      </div>
+    )
+  }
 
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
   const isRightPanelVisible = !zenMode && !devToolsPanelCollapsed
@@ -154,7 +206,18 @@ export function AppShell(): React.JSX.Element {
     if (activeView === 'tasks') {
       return <TasksContent />
     }
-    return <MainContent projectId={activeProjectId} />
+    return (
+      <MainContent
+        centerPanelGroupRef={centerPanelGroupRef}
+        isSessionReady={isSessionReady}
+        onCenterLayoutChange={(layout: any) => {
+          lastCenterLayoutRef.current = layout
+          scheduleSave()
+        }}
+        projectId={activeProjectId}
+        restoredCenterLayout={restoredCenterLayout}
+      />
+    )
   }
 
   return (
@@ -185,7 +248,9 @@ export function AppShell(): React.JSX.Element {
         {/* Resizable panels */}
         <ResizablePanelGroup
           className="flex-1"
+          defaultLayout={restoredLayout}
           id="app-shell-layout"
+          key={activeProjectId || 'none'}
           onLayoutChange={handleLayoutChange}
           orientation="horizontal"
           ref={panelGroupRef}
