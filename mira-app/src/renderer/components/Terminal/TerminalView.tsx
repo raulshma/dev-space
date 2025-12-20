@@ -8,7 +8,7 @@
  * Requirements: 9.1, 11.1, 11.2, 11.3, 11.4
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -27,6 +27,11 @@ import {
 import { useErrorStore } from 'renderer/stores/error-store'
 import { TerminalErrors } from './FixButton'
 import type { ErrorContext } from 'shared/models'
+import {
+  useSettings,
+  SETTING_KEYS,
+  DEFAULT_SETTINGS,
+} from 'renderer/hooks/use-settings'
 
 interface TerminalViewProps {
   ptyId: string
@@ -50,6 +55,46 @@ export function TerminalView({
   const [isContainerReady, setIsContainerReady] = useState(false)
 
   const addError = useErrorStore(state => state.addError)
+
+  // Fetch terminal settings
+  const { data: settings } = useSettings([
+    SETTING_KEYS.TERMINAL_FONT_SIZE,
+    SETTING_KEYS.TERMINAL_FONT_FAMILY,
+    SETTING_KEYS.TERMINAL_CURSOR_STYLE,
+    SETTING_KEYS.TERMINAL_CURSOR_BLINK,
+    SETTING_KEYS.TERMINAL_SCROLLBACK,
+  ])
+
+  // Memoize terminal options from settings
+  const terminalOptions = useMemo(() => {
+    const fontSize = Number(
+      settings?.[SETTING_KEYS.TERMINAL_FONT_SIZE] ||
+        DEFAULT_SETTINGS[SETTING_KEYS.TERMINAL_FONT_SIZE]
+    )
+    const fontFamily =
+      settings?.[SETTING_KEYS.TERMINAL_FONT_FAMILY] ||
+      DEFAULT_SETTINGS[SETTING_KEYS.TERMINAL_FONT_FAMILY]
+    const cursorStyle = (settings?.[SETTING_KEYS.TERMINAL_CURSOR_STYLE] ||
+      DEFAULT_SETTINGS[SETTING_KEYS.TERMINAL_CURSOR_STYLE]) as
+      | 'block'
+      | 'underline'
+      | 'bar'
+    const cursorBlink =
+      (settings?.[SETTING_KEYS.TERMINAL_CURSOR_BLINK] ||
+        DEFAULT_SETTINGS[SETTING_KEYS.TERMINAL_CURSOR_BLINK]) === 'true'
+    const scrollback = Number(
+      settings?.[SETTING_KEYS.TERMINAL_SCROLLBACK] ||
+        DEFAULT_SETTINGS[SETTING_KEYS.TERMINAL_SCROLLBACK]
+    )
+
+    return {
+      fontSize,
+      fontFamily,
+      cursorStyle,
+      cursorBlink,
+      scrollback,
+    }
+  }, [settings])
 
   // Use callback ref to detect when container is mounted and has dimensions
   const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
@@ -75,11 +120,13 @@ export function TerminalView({
     const container = terminalRef.current
     if (!container || !isContainerReady) return
 
-    // Create terminal instance
+    // Create terminal instance with user settings
     const terminal = new Terminal({
-      cursorBlink: true,
-      fontSize: 14,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      cursorBlink: terminalOptions.cursorBlink,
+      cursorStyle: terminalOptions.cursorStyle,
+      fontSize: terminalOptions.fontSize,
+      fontFamily: terminalOptions.fontFamily,
+      scrollback: terminalOptions.scrollback,
       theme: {
         background: '#1e1e1e',
         foreground: '#d4d4d4',
@@ -283,6 +330,25 @@ export function TerminalView({
       terminal.dispose()
     }
   }, [ptyId, terminalId, onTitleChange, onExit, addError, isContainerReady])
+
+  // Update terminal settings when they change (without recreating terminal)
+  useEffect(() => {
+    const terminal = xtermRef.current
+    if (!terminal) return
+
+    terminal.options.fontSize = terminalOptions.fontSize
+    terminal.options.fontFamily = terminalOptions.fontFamily
+    terminal.options.cursorBlink = terminalOptions.cursorBlink
+    terminal.options.cursorStyle = terminalOptions.cursorStyle
+    terminal.options.scrollback = terminalOptions.scrollback
+
+    // Refit terminal after font changes
+    if (fitAddonRef.current) {
+      requestAnimationFrame(() => {
+        fitAddonRef.current?.fit()
+      })
+    }
+  }, [terminalOptions])
 
   return (
     <div className="relative w-full h-full">
