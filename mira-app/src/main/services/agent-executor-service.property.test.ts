@@ -166,8 +166,7 @@ describe('Agent Executor Service Property Tests', () => {
               services.taskQueue,
               services.outputBuffer,
               services.configService,
-              services.gitService,
-              '/test/agents'
+              services.gitService
             )
 
             // Get initial backlog size
@@ -238,8 +237,7 @@ describe('Agent Executor Service Property Tests', () => {
                 services.taskQueue,
                 services.outputBuffer,
                 services.configService,
-                services.gitService,
-                '/test/agents'
+                services.gitService
               )
 
               const input: CreateAgentTaskInput = {
@@ -295,8 +293,7 @@ describe('Agent Executor Service Property Tests', () => {
                 services.taskQueue,
                 services.outputBuffer,
                 services.configService,
-                services.gitService,
-                '/test/agents'
+                services.gitService
               )
 
               const input: CreateAgentTaskInput = {
@@ -361,8 +358,7 @@ describe('Agent Executor Service Property Tests', () => {
                 services.taskQueue,
                 services.outputBuffer,
                 services.configService,
-                services.gitService,
-                '/test/agents'
+                services.gitService
               )
 
               // Create a task
@@ -412,117 +408,13 @@ describe('Agent Executor Service Property Tests', () => {
               services.taskQueue,
               services.outputBuffer,
               services.configService,
-              services.gitService,
-              '/test/agents'
+              services.gitService
             )
 
             const task = await executor.createTask(input)
             expect(task.status).toBe('pending')
 
             return true
-          } finally {
-            services.cleanup()
-          }
-        }),
-        { numRuns: 100 }
-      )
-    })
-  })
-
-  /**
-   * **Feature: ai-agent-rework, Property 14: Correct Agent Script Selection**
-   * **Validates: Requirements 8.2**
-   *
-   * For any task with agentType "autonomous", the spawned process SHALL execute autonomous_agent.py.
-   * For any task with agentType "feature", the spawned process SHALL execute feature_agent.py.
-   */
-  describe('Property 14: Correct Agent Script Selection', () => {
-    it('autonomous agent uses autonomous_agent.py script', () => {
-      fc.assert(
-        fc.property(fc.constant('autonomous' as const), agentType => {
-          const services = createMockServices()
-
-          try {
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService,
-              '/test/agents'
-            )
-
-            const scriptPath = executor.getAgentScriptPath(agentType)
-            expect(scriptPath).toContain('autonomous_agent.py')
-            expect(scriptPath).not.toContain('feature_agent.py')
-
-            return true
-          } finally {
-            services.cleanup()
-          }
-        }),
-        { numRuns: 10 }
-      )
-    })
-
-    it('feature agent uses feature_agent.py script', () => {
-      fc.assert(
-        fc.property(fc.constant('feature' as const), agentType => {
-          const services = createMockServices()
-
-          try {
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService,
-              '/test/agents'
-            )
-
-            const scriptPath = executor.getAgentScriptPath(agentType)
-            expect(scriptPath).toContain('feature_agent.py')
-            expect(scriptPath).not.toContain('autonomous_agent.py')
-
-            return true
-          } finally {
-            services.cleanup()
-          }
-        }),
-        { numRuns: 10 }
-      )
-    })
-
-    it('agent type determines correct script path', () => {
-      fc.assert(
-        fc.property(arbitraryAgentType, agentType => {
-          const services = createMockServices()
-
-          try {
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService,
-              '/base/path'
-            )
-
-            const scriptPath = executor.getAgentScriptPath(agentType)
-            // Normalize path separators for cross-platform testing
-            const normalizedPath = scriptPath.replace(/\\/g, '/')
-
-            if (agentType === 'autonomous') {
-              return normalizedPath.includes(
-                'autonomous-coding/autonomous_agent.py'
-              )
-            }
-            return normalizedPath.includes(
-              'feature-coding-agent/feature_agent.py'
-            )
           } finally {
             services.cleanup()
           }
@@ -555,8 +447,7 @@ describe('Agent Executor Service Property Tests', () => {
               services.taskQueue,
               services.outputBuffer,
               services.configService,
-              services.gitService,
-              '/test/agents'
+              services.gitService
             )
 
             // Create a task and simulate completion with exit code 0
@@ -600,8 +491,7 @@ describe('Agent Executor Service Property Tests', () => {
                 services.taskQueue,
                 services.outputBuffer,
                 services.configService,
-                services.gitService,
-                '/test/agents'
+                services.gitService
               )
 
               // Create a task and simulate failure with non-zero exit code
@@ -669,8 +559,7 @@ describe('Agent Executor Service Property Tests', () => {
                 services.taskQueue,
                 services.outputBuffer,
                 services.configService,
-                services.gitService,
-                '/test/agents'
+                services.gitService
               )
 
               const input: CreateAgentTaskInput = {

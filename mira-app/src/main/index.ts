@@ -62,11 +62,6 @@ const outputBuffer = new OutputBuffer(db)
 const julesService = new JulesService(agentConfigService)
 const workingDirectoryService = new WorkingDirectoryService()
 
-// Get the base path for agent scripts (workspace root)
-const agentScriptsBasePath = ENVIRONMENT.IS_DEV
-  ? join(__dirname, '..', '..', '..')
-  : join(app.getAppPath(), '..')
-
 const agentExecutorService = new AgentExecutorService(
   db,
   processManager,
@@ -74,7 +69,6 @@ const agentExecutorService = new AgentExecutorService(
   outputBuffer,
   agentConfigService,
   gitService,
-  agentScriptsBasePath,
   julesService,
   workingDirectoryService
 )

@@ -120,8 +120,6 @@ export function AppShell(): React.JSX.Element {
     }
   }, [sidebarCollapsed, agentPanelCollapsed, zenMode])
 
-
-
   const handleTabChange = useCallback(
     (tab: ActivityBarTab) => {
       setActiveTab(tab as ShellTab)

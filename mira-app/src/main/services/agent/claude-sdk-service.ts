@@ -1,0 +1,375 @@
+/**
+ * Claude Agent SDK Service
+ *
+ * Provides integration with the @anthropic-ai/claude-agent-sdk for executing
+ * coding agent tasks. Replaces the previous Python-based agent execution.
+ *
+ * @module claude-sdk-service
+ */
+
+import {
+  query,
+  type Options,
+  type SDKMessage,
+  type SDKResultMessage,
+  type SDKSystemMessage,
+  type SDKAssistantMessage,
+} from '@anthropic-ai/claude-agent-sdk'
+import { EventEmitter } from 'node:events'
+
+/**
+ * Configuration for Claude SDK execution
+ */
+export interface ClaudeExecutionConfig {
+  /** Task prompt/description */
+  prompt: string
+  /** Working directory for the agent */
+  workingDirectory: string
+  /** Model to use (default: claude-sonnet-4-5) */
+  model?: string
+  /** System prompt override */
+  systemPrompt?: string
+  /** Permission mode */
+  permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions'
+  /** Maximum budget in USD */
+  maxBudgetUsd?: number
+  /** Custom environment variables */
+  customEnvVars?: Record<string, string>
+  /** Anthropic API key */
+  apiKey?: string
+}
+
+/**
+ * Execution result from Claude SDK
+ */
+export interface ClaudeExecutionResult {
+  /** Session ID from the execution */
+  sessionId?: string
+  /** Whether execution completed successfully */
+  success: boolean
+  /** Error message if failed */
+  error?: string
+  /** Total cost of the execution */
+  totalCost?: number
+}
+
+/**
+ * Events emitted by ClaudeSdkService
+ */
+export interface ClaudeSdkEvents {
+  output: (data: string, stream: 'stdout' | 'stderr') => void
+  toolCall: (toolName: string, input: Record<string, unknown>) => void
+  toolResult: (toolName: string, result: string) => void
+  error: (error: string) => void
+  sessionInit: (sessionId: string, skills: string[]) => void
+  completion: () => void
+}
+
+/**
+ * Execution context for managing task state
+ */
+interface ExecutionContext {
+  abortController: AbortController
+  isPaused: boolean
+  sessionId?: string
+}
+
+/**
+ * Claude Agent SDK Service
+ *
+ * Manages execution of coding tasks using the Claude Agent SDK.
+ * Provides streaming output, tool execution tracking, and execution control.
+ */
+export class ClaudeSdkService extends EventEmitter {
+  /** Map of task IDs to their execution contexts */
+  private executions: Map<string, ExecutionContext> = new Map()
+
+  /**
+   * Execute a task using Claude Agent SDK
+   *
+   * @param taskId - Unique identifier for the task
+   * @param config - Execution configuration
+   * @returns Promise resolving to execution result
+   */
+  async execute(
+    taskId: string,
+    config: ClaudeExecutionConfig
+  ): Promise<ClaudeExecutionResult> {
+    const abortController = new AbortController()
+    const context: ExecutionContext = {
+      abortController,
+      isPaused: false,
+    }
+    this.executions.set(taskId, context)
+
+    let sessionId: string | undefined
+    let totalCost = 0
+
+    try {
+      // Build query options
+      const options: Options = {
+        model: config.model || 'claude-sonnet-4-5',
+        cwd: config.workingDirectory,
+        permissionMode: config.permissionMode || 'acceptEdits',
+        abortController,
+      }
+
+      if (config.systemPrompt) {
+        options.systemPrompt = config.systemPrompt
+      }
+
+      if (config.maxBudgetUsd) {
+        options.maxBudgetUsd = config.maxBudgetUsd
+      }
+
+      // Set API key via environment if provided
+      if (config.apiKey) {
+        options.env = {
+          ...process.env,
+          ANTHROPIC_API_KEY: config.apiKey,
+        }
+      }
+
+      if (config.customEnvVars) {
+        options.env = {
+          ...options.env,
+          ...config.customEnvVars,
+        }
+      }
+
+      // Execute query with streaming
+      const response = query({
+        prompt: config.prompt,
+        options,
+      })
+
+      // Process streaming messages
+      for await (const message of response) {
+        // Check if aborted
+        if (abortController.signal.aborted) {
+          break
+        }
+
+        // Handle pause (busy wait - SDK doesn't support native pause)
+        while (context.isPaused && !abortController.signal.aborted) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        this.handleMessage(taskId, message, context)
+
+        // Track session ID from init message
+        if (this.isSystemInitMessage(message)) {
+          sessionId = message.session_id
+          context.sessionId = sessionId
+        }
+
+        // Track cost from result message
+        if (this.isResultMessage(message)) {
+          totalCost = message.total_cost_usd
+        }
+      }
+
+      this.emit('completion')
+      return {
+        sessionId,
+        success: true,
+        totalCost,
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+
+      // Check for abort
+      if (abortController.signal.aborted) {
+        return {
+          sessionId,
+          success: false,
+          error: 'Execution was stopped',
+          totalCost,
+        }
+      }
+
+      this.emit('error', errorMessage)
+      return {
+        sessionId,
+        success: false,
+        error: errorMessage,
+        totalCost,
+      }
+    } finally {
+      this.executions.delete(taskId)
+    }
+  }
+
+  /**
+   * Type guard for system init messages
+   */
+  private isSystemInitMessage(
+    message: SDKMessage
+  ): message is SDKSystemMessage {
+    return (
+      message.type === 'system' &&
+      'subtype' in message &&
+      message.subtype === 'init'
+    )
+  }
+
+  /**
+   * Type guard for result messages
+   */
+  private isResultMessage(message: SDKMessage): message is SDKResultMessage {
+    return message.type === 'result'
+  }
+
+  /**
+   * Type guard for assistant messages
+   */
+  private isAssistantMessage(
+    message: SDKMessage
+  ): message is SDKAssistantMessage {
+    return message.type === 'assistant'
+  }
+
+  /**
+   * Handle a message from the Claude SDK stream
+   */
+  private handleMessage(
+    _taskId: string,
+    message: SDKMessage,
+    _context: ExecutionContext
+  ): void {
+    switch (message.type) {
+      case 'system':
+        if ('subtype' in message && message.subtype === 'init') {
+          const initMsg = message as SDKSystemMessage
+          this.emit('sessionInit', initMsg.session_id, initMsg.skills || [])
+          this.emit(
+            'output',
+            `[Claude] Session started: ${initMsg.session_id}\n`,
+            'stdout'
+          )
+        }
+        break
+
+      case 'assistant':
+        if (this.isAssistantMessage(message)) {
+          // Extract text content from the assistant message
+          const content = message.message?.content
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block.type === 'text' && 'text' in block) {
+                this.emit('output', `${block.text}\n`, 'stdout')
+              } else if (block.type === 'tool_use' && 'name' in block) {
+                this.emit('output', `[Tool] ${block.name}\n`, 'stdout')
+              }
+            }
+          }
+        }
+        break
+
+      case 'result':
+        if (this.isResultMessage(message)) {
+          if (message.subtype === 'success') {
+            this.emit('output', `[Claude] Task completed\n`, 'stdout')
+            if (message.result) {
+              this.emit('output', `${message.result}\n`, 'stdout')
+            }
+          } else {
+            const errorResult = message as SDKResultMessage & {
+              errors?: string[]
+            }
+            if (errorResult.errors) {
+              for (const err of errorResult.errors) {
+                this.emit('output', `[Error] ${err}\n`, 'stderr')
+              }
+            }
+          }
+        }
+        break
+
+      case 'tool_progress':
+        if ('tool_name' in message) {
+          this.emit('output', `[Executing] ${message.tool_name}...\n`, 'stdout')
+        }
+        break
+    }
+  }
+
+  /**
+   * Stop a running execution
+   *
+   * @param taskId - The task ID to stop
+   */
+  stop(taskId: string): void {
+    const context = this.executions.get(taskId)
+    if (context) {
+      context.abortController.abort()
+    }
+  }
+
+  /**
+   * Pause a running execution
+   *
+   * Note: The SDK doesn't natively support pause, so this uses a busy-wait approach.
+   *
+   * @param taskId - The task ID to pause
+   */
+  pause(taskId: string): void {
+    const context = this.executions.get(taskId)
+    if (context) {
+      context.isPaused = true
+    }
+  }
+
+  /**
+   * Resume a paused execution
+   *
+   * @param taskId - The task ID to resume
+   */
+  resume(taskId: string): void {
+    const context = this.executions.get(taskId)
+    if (context) {
+      context.isPaused = false
+    }
+  }
+
+  /**
+   * Check if a task is currently executing
+   *
+   * @param taskId - The task ID to check
+   * @returns True if the task is executing
+   */
+  isExecuting(taskId: string): boolean {
+    return this.executions.has(taskId)
+  }
+
+  /**
+   * Check if a task is paused
+   *
+   * @param taskId - The task ID to check
+   * @returns True if the task is paused
+   */
+  isPaused(taskId: string): boolean {
+    const context = this.executions.get(taskId)
+    return context?.isPaused ?? false
+  }
+
+  /**
+   * Get the session ID for a task
+   *
+   * @param taskId - The task ID
+   * @returns The session ID or undefined
+   */
+  getSessionId(taskId: string): string | undefined {
+    return this.executions.get(taskId)?.sessionId
+  }
+
+  /**
+   * Stop all running executions
+   */
+  stopAll(): void {
+    for (const [taskId] of this.executions) {
+      this.stop(taskId)
+    }
+  }
+}

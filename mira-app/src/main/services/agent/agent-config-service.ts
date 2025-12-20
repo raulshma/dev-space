@@ -289,9 +289,9 @@ export class AgentConfigService implements IAgentConfigService {
    * Validates based on selected service:
    * - claude-code: Requires anthropicAuthToken
    * - google-jules: Requires googleApiKey
-   * - opencode/aider: Requires openaiApiKey or anthropicAuthToken
-   * - custom: Requires customCommand
-   * - All: pythonPath required, apiTimeoutMs must be positive
+   * - opencode/aider: Requires openaiApiKey or anthropicAuthToken, and pythonPath
+   * - custom: Requires customCommand and pythonPath
+   * - apiTimeoutMs must be positive for all services
    *
    * @param config - Configuration to validate
    * @returns Validation result with any errors
@@ -334,6 +334,13 @@ export class AgentConfigService implements IAgentConfigService {
             message: 'At least one API key (OpenAI or Anthropic) is required',
           })
         }
+        // pythonPath is required for these services
+        if (!config.pythonPath || config.pythonPath.trim() === '') {
+          errors.push({
+            field: 'pythonPath',
+            message: 'Python path is required for this agent service',
+          })
+        }
         break
       case 'custom':
         if (!config.customCommand || config.customCommand.trim() === '') {
@@ -342,15 +349,14 @@ export class AgentConfigService implements IAgentConfigService {
             message: 'Custom command is required for custom agents',
           })
         }
+        // pythonPath is required for custom agents that may use Python
+        if (!config.pythonPath || config.pythonPath.trim() === '') {
+          errors.push({
+            field: 'pythonPath',
+            message: 'Python path is required for custom agents',
+          })
+        }
         break
-    }
-
-    // Validate pythonPath - required, non-empty, non-whitespace
-    if (!config.pythonPath || config.pythonPath.trim() === '') {
-      errors.push({
-        field: 'pythonPath',
-        message: 'Python path is required',
-      })
     }
 
     // Validate apiTimeoutMs - must be positive
@@ -401,13 +407,8 @@ export class AgentConfigService implements IAgentConfigService {
     const config = await this.getConfig()
     const configuredServices: import('shared/ai-types').TaskServiceType[] = []
 
-    // Check Claude Code - requires anthropicAuthToken and pythonPath
-    if (
-      config.anthropicAuthToken &&
-      config.anthropicAuthToken.trim() !== '' &&
-      config.pythonPath &&
-      config.pythonPath.trim() !== ''
-    ) {
+    // Check Claude Code - requires anthropicAuthToken (uses SDK, no Python needed)
+    if (config.anthropicAuthToken && config.anthropicAuthToken.trim() !== '') {
       configuredServices.push('claude-code')
     }
 

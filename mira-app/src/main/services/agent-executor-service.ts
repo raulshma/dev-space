@@ -13,8 +13,8 @@
  * - 7.3: Reorder tasks to update execution priority
  * - 7.4: Cancel pending tasks
  * - 7.5: Edit pending task parameters
- * - 8.1: Spawn background process for coding agent
- * - 8.2: Execute appropriate Python script based on agent type
+ * - 8.1: Execute coding agent via Claude Agent SDK
+ * - 8.2: Route to appropriate agent service (Claude SDK or Jules API)
  * - 9.2: Display live output stream with auto-scroll
  * - 9.3: Append new output within 100ms
  * - 9.5: Pause auto-scroll when user scrolls up
@@ -33,16 +33,14 @@
 
 import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { DatabaseService } from './database'
-import type {
-  ProcessManager,
-  ManagedProcess,
-  SpawnConfig,
-} from './agent/process-manager'
-import { buildAgentEnvironment } from './agent/process-manager'
+import type { ProcessManager, ManagedProcess } from './agent/process-manager'
+import {
+  ClaudeSdkService,
+  type ClaudeExecutionConfig,
+} from './agent/claude-sdk-service'
 import type { TaskQueue } from './agent/task-queue'
 import type { OutputBuffer, OutputCallback } from './agent/output-buffer'
 import type { AgentConfigService } from './agent/agent-config-service'
@@ -119,14 +117,6 @@ const VALID_STATE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 }
 
 /**
- * Python script paths for different agent types
- */
-const AGENT_SCRIPTS = {
-  autonomous: 'autonomous-coding/autonomous_agent.py',
-  feature: 'feature-coding-agent/feature_agent.py',
-} as const
-
-/**
  * Interface for the Agent Executor Service
  */
 export interface IAgentExecutorService {
@@ -187,6 +177,7 @@ export class AgentExecutorService
 {
   private db: DatabaseService
   private processManager: ProcessManager
+  private claudeSdkService: ClaudeSdkService
   private taskQueue: TaskQueue
   private outputBuffer: OutputBuffer
   private configService: AgentConfigService
@@ -194,7 +185,7 @@ export class AgentExecutorService
   private julesService: JulesService | null
   private workingDirectoryService: WorkingDirectoryService | null
 
-  /** Map of task IDs to their managed processes */
+  /** Map of task IDs to their managed processes (legacy, kept for compatibility) */
   private taskProcesses: Map<string, ManagedProcess> = new Map()
 
   /** Map of task IDs to Jules polling intervals */
@@ -209,9 +200,6 @@ export class AgentExecutorService
     }
   > = new Map()
 
-  /** Base path for agent scripts */
-  private agentScriptsBasePath: string
-
   /** Whether the service has been initialized */
   private initialized = false
 
@@ -225,18 +213,17 @@ export class AgentExecutorService
     outputBuffer: OutputBuffer,
     configService: AgentConfigService,
     gitService: GitService,
-    agentScriptsBasePath: string,
     julesService?: JulesService,
     workingDirectoryService?: WorkingDirectoryService
   ) {
     super()
     this.db = db
     this.processManager = processManager
+    this.claudeSdkService = new ClaudeSdkService()
     this.taskQueue = taskQueue
     this.outputBuffer = outputBuffer
     this.configService = configService
     this.gitService = gitService
-    this.agentScriptsBasePath = agentScriptsBasePath
     this.julesService = julesService ?? null
     this.workingDirectoryService = workingDirectoryService ?? null
   }
@@ -675,7 +662,7 @@ export class AgentExecutorService
   /**
    * Pause a running task
    *
-   * Sends SIGSTOP to the agent process and updates status to "paused".
+   * Pauses the Claude SDK execution and updates status to "paused".
    *
    * @param taskId - The task ID
    * @throws AgentExecutorError if task not found or not running
@@ -698,6 +685,12 @@ export class AgentExecutorService
       )
     }
 
+    // Pause Claude SDK execution
+    if (this.claudeSdkService.isExecuting(taskId)) {
+      this.claudeSdkService.pause(taskId)
+    }
+
+    // Legacy: pause process if exists
     const process = this.taskProcesses.get(taskId)
     if (process) {
       process.pause()
@@ -714,7 +707,7 @@ export class AgentExecutorService
   /**
    * Resume a paused task
    *
-   * Sends SIGCONT to the agent process and updates status to "running".
+   * Resumes the Claude SDK execution and updates status to "running".
    *
    * @param taskId - The task ID
    * @throws AgentExecutorError if task not found or not paused
@@ -737,6 +730,12 @@ export class AgentExecutorService
       )
     }
 
+    // Resume Claude SDK execution
+    if (this.claudeSdkService.isPaused(taskId)) {
+      this.claudeSdkService.resume(taskId)
+    }
+
+    // Legacy: resume process if exists
     const process = this.taskProcesses.get(taskId)
     if (process) {
       process.resume()
@@ -753,8 +752,7 @@ export class AgentExecutorService
   /**
    * Stop a task
    *
-   * Sends SIGTERM to the agent process (with SIGKILL fallback after 10s)
-   * and updates status to "stopped".
+   * Stops the Claude SDK execution and updates status to "stopped".
    *
    * @param taskId - The task ID
    * @throws AgentExecutorError if task not found
@@ -790,10 +788,14 @@ export class AgentExecutorService
       this.taskQueue.remove(taskId)
     }
 
-    // Kill process if running or paused (Claude Code tasks)
+    // Stop Claude SDK execution
+    if (this.claudeSdkService.isExecuting(taskId)) {
+      this.claudeSdkService.stop(taskId)
+    }
+
+    // Legacy: Kill process if running or paused
     const process = this.taskProcesses.get(taskId)
     if (process) {
-      // Resume first if paused (so SIGTERM can be received)
       if (task.status === 'paused') {
         process.resume()
       }
@@ -1098,16 +1100,6 @@ export class AgentExecutorService
    */
   private isValidStateTransition(from: TaskStatus, to: TaskStatus): boolean {
     return VALID_STATE_TRANSITIONS[from]?.includes(to) ?? false
-  }
-
-  /**
-   * Get the script path for an agent type
-   *
-   * @param agentType - The agent type
-   * @returns Full path to the Python script
-   */
-  getAgentScriptPath(agentType: 'autonomous' | 'feature'): string {
-    return join(this.agentScriptsBasePath, AGENT_SCRIPTS[agentType])
   }
 
   /**
@@ -1588,7 +1580,7 @@ export class AgentExecutorService
   }
 
   /**
-   * Execute a Claude Code task via local Python agent
+   * Execute a Claude Code task via Claude Agent SDK
    *
    * @param task - The task to execute
    */
@@ -1602,16 +1594,6 @@ export class AgentExecutorService
       throw new AgentExecutorError(
         `Invalid configuration: ${validation.errors.map(e => e.message).join(', ')}`,
         AgentExecutorErrorCode.INVALID_CONFIGURATION,
-        task.id
-      )
-    }
-
-    // Get script path
-    const scriptPath = this.getAgentScriptPath(task.agentType)
-    if (!existsSync(scriptPath)) {
-      throw new AgentExecutorError(
-        `Agent script not found: ${scriptPath}`,
-        AgentExecutorErrorCode.SCRIPT_NOT_FOUND,
         task.id
       )
     }
@@ -1680,38 +1662,32 @@ export class AgentExecutorService
     await this.updateExecutionStep(
       task.id,
       'initializing',
-      'Setting up agent environment...'
+      'Setting up Claude Agent SDK...'
     )
 
-    // Build environment variables
-    const env = buildAgentEnvironment(
-      {},
-      {
-        anthropicAuthToken: config.anthropicAuthToken,
-        anthropicBaseUrl: config.anthropicBaseUrl,
-        apiTimeoutMs: config.apiTimeoutMs,
-        pythonPath: config.pythonPath,
-        customEnvVars: {
-          ...config.customEnvVars,
-          ...task.parameters.customEnv,
-        },
-      }
-    )
+    // Build task description with planning prompt prefix
+    const prompt = this.buildTaskDescription(task)
 
-    // Build command arguments (use working directory)
-    const args = this.buildAgentArgs({
-      ...task,
-      targetDirectory: workingDirectory,
-    })
+    // Build execution config for Claude SDK
+    const executionConfig: ClaudeExecutionConfig = {
+      prompt,
+      workingDirectory,
+      model: task.parameters.model || 'claude-sonnet-4-5',
+      permissionMode: 'acceptEdits',
+      apiKey: config.anthropicAuthToken,
+      customEnvVars: {
+        ...config.customEnvVars,
+        ...task.parameters.customEnv,
+      },
+    }
 
     // Update step to running
     await this.updateExecutionStep(
       task.id,
       'running',
-      'Starting agent execution...'
+      'Starting Claude Agent SDK execution...'
     )
 
-    // Spawn process
     // Track accumulated output for plan detection
     let accumulatedOutput = ''
     let planDetected = false
@@ -1721,15 +1697,12 @@ export class AgentExecutorService
       completedPhases: [] as string[],
     }
 
-    const spawnConfig: SpawnConfig = {
-      script: scriptPath,
-      args,
-      cwd: workingDirectory,
-      env,
-      onStdout: (data: string) => {
-        const line = this.outputBuffer.append(task.id, data, 'stdout')
-        this.emit('outputReceived', task.id, line)
+    // Set up event handlers for Claude SDK
+    const handleOutput = (data: string, stream: 'stdout' | 'stderr') => {
+      const line = this.outputBuffer.append(task.id, data, stream)
+      this.emit('outputReceived', task.id, line)
 
+      if (stream === 'stdout') {
         // Accumulate output for plan detection
         accumulatedOutput += data
 
@@ -1744,11 +1717,8 @@ export class AgentExecutorService
 
           // Check if this plan needs approval (has SPEC_GENERATED marker)
           if (needsPlanApproval(accumulatedOutput)) {
-            // Pause the process and set task to awaiting approval
-            const process = this.taskProcesses.get(task.id)
-            if (process) {
-              process.pause()
-            }
+            // Pause the SDK execution
+            this.claudeSdkService.pause(task.id)
 
             // Set task to awaiting approval with the plan content
             this.setAwaitingApproval(task.id, accumulatedOutput).catch(err => {
@@ -1779,30 +1749,198 @@ export class AgentExecutorService
             })
           }
         }
-      },
-      onStderr: (data: string) => {
-        const line = this.outputBuffer.append(task.id, data, 'stderr')
-        this.emit('outputReceived', task.id, line)
-      },
-      onExit: async (code: number | null, signal: string | null) => {
-        await this.handleProcessExit(task.id, code, signal, workingDirectory)
-      },
+      }
     }
 
-    try {
-      const process = await this.processManager.spawn(spawnConfig)
-      this.taskProcesses.set(task.id, process)
+    // Register event handlers
+    this.claudeSdkService.on('output', handleOutput)
 
-      // Update task with process ID
-      await this.updateTask(task.id, { processId: process.pid })
+    try {
+      // Execute using Claude SDK
+      const result = await this.claudeSdkService.execute(
+        task.id,
+        executionConfig
+      )
+
+      // Clean up event handlers
+      this.claudeSdkService.off('output', handleOutput)
+
+      // Handle completion
+      await this.handleClaudeSdkCompletion(
+        task.id,
+        result.success,
+        result.error,
+        workingDirectory
+      )
     } catch (error) {
+      // Clean up event handlers
+      this.claudeSdkService.off('output', handleOutput)
+
       throw new AgentExecutorError(
-        `Failed to spawn agent process: ${error instanceof Error ? error.message : String(error)}`,
+        `Claude SDK execution failed: ${error instanceof Error ? error.message : String(error)}`,
         AgentExecutorErrorCode.PROCESS_SPAWN_FAILED,
         task.id,
         error instanceof Error ? error : undefined
       )
     }
+  }
+
+  /**
+   * Handle Claude SDK execution completion
+   */
+  private async handleClaudeSdkCompletion(
+    taskId: string,
+    success: boolean,
+    errorMessage: string | undefined,
+    workingDirectory: string
+  ): Promise<void> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      return
+    }
+
+    // Clear current task
+    if (this.taskQueue.getCurrentTaskId() === taskId) {
+      this.taskQueue.setCurrentTask(undefined)
+    }
+
+    // Persist output buffer
+    await this.outputBuffer.persist(taskId)
+
+    // Check if stopped by user
+    const wasStoppedByUser = task.status === 'stopped'
+    if (wasStoppedByUser) {
+      if (
+        workingDirectory &&
+        workingDirectory !== task.targetDirectory &&
+        this.workingDirectoryService
+      ) {
+        try {
+          await this.workingDirectoryService.cleanup(workingDirectory)
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      await this.processNextTask()
+      return
+    }
+
+    const newStatus: TaskStatus = success ? 'completed' : 'failed'
+
+    // Capture file changes
+    await this.updateExecutionStep(
+      taskId,
+      'capturing-changes',
+      'Capturing file changes...'
+    )
+
+    const effectiveWorkingDir =
+      workingDirectory || task.workingDirectory || task.targetDirectory
+    let fileChanges: FileChangeSummary | undefined
+
+    if (task.agentType === 'feature') {
+      fileChanges = await this.captureFileChanges(effectiveWorkingDir)
+    }
+
+    // Sync changes back to original project if using working directory
+    if (
+      success &&
+      this.workingDirectoryService &&
+      effectiveWorkingDir !== task.targetDirectory
+    ) {
+      try {
+        await this.updateExecutionStep(
+          taskId,
+          'syncing-back',
+          'Syncing changes back to original project...'
+        )
+
+        const syncResult = await this.workingDirectoryService.syncChangesBack(
+          effectiveWorkingDir,
+          task.targetDirectory,
+          message => {
+            const line = this.outputBuffer.append(
+              taskId,
+              `[Mira] ${message}\n`,
+              'stdout'
+            )
+            this.emit('outputReceived', taskId, line)
+          }
+        )
+
+        if (fileChanges) {
+          fileChanges.created = syncResult.filesCreated
+          fileChanges.modified = syncResult.filesModified
+          fileChanges.deleted = syncResult.filesDeleted
+        }
+
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Mira] Changes synced: ${syncResult.filesCreated.length} created, ` +
+            `${syncResult.filesModified.length} modified, ${syncResult.filesDeleted.length} deleted\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', taskId, line)
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error)
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Mira] Warning: Failed to sync changes back: ${errMsg}\n` +
+            `[Mira] Changes are preserved in: ${effectiveWorkingDir}\n`,
+          'stderr'
+        )
+        this.emit('outputReceived', taskId, line)
+      }
+    }
+
+    // Clean up working directory on success
+    if (
+      success &&
+      this.workingDirectoryService &&
+      effectiveWorkingDir !== task.targetDirectory
+    ) {
+      try {
+        await this.workingDirectoryService.cleanup(effectiveWorkingDir)
+        const line = this.outputBuffer.append(
+          taskId,
+          `[Mira] Working directory cleaned up\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', taskId, line)
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+
+    // Update task
+    const updates: UpdateAgentTaskInput = {
+      status: newStatus,
+      completedAt: new Date(),
+      fileChanges,
+      executionStep: success ? 'completed' : 'failed',
+    }
+
+    if (!success && errorMessage) {
+      updates.error = errorMessage
+    }
+
+    await this.updateTask(taskId, updates)
+
+    const finalTask = this.db.getAgentTask(taskId)
+    if (!finalTask) {
+      console.error(`Task ${taskId} not found after update`)
+      await this.processNextTask()
+      return
+    }
+
+    if (success) {
+      this.emit('taskCompleted', finalTask)
+    } else {
+      this.emit('taskFailed', finalTask, updates.error || 'Unknown error')
+    }
+
+    // Process next task
+    await this.processNextTask()
   }
 
   /**
@@ -1828,216 +1966,6 @@ export class AgentExecutorService
 
     // Prepend planning prompt to description
     return planningPrefix + task.description
-  }
-
-  /**
-   * Build command line arguments for the agent
-   *
-   * @param task - The task
-   * @returns Array of command line arguments
-   */
-  private buildAgentArgs(task: AgentTask): string[] {
-    const args: string[] = []
-
-    // Build description with planning prompt prefix if applicable
-    const description = this.buildTaskDescription(task)
-
-    // Add task description
-    args.push('--description', description)
-
-    // Add target directory
-    args.push('--target', task.targetDirectory)
-
-    // Add optional parameters
-    if (task.parameters.model) {
-      args.push('--model', task.parameters.model)
-    }
-    if (task.parameters.maxIterations) {
-      args.push('--max-iterations', task.parameters.maxIterations.toString())
-    }
-    if (task.parameters.testCount) {
-      args.push('--test-count', task.parameters.testCount.toString())
-    }
-    if (task.parameters.taskFile) {
-      args.push('--task-file', task.parameters.taskFile)
-    }
-
-    return args
-  }
-
-  /**
-   * Handle process exit
-   *
-   * Updates task status based on exit code and captures file changes.
-   *
-   * @param taskId - The task ID
-   * @param code - Exit code (null if killed by signal)
-   * @param signal - Signal that killed the process (null if exited normally)
-   * @param workingDirectory - Working directory where agent ran (may differ from targetDirectory)
-   */
-  private async handleProcessExit(
-    taskId: string,
-    code: number | null,
-    signal: string | null,
-    workingDirectory?: string
-  ): Promise<void> {
-    const task = this.db.getAgentTask(taskId)
-    if (!task) {
-      return
-    }
-
-    // Clean up process reference
-    this.taskProcesses.delete(taskId)
-
-    // Clear current task
-    if (this.taskQueue.getCurrentTaskId() === taskId) {
-      this.taskQueue.setCurrentTask(undefined)
-    }
-
-    // Persist output buffer
-    await this.outputBuffer.persist(taskId)
-
-    // Determine final status
-    const wasStoppedByUser = task.status === 'stopped'
-    if (wasStoppedByUser) {
-      // Clean up working directory if it exists
-      if (
-        workingDirectory &&
-        workingDirectory !== task.targetDirectory &&
-        this.workingDirectoryService
-      ) {
-        try {
-          await this.workingDirectoryService.cleanup(workingDirectory)
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
-      await this.processNextTask()
-      return
-    }
-
-    const isSuccess = code === 0
-    const newStatus: TaskStatus = isSuccess ? 'completed' : 'failed'
-
-    // Capture file changes
-    await this.updateExecutionStep(
-      taskId,
-      'capturing-changes',
-      'Capturing file changes...'
-    )
-
-    const effectiveWorkingDir =
-      workingDirectory || task.workingDirectory || task.targetDirectory
-    let fileChanges: FileChangeSummary | undefined
-
-    if (task.agentType === 'feature') {
-      fileChanges = await this.captureFileChanges(effectiveWorkingDir)
-    }
-
-    // Sync changes back to original project if using working directory
-    if (
-      isSuccess &&
-      this.workingDirectoryService &&
-      effectiveWorkingDir !== task.targetDirectory
-    ) {
-      try {
-        await this.updateExecutionStep(
-          taskId,
-          'syncing-back',
-          'Syncing changes back to original project...'
-        )
-
-        const syncResult = await this.workingDirectoryService.syncChangesBack(
-          effectiveWorkingDir,
-          task.targetDirectory,
-          message => {
-            const line = this.outputBuffer.append(
-              taskId,
-              `[Mira] ${message}\n`,
-              'stdout'
-            )
-            this.emit('outputReceived', taskId, line)
-          }
-        )
-
-        // Update file changes with sync result
-        if (fileChanges) {
-          fileChanges.created = syncResult.filesCreated
-          fileChanges.modified = syncResult.filesModified
-          fileChanges.deleted = syncResult.filesDeleted
-        }
-
-        const line = this.outputBuffer.append(
-          taskId,
-          `[Mira] Changes synced: ${syncResult.filesCreated.length} created, ` +
-            `${syncResult.filesModified.length} modified, ${syncResult.filesDeleted.length} deleted\n`,
-          'stdout'
-        )
-        this.emit('outputReceived', taskId, line)
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error)
-        const line = this.outputBuffer.append(
-          taskId,
-          `[Mira] Warning: Failed to sync changes back: ${errorMessage}\n` +
-            `[Mira] Changes are preserved in: ${effectiveWorkingDir}\n`,
-          'stderr'
-        )
-        this.emit('outputReceived', taskId, line)
-      }
-    }
-
-    // Clean up working directory on success
-    if (
-      isSuccess &&
-      this.workingDirectoryService &&
-      effectiveWorkingDir !== task.targetDirectory
-    ) {
-      try {
-        await this.workingDirectoryService.cleanup(effectiveWorkingDir)
-        const line = this.outputBuffer.append(
-          taskId,
-          `[Mira] Working directory cleaned up\n`,
-          'stdout'
-        )
-        this.emit('outputReceived', taskId, line)
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
-
-    // Update task
-    const updates: UpdateAgentTaskInput = {
-      status: newStatus,
-      exitCode: code ?? undefined,
-      completedAt: new Date(),
-      fileChanges,
-      executionStep: isSuccess ? 'completed' : 'failed',
-    }
-
-    if (!isSuccess) {
-      updates.error = signal
-        ? `Killed by signal: ${signal}`
-        : `Exit code: ${code}`
-    }
-
-    await this.updateTask(taskId, updates)
-
-    const updatedTask = this.db.getAgentTask(taskId)
-    if (!updatedTask) {
-      console.error(`Task ${taskId} not found after update`)
-      await this.processNextTask()
-      return
-    }
-
-    if (isSuccess) {
-      this.emit('taskCompleted', updatedTask)
-    } else {
-      this.emit('taskFailed', updatedTask, updates.error || 'Unknown error')
-    }
-
-    // Process next task
-    await this.processNextTask()
   }
 
   /**

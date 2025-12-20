@@ -320,7 +320,7 @@ export const TASK_SERVICE_TYPES: TaskServiceInfo[] = [
     id: 'claude-code',
     name: 'Claude Code',
     description:
-      'Local Python agents using Anthropic Claude for autonomous and feature development',
+      'Claude Agent SDK for autonomous and feature development tasks',
     docsUrl: 'https://docs.anthropic.com/claude-code',
     supportsAgentTypes: ['autonomous', 'feature'],
   },
