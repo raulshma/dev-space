@@ -77,9 +77,10 @@ export const RunningTaskCard = memo(function RunningTaskCard({
         <IconLoader2 className="h-3.5 w-3.5 text-green-500 animate-spin shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium truncate">{task.description}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {task.projectName}
-          </p>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <IconFolder className="h-3 w-3 shrink-0" />
+            <span className="truncate font-medium">{task.projectName}</span>
+          </div>
         </div>
         <Button
           className="h-6 w-6 shrink-0"

@@ -68,7 +68,8 @@ export function AppShell(): React.JSX.Element {
   const activeTab = useShellStore(state => state.activeTab)
   const setActiveTab = useShellStore(state => state.setActiveTab)
 
-  const { data: project, isLoading: projectLoading } = useProject(activeProjectId)
+  const { data: project, isLoading: projectLoading } =
+    useProject(activeProjectId)
 
   // Panel refs for collapse/expand
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null)
@@ -157,15 +158,15 @@ export function AppShell(): React.JSX.Element {
     // Calculate target sizes
     const leftSize = shouldCollapseLeft
       ? 0
-      : (lastExpandedSizesRef.current.left || 20)
+      : lastExpandedSizesRef.current.left || 20
     const rightSize = shouldCollapseRight
       ? 0
-      : (lastExpandedSizesRef.current.right || 20)
+      : lastExpandedSizesRef.current.right || 20
     const centerSize = 100 - leftSize - rightSize
 
     // Use layoutHint to determine format without calling getLayout (which can throw)
     const layoutHint = lastLayoutRef.current || restoredLayout
-    
+
     try {
       if (Array.isArray(layoutHint)) {
         panelGroup.setLayout([leftSize, centerSize, rightSize] as any)
@@ -179,7 +180,10 @@ export function AppShell(): React.JSX.Element {
       }
     } catch (err) {
       // If setLayout fails or throws, the component is likely still mounting
-      console.debug('AppShell: Layout sync postponed (panel group not ready)', err)
+      console.debug(
+        'AppShell: Layout sync postponed (panel group not ready)',
+        err
+      )
     }
   }, [sidebarCollapsed, devToolsPanelCollapsed, zenMode, isSessionReady])
 
@@ -208,8 +212,6 @@ export function AppShell(): React.JSX.Element {
 
   const isLeftPanelVisible = !zenMode && !sidebarCollapsed
   const isRightPanelVisible = !zenMode && !devToolsPanelCollapsed
-
-
 
   // Determine what to show in main content
   const renderMainContent = () => {

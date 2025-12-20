@@ -119,6 +119,9 @@ interface AgentTaskRow {
   require_plan_approval: number | null
   branch_name: string | null
   worktree_path: string | null
+  // Project association
+  project_id: string | null
+  project_name: string | null
 }
 
 // Auto-mode state row interface
@@ -170,6 +173,24 @@ interface WorktreeRow {
   branch: string
   task_id: string | null
   created_at: number
+}
+
+// Task Feedback row interface
+interface TaskFeedbackRow {
+  id: string
+  task_id: string
+  content: string
+  iteration: number
+  submitted_at: number
+}
+
+// Task Terminal row interface
+interface TaskTerminalRow {
+  id: string
+  task_id: string
+  working_directory: string
+  created_at: number
+  closed_at: number | null
 }
 
 // Agent Task Output row interface
@@ -603,6 +624,45 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_worktrees_project ON worktrees(project_path);
       CREATE INDEX IF NOT EXISTS idx_worktrees_task ON worktrees(task_id);
     `)
+
+    // ============================================================================
+    // TASK REVIEW WORKFLOW TABLES
+    // ============================================================================
+
+    // Task Feedback History table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS task_feedback (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        iteration INTEGER NOT NULL DEFAULT 1,
+        submitted_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Task Feedback indexes
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_task_feedback_task ON task_feedback(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_feedback_iteration ON task_feedback(task_id, iteration);
+    `)
+
+    // Task Terminal Sessions table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS task_terminals (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        working_directory TEXT NOT NULL,
+        created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        closed_at INTEGER,
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Task Terminals index
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_task_terminals_task ON task_terminals(task_id);
+    `)
   }
 
   /**
@@ -744,10 +804,78 @@ export class DatabaseService {
       }
     }
 
+    // Migration 6: Add project_id and project_name to agent_tasks
+    if (currentVersion < 7) {
+      try {
+        const tableInfo = this.db
+          .prepare('PRAGMA table_info(agent_tasks)')
+          .all() as Array<{ name: string }>
+        const columnNames = tableInfo.map(col => col.name)
+
+        // Add project_id column
+        if (!columnNames.includes('project_id')) {
+          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN project_id TEXT')
+        }
+        // Add project_name column
+        if (!columnNames.includes('project_name')) {
+          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN project_name TEXT')
+        }
+
+        // Create index for project_id filtering
+        this.db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_agent_tasks_project ON agent_tasks(project_id);
+        `)
+      } catch (error) {
+        console.error('Migration 6 (project association) failed:', error)
+      }
+    }
+
+    // Migration 7: Add task_feedback and task_terminals tables for review workflow
+    if (currentVersion < 8) {
+      try {
+        // Create task_feedback table
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS task_feedback (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            iteration INTEGER NOT NULL DEFAULT 1,
+            submitted_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+            FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+          )
+        `)
+
+        // Create task_feedback indexes
+        this.db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_task_feedback_task ON task_feedback(task_id);
+          CREATE INDEX IF NOT EXISTS idx_task_feedback_iteration ON task_feedback(task_id, iteration);
+        `)
+
+        // Create task_terminals table
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS task_terminals (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            working_directory TEXT NOT NULL,
+            created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+            closed_at INTEGER,
+            FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+          )
+        `)
+
+        // Create task_terminals index
+        this.db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_task_terminals_task ON task_terminals(task_id);
+        `)
+      } catch (error) {
+        console.error('Migration 7 (task review workflow) failed:', error)
+      }
+    }
+
     // Set schema version
     this.db
       .prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-      .run('schema_version', '6')
+      .run('schema_version', '8')
   }
 
   /**
@@ -1647,8 +1775,8 @@ export class DatabaseService {
     const now = Date.now()
 
     const stmt = db.prepare(`
-      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at, service_type, jules_params_json, planning_mode, plan_spec, require_plan_approval, branch_name, worktree_path)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO agent_tasks (id, description, agent_type, target_directory, parameters_json, status, priority, created_at, service_type, jules_params_json, planning_mode, plan_spec, require_plan_approval, branch_name, worktree_path, project_id, project_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     stmt.run(
@@ -1666,7 +1794,9 @@ export class DatabaseService {
       data.planSpec ? JSON.stringify(data.planSpec) : null,
       data.requirePlanApproval ? 1 : 0,
       data.branchName ?? null,
-      data.worktreePath ?? null
+      data.worktreePath ?? null,
+      data.projectId ?? null,
+      data.projectName ?? null
     )
 
     return {
@@ -1685,6 +1815,8 @@ export class DatabaseService {
       requirePlanApproval: data.requirePlanApproval ?? false,
       branchName: data.branchName,
       worktreePath: data.worktreePath,
+      projectId: data.projectId,
+      projectName: data.projectName,
     }
   }
 
@@ -1719,6 +1851,11 @@ export class DatabaseService {
     if (filter?.agentType) {
       query += ' AND agent_type = ?'
       params.push(filter.agentType)
+    }
+
+    if (filter?.projectId) {
+      query += ' AND project_id = ?'
+      params.push(filter.projectId)
     }
 
     query += ' ORDER BY priority DESC, created_at ASC'
@@ -1902,6 +2039,9 @@ export class DatabaseService {
       requirePlanApproval: row.require_plan_approval === 1,
       branchName: row.branch_name ?? undefined,
       worktreePath: row.worktree_path ?? undefined,
+      // Project association
+      projectId: row.project_id ?? undefined,
+      projectName: row.project_name ?? undefined,
     }
   }
 
@@ -3315,5 +3455,384 @@ export class DatabaseService {
       lastStartedTaskId: row.last_started_task_id,
       updatedAt: new Date(row.updated_at),
     }))
+  }
+
+  // ============================================================================
+  // TASK FEEDBACK OPERATIONS (Review Workflow)
+  // ============================================================================
+
+  /**
+   * Create a new feedback entry for a task
+   * @param taskId - The task ID
+   * @param content - The feedback content
+   * @param iteration - The review iteration number
+   * @returns The created feedback entry
+   */
+  createTaskFeedback(
+    taskId: string,
+    content: string,
+    iteration: number
+  ): {
+    id: string
+    taskId: string
+    content: string
+    iteration: number
+    submittedAt: Date
+  } {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO task_feedback (id, task_id, content, iteration, submitted_at)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(id, taskId, content, iteration, now)
+
+    return {
+      id,
+      taskId,
+      content,
+      iteration,
+      submittedAt: new Date(now),
+    }
+  }
+
+  /**
+   * Get a single feedback entry by ID
+   * @param feedbackId - The feedback ID
+   * @returns The feedback entry or null if not found
+   */
+  getTaskFeedback(feedbackId: string): {
+    id: string
+    taskId: string
+    content: string
+    iteration: number
+    submittedAt: Date
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM task_feedback WHERE id = ?')
+    const row = stmt.get(feedbackId) as TaskFeedbackRow | undefined
+
+    if (!row) return null
+
+    return {
+      id: row.id,
+      taskId: row.task_id,
+      content: row.content,
+      iteration: row.iteration,
+      submittedAt: new Date(row.submitted_at),
+    }
+  }
+
+  /**
+   * Get all feedback entries for a task ordered by submission time (chronological)
+   * @param taskId - The task ID
+   * @returns Array of feedback entries ordered by submittedAt ascending
+   */
+  getTaskFeedbackHistory(taskId: string): Array<{
+    id: string
+    taskId: string
+    content: string
+    iteration: number
+    submittedAt: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM task_feedback WHERE task_id = ? ORDER BY submitted_at ASC'
+    )
+    const rows = stmt.all(taskId) as TaskFeedbackRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      taskId: row.task_id,
+      content: row.content,
+      iteration: row.iteration,
+      submittedAt: new Date(row.submitted_at),
+    }))
+  }
+
+  /**
+   * Get feedback entries for a specific iteration
+   * @param taskId - The task ID
+   * @param iteration - The iteration number
+   * @returns Array of feedback entries for the iteration
+   */
+  getTaskFeedbackByIteration(
+    taskId: string,
+    iteration: number
+  ): Array<{
+    id: string
+    taskId: string
+    content: string
+    iteration: number
+    submittedAt: Date
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM task_feedback WHERE task_id = ? AND iteration = ? ORDER BY submitted_at ASC'
+    )
+    const rows = stmt.all(taskId, iteration) as TaskFeedbackRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      taskId: row.task_id,
+      content: row.content,
+      iteration: row.iteration,
+      submittedAt: new Date(row.submitted_at),
+    }))
+  }
+
+  /**
+   * Get the count of feedback entries for a task
+   * @param taskId - The task ID
+   * @returns The number of feedback entries
+   */
+  getTaskFeedbackCount(taskId: string): number {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT COUNT(*) as count FROM task_feedback WHERE task_id = ?'
+    )
+    const result = stmt.get(taskId) as { count: number }
+
+    return result.count
+  }
+
+  /**
+   * Get the highest iteration number for a task
+   * @param taskId - The task ID
+   * @returns The highest iteration number or 0 if no feedback exists
+   */
+  getTaskFeedbackMaxIteration(taskId: string): number {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT MAX(iteration) as max_iteration FROM task_feedback WHERE task_id = ?'
+    )
+    const result = stmt.get(taskId) as { max_iteration: number | null }
+
+    return result.max_iteration ?? 0
+  }
+
+  /**
+   * Delete a feedback entry
+   * @param feedbackId - The feedback ID
+   */
+  deleteTaskFeedback(feedbackId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM task_feedback WHERE id = ?')
+    stmt.run(feedbackId)
+  }
+
+  /**
+   * Delete all feedback entries for a task
+   * @param taskId - The task ID
+   */
+  clearTaskFeedback(taskId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM task_feedback WHERE task_id = ?')
+    stmt.run(taskId)
+  }
+
+  // ============================================================================
+  // TASK TERMINAL OPERATIONS (Review Workflow)
+  // ============================================================================
+
+  /**
+   * Create a new terminal session record for a task
+   * @param taskId - The task ID
+   * @param workingDirectory - The working directory for the terminal
+   * @returns The created terminal session record
+   */
+  createTaskTerminal(
+    taskId: string,
+    workingDirectory: string
+  ): {
+    id: string
+    taskId: string
+    workingDirectory: string
+    createdAt: Date
+    closedAt: Date | null
+  } {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO task_terminals (id, task_id, working_directory, created_at, closed_at)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(id, taskId, workingDirectory, now, null)
+
+    return {
+      id,
+      taskId,
+      workingDirectory,
+      createdAt: new Date(now),
+      closedAt: null,
+    }
+  }
+
+  /**
+   * Get a single terminal session by ID
+   * @param terminalId - The terminal ID
+   * @returns The terminal session or null if not found
+   */
+  getTaskTerminal(terminalId: string): {
+    id: string
+    taskId: string
+    workingDirectory: string
+    createdAt: Date
+    closedAt: Date | null
+  } | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM task_terminals WHERE id = ?')
+    const row = stmt.get(terminalId) as TaskTerminalRow | undefined
+
+    if (!row) return null
+
+    return {
+      id: row.id,
+      taskId: row.task_id,
+      workingDirectory: row.working_directory,
+      createdAt: new Date(row.created_at),
+      closedAt: row.closed_at ? new Date(row.closed_at) : null,
+    }
+  }
+
+  /**
+   * Get all terminal sessions for a task
+   * @param taskId - The task ID
+   * @returns Array of terminal sessions ordered by creation time
+   */
+  getTaskTerminals(taskId: string): Array<{
+    id: string
+    taskId: string
+    workingDirectory: string
+    createdAt: Date
+    closedAt: Date | null
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM task_terminals WHERE task_id = ? ORDER BY created_at ASC'
+    )
+    const rows = stmt.all(taskId) as TaskTerminalRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      taskId: row.task_id,
+      workingDirectory: row.working_directory,
+      createdAt: new Date(row.created_at),
+      closedAt: row.closed_at ? new Date(row.closed_at) : null,
+    }))
+  }
+
+  /**
+   * Get all open (not closed) terminal sessions for a task
+   * @param taskId - The task ID
+   * @returns Array of open terminal sessions
+   */
+  getOpenTaskTerminals(taskId: string): Array<{
+    id: string
+    taskId: string
+    workingDirectory: string
+    createdAt: Date
+    closedAt: Date | null
+  }> {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT * FROM task_terminals WHERE task_id = ? AND closed_at IS NULL ORDER BY created_at ASC'
+    )
+    const rows = stmt.all(taskId) as TaskTerminalRow[]
+
+    return rows.map(row => ({
+      id: row.id,
+      taskId: row.task_id,
+      workingDirectory: row.working_directory,
+      createdAt: new Date(row.created_at),
+      closedAt: null,
+    }))
+  }
+
+  /**
+   * Get the count of open terminal sessions for a task
+   * @param taskId - The task ID
+   * @returns The number of open terminals
+   */
+  getOpenTaskTerminalCount(taskId: string): number {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'SELECT COUNT(*) as count FROM task_terminals WHERE task_id = ? AND closed_at IS NULL'
+    )
+    const result = stmt.get(taskId) as { count: number }
+
+    return result.count
+  }
+
+  /**
+   * Mark a terminal session as closed
+   * @param terminalId - The terminal ID
+   */
+  closeTaskTerminal(terminalId: string): void {
+    const db = this.getDb()
+    const now = Date.now()
+
+    const stmt = db.prepare(
+      'UPDATE task_terminals SET closed_at = ? WHERE id = ?'
+    )
+    stmt.run(now, terminalId)
+  }
+
+  /**
+   * Close all open terminal sessions for a task
+   * @param taskId - The task ID
+   * @returns The number of terminals closed
+   */
+  closeAllTaskTerminals(taskId: string): number {
+    const db = this.getDb()
+    const now = Date.now()
+
+    const stmt = db.prepare(
+      'UPDATE task_terminals SET closed_at = ? WHERE task_id = ? AND closed_at IS NULL'
+    )
+    const result = stmt.run(now, taskId)
+
+    return result.changes
+  }
+
+  /**
+   * Delete a terminal session record
+   * @param terminalId - The terminal ID
+   */
+  deleteTaskTerminal(terminalId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM task_terminals WHERE id = ?')
+    stmt.run(terminalId)
+  }
+
+  /**
+   * Delete all terminal session records for a task
+   * @param taskId - The task ID
+   */
+  clearTaskTerminals(taskId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM task_terminals WHERE task_id = ?')
+    stmt.run(taskId)
   }
 }

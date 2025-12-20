@@ -5,8 +5,9 @@
  * - Completion status and duration
  * - File change summary
  * - Git diff for repository tasks
+ * - Review-specific completion state (when approved from review)
  *
- * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5
+ * Requirements: 5.4, 11.1, 11.2, 11.3, 11.4, 11.5
  */
 
 import { useState } from 'react'
@@ -44,6 +45,7 @@ import {
   IconChevronRight,
   IconCopy,
   IconExternalLink,
+  IconEye,
 } from '@tabler/icons-react'
 import { useTask, useTaskOutput } from 'renderer/stores/agent-task-store'
 import type { FileChangeSummary, OutputLine, TaskStatus } from 'shared/ai-types'
@@ -52,6 +54,8 @@ interface TaskCompletionViewProps {
   taskId: string
   onBack?: () => void
   onViewOutput?: () => void
+  /** Indicates if the task was completed via review approval */
+  fromReview?: boolean
 }
 
 const STATUS_CONFIG: Record<
@@ -80,6 +84,24 @@ const STATUS_CONFIG: Record<
     description: 'The task was manually stopped',
     icon: <IconPlayerStop className="h-6 w-6" />,
     variant: 'secondary',
+  },
+}
+
+/**
+ * Review-specific completion status config
+ * Requirements: 5.4, 11.1
+ */
+const REVIEW_COMPLETION_CONFIG = {
+  approved: {
+    label: 'Changes Approved',
+    description: 'Changes have been reviewed and copied to your project',
+    icon: <IconCheck className="h-6 w-6" />,
+  },
+  discarded: {
+    label: 'Changes Discarded',
+    description:
+      'Changes were discarded and the working directory was cleaned up',
+    icon: <IconX className="h-6 w-6" />,
   },
 }
 
@@ -239,6 +261,7 @@ function OutputSummary({
 export function TaskCompletionView({
   taskId,
   onViewOutput,
+  fromReview = false,
 }: TaskCompletionViewProps): React.JSX.Element {
   const task = useTask(taskId)
   const output = useTaskOutput(taskId)
@@ -283,6 +306,19 @@ export function TaskCompletionView({
     fileChanges.modified.length +
     fileChanges.deleted.length
 
+  // Determine if this was a review completion (approved or discarded)
+  // Requirements: 5.4, 11.1
+  const wasReviewApproved = fromReview && task.status === 'completed'
+  const wasReviewDiscarded = fromReview && task.status === 'stopped'
+  const reviewCompletionConfig = wasReviewApproved
+    ? REVIEW_COMPLETION_CONFIG.approved
+    : wasReviewDiscarded
+      ? REVIEW_COMPLETION_CONFIG.discarded
+      : null
+
+  // Check if task has review iterations (indicates it went through review)
+  const hadReviewIterations = (task.reviewIterations ?? 0) > 0
+
   return (
     <div className="flex h-full flex-col gap-4">
       {/* Status header */}
@@ -306,13 +342,31 @@ export function TaskCompletionView({
                     : 'bg-muted text-muted-foreground'
               }`}
             >
-              {statusConfig.icon}
+              {reviewCompletionConfig?.icon ?? statusConfig.icon}
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold">{statusConfig.label}</h2>
+              <h2 className="text-lg font-semibold">
+                {reviewCompletionConfig?.label ?? statusConfig.label}
+              </h2>
               <p className="text-sm text-muted-foreground">
-                {statusConfig.description}
+                {reviewCompletionConfig?.description ??
+                  statusConfig.description}
               </p>
+              {/* Show review badge if task went through review */}
+              {(hadReviewIterations || fromReview) && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge className="gap-1 bg-amber-500/20 text-amber-500 border-amber-500/30">
+                    <IconEye className="h-3 w-3" />
+                    Reviewed
+                  </Badge>
+                  {hadReviewIterations && (
+                    <span className="text-xs text-muted-foreground">
+                      {task.reviewIterations} feedback iteration
+                      {(task.reviewIterations ?? 0) > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="flex items-center gap-1 text-sm">

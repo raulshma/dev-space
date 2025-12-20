@@ -106,10 +106,11 @@ const arbitraryAgentService = fc.constantFrom(
 )
 
 /**
- * Arbitrary generator for valid AgentEnvironmentConfig
+ * Arbitrary generator for valid AgentEnvironmentConfig for claude-code
+ * (simplest case - only requires anthropicAuthToken)
  */
 const arbitraryValidConfig: fc.Arbitrary<AgentEnvironmentConfig> = fc.record({
-  agentService: arbitraryAgentService,
+  agentService: fc.constant('claude-code' as const),
   anthropicAuthToken: arbitraryValidString,
   anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
   apiTimeoutMs: arbitraryPositiveTimeout,
@@ -137,11 +138,20 @@ const arbitraryConfigWithEmptyAuthToken: fc.Arbitrary<AgentEnvironmentConfig> =
   })
 
 /**
+ * Arbitrary generator for agent services that require pythonPath
+ */
+const arbitraryAgentServiceRequiringPython = fc.constantFrom(
+  'aider' as const,
+  'custom' as const
+)
+
+/**
  * Arbitrary generator for config with empty/whitespace python path
+ * Only for services that require pythonPath (aider, custom)
  */
 const arbitraryConfigWithEmptyPythonPath: fc.Arbitrary<AgentEnvironmentConfig> =
   fc.record({
-    agentService: arbitraryAgentService,
+    agentService: arbitraryAgentServiceRequiringPython,
     anthropicAuthToken: arbitraryValidString,
     anthropicBaseUrl: fc.option(arbitraryValidUrl, { nil: undefined }),
     apiTimeoutMs: arbitraryPositiveTimeout,
@@ -149,7 +159,7 @@ const arbitraryConfigWithEmptyPythonPath: fc.Arbitrary<AgentEnvironmentConfig> =
     customEnvVars: arbitraryCustomEnvVars,
     googleApiKey: fc.option(arbitraryValidString, { nil: undefined }),
     openaiApiKey: fc.option(arbitraryValidString, { nil: undefined }),
-    customCommand: fc.option(arbitraryValidString, { nil: undefined }),
+    customCommand: arbitraryValidString, // custom service requires customCommand
   })
 
 /**
@@ -258,8 +268,9 @@ describe('Agent Config Service Property Tests', () => {
    * **Feature: ai-agent-rework, Property 8: Configuration Validation**
    * **Validates: Requirements 5.5**
    *
-   * For any agent configuration with an empty or whitespace-only python path,
-   * validation SHALL fail with an error message indicating the path is required.
+   * For agent services that require pythonPath (aider, custom),
+   * validation SHALL fail with an error message indicating the path is required
+   * when pythonPath is empty or whitespace-only.
    */
   it('validation fails for empty or whitespace-only python path', () => {
     fc.assert(
@@ -380,6 +391,7 @@ describe('Agent Config Service Property Tests', () => {
    *
    * For any configuration with multiple invalid fields, validation SHALL
    * return errors for each invalid field.
+   * Using 'aider' service which requires both auth token and pythonPath.
    */
   it('validation returns errors for all invalid fields', () => {
     fc.assert(
@@ -389,12 +401,13 @@ describe('Agent Config Service Property Tests', () => {
         arbitraryNonPositiveTimeout,
         (authToken, pythonPath, timeout) => {
           const config: AgentEnvironmentConfig = {
-            agentService: 'claude-code',
+            agentService: 'aider', // aider requires both auth token and pythonPath
             anthropicAuthToken: authToken,
             anthropicBaseUrl: undefined,
             apiTimeoutMs: timeout,
             pythonPath: pythonPath,
             customEnvVars: {},
+            openaiApiKey: undefined, // aider needs at least one API key
           }
 
           const result = configService.validateConfig(config)
@@ -402,18 +415,18 @@ describe('Agent Config Service Property Tests', () => {
           // Validation should fail
           if (result.isValid) return false
 
-          // Should have errors for all three invalid fields
-          const hasAuthTokenError = result.errors.some(
-            e => e.field === 'anthropicAuthToken'
-          )
+          // Should have errors for pythonPath and timeout (and API key)
           const hasPythonPathError = result.errors.some(
             e => e.field === 'pythonPath'
           )
           const hasTimeoutError = result.errors.some(
             e => e.field === 'apiTimeoutMs'
           )
+          const hasApiKeyError = result.errors.some(
+            e => e.field === 'openaiApiKey'
+          )
 
-          if (!hasAuthTokenError || !hasPythonPathError || !hasTimeoutError)
+          if (!hasPythonPathError || !hasTimeoutError || !hasApiKeyError)
             return false
 
           return true

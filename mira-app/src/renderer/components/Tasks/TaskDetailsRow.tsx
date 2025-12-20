@@ -34,6 +34,7 @@ const STATUS_ICONS: Record<TaskStatus, React.ReactNode> = {
   running: <IconLoader2 className="h-3 w-3 text-green-500 animate-spin" />,
   paused: <IconPlayerPause className="h-3 w-3 text-yellow-500" />,
   awaiting_approval: <IconClock className="h-3 w-3 text-yellow-500" />,
+  review: <IconCheck className="h-3 w-3 text-amber-500" />,
   completed: <IconCheck className="h-3 w-3 text-green-500" />,
   failed: <IconAlertTriangle className="h-3 w-3 text-destructive" />,
   stopped: <IconPlayerStop className="h-3 w-3 text-muted-foreground" />,
@@ -72,6 +73,7 @@ const TaskTab = memo(function TaskTab({
 
   return (
     <div
+      aria-selected={isActive}
       className={cn(
         'group flex items-center gap-1.5 px-3 py-1.5 cursor-pointer border-b-2 transition-colors min-w-0 max-w-[200px]',
         isActive
@@ -80,18 +82,19 @@ const TaskTab = memo(function TaskTab({
       )}
       onClick={onSelect}
       role="tab"
-      aria-selected={isActive}
     >
       {STATUS_ICONS[task.status]}
-      <span className="truncate text-xs font-medium">{truncatedDescription}</span>
+      <span className="truncate text-xs font-medium">
+        {truncatedDescription}
+      </span>
       <Button
-        variant="ghost"
-        size="icon"
         className={cn(
           'h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity',
           isActive && 'opacity-100'
         )}
         onClick={handleClose}
+        size="icon"
+        variant="ghost"
       >
         <IconX className="h-3 w-3" />
       </Button>
@@ -108,7 +111,8 @@ export const TaskDetailsRow = memo(function TaskDetailsRow({
 }: TaskDetailsRowProps) {
   const openTabs = useOpenTaskTabs()
   const activeTab = useActiveTaskTab()
-  const { setActiveTaskTab, closeTaskTab, closeAllTaskTabs } = useTaskTabActions()
+  const { setActiveTaskTab, closeTaskTab, closeAllTaskTabs } =
+    useTaskTabActions()
 
   const handleCloseTab = useCallback(
     (taskId: string) => {
@@ -129,11 +133,11 @@ export const TaskDetailsRow = memo(function TaskDetailsRow({
           <div className="flex items-center">
             {openTabs.map(taskId => (
               <TaskTab
-                key={taskId}
-                taskId={taskId}
                 isActive={taskId === activeTab}
-                onSelect={() => setActiveTaskTab(taskId)}
+                key={taskId}
                 onClose={() => handleCloseTab(taskId)}
+                onSelect={() => setActiveTaskTab(taskId)}
+                taskId={taskId}
               />
             ))}
           </div>
@@ -141,10 +145,10 @@ export const TaskDetailsRow = memo(function TaskDetailsRow({
         </ScrollArea>
         {openTabs.length > 1 && (
           <Button
-            variant="ghost"
-            size="sm"
             className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
             onClick={closeAllTaskTabs}
+            size="sm"
+            variant="ghost"
           >
             Close All
           </Button>
@@ -155,8 +159,8 @@ export const TaskDetailsRow = memo(function TaskDetailsRow({
       {activeTab && (
         <div className="flex-1 min-h-0">
           <TaskExecutionPanel
-            taskId={activeTab}
             onClose={() => closeTaskTab(activeTab)}
+            taskId={activeTab}
           />
         </div>
       )}

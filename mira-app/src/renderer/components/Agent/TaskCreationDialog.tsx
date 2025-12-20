@@ -77,6 +77,10 @@ interface TaskCreationDialogProps {
   onOpenChange: (open: boolean) => void
   defaultDirectory?: string
   onTaskCreated?: (taskId: string) => void
+  /** Project ID to associate the task with */
+  projectId?: string
+  /** Project name for display purposes */
+  projectName?: string
 }
 
 type Step = 'service' | 'details' | 'parameters' | 'review'
@@ -100,6 +104,8 @@ export function TaskCreationDialog({
   onOpenChange,
   defaultDirectory = '',
   onTaskCreated,
+  projectId,
+  projectName,
 }: TaskCreationDialogProps): React.JSX.Element {
   // Get default planning mode from settings
   const { data: defaultPlanningModeSetting } = useSetting(
@@ -457,6 +463,8 @@ Respond with JSON only:
           serviceType === 'claude-code' && branchName.trim()
             ? branchName.trim()
             : undefined,
+        projectId,
+        projectName,
       })
 
       onTaskCreated?.(result.id)

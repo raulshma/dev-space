@@ -15,7 +15,10 @@
 import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from 'renderer/stores/app-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
-import { useAgentTasks, useTaskStatusSubscription } from 'renderer/hooks/use-agent-tasks'
+import {
+  useAgentTasks,
+  useTaskStatusSubscription,
+} from 'renderer/hooks/use-agent-tasks'
 import { useProject } from 'renderer/hooks/use-projects'
 import { ErrorBoundary } from 'renderer/components/ErrorBoundary'
 import {
@@ -208,9 +211,12 @@ function TasksScreenContent(): React.JSX.Element {
       </ResizablePanelGroup>
 
       <TaskCreationDialog
+        defaultDirectory={project?.path}
         onOpenChange={setShowTaskCreation}
         onTaskCreated={handleTaskCreated}
         open={showTaskCreation}
+        projectId={activeProjectId ?? undefined}
+        projectName={project?.name}
       />
     </div>
   )

@@ -29,8 +29,8 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
   // Get project data to access the path
   const { data: project } = useProject(projectId)
 
-  // Load tasks
-  useAgentTasks()
+  // Load tasks for the active project
+  useAgentTasks(projectId ? { projectId } : undefined)
 
   const handleTaskSelect = useCallback(
     (taskId: string) => {
@@ -98,6 +98,8 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
         onOpenChange={setShowTaskCreation}
         onTaskCreated={handleTaskCreated}
         open={showTaskCreation}
+        projectId={projectId ?? undefined}
+        projectName={project?.name}
       />
     </div>
   )

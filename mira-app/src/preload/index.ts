@@ -330,6 +330,30 @@ import type {
   OpencodeErrorData,
   OpencodeSessionInitData,
   OpencodeCompleteData,
+  // Review Workflow types
+  ReviewTransitionToReviewRequest,
+  ReviewTransitionToReviewResponse,
+  ReviewGetStatusRequest,
+  ReviewGetStatusResponse,
+  ReviewSubmitFeedbackRequest,
+  ReviewSubmitFeedbackResponse,
+  ReviewGetFeedbackHistoryRequest,
+  ReviewGetFeedbackHistoryResponse,
+  ReviewApproveChangesRequest,
+  ReviewApproveChangesResponse,
+  ReviewDiscardChangesRequest,
+  ReviewDiscardChangesResponse,
+  ReviewRunProjectRequest,
+  ReviewRunProjectResponse,
+  ReviewStopProjectRequest,
+  ReviewStopProjectResponse,
+  ReviewGetAvailableScriptsRequest,
+  ReviewGetAvailableScriptsResponse,
+  ReviewOpenTerminalRequest,
+  ReviewOpenTerminalResponse,
+  ReviewGetOpenTerminalsRequest,
+  ReviewGetOpenTerminalsResponse,
+  ReviewStatusUpdateData,
 } from 'shared/ipc-types'
 
 /**
@@ -1291,6 +1315,66 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.OPENCODE_COMPLETE, listener)
       return () =>
         ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_COMPLETE, listener)
+    },
+  },
+
+  // Review Workflow operations
+  review: {
+    transitionToReview: (
+      request: ReviewTransitionToReviewRequest
+    ): Promise<ReviewTransitionToReviewResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_TRANSITION_TO_REVIEW, request),
+    getStatus: (
+      request: ReviewGetStatusRequest
+    ): Promise<ReviewGetStatusResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_STATUS, request),
+    submitFeedback: (
+      request: ReviewSubmitFeedbackRequest
+    ): Promise<ReviewSubmitFeedbackResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_SUBMIT_FEEDBACK, request),
+    getFeedbackHistory: (
+      request: ReviewGetFeedbackHistoryRequest
+    ): Promise<ReviewGetFeedbackHistoryResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_FEEDBACK_HISTORY, request),
+    approveChanges: (
+      request: ReviewApproveChangesRequest
+    ): Promise<ReviewApproveChangesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_APPROVE_CHANGES, request),
+    discardChanges: (
+      request: ReviewDiscardChangesRequest
+    ): Promise<ReviewDiscardChangesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_DISCARD_CHANGES, request),
+    runProject: (
+      request: ReviewRunProjectRequest
+    ): Promise<ReviewRunProjectResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_RUN_PROJECT, request),
+    stopProject: (
+      request: ReviewStopProjectRequest
+    ): Promise<ReviewStopProjectResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_STOP_PROJECT, request),
+    getAvailableScripts: (
+      request: ReviewGetAvailableScriptsRequest
+    ): Promise<ReviewGetAvailableScriptsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_AVAILABLE_SCRIPTS, request),
+    openTerminal: (
+      request: ReviewOpenTerminalRequest
+    ): Promise<ReviewOpenTerminalResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_OPEN_TERMINAL, request),
+    getOpenTerminals: (
+      request: ReviewGetOpenTerminalsRequest
+    ): Promise<ReviewGetOpenTerminalsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_OPEN_TERMINALS, request),
+    // Event listener for review status updates
+    onStatusUpdate: (
+      callback: (data: ReviewStatusUpdateData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: ReviewStatusUpdateData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.REVIEW_STATUS_UPDATE, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.REVIEW_STATUS_UPDATE, listener)
     },
   },
 }

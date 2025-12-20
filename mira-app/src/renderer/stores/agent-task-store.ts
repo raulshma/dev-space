@@ -15,7 +15,16 @@ import type {
   AgentType,
   PlanningMode,
   PlanSpec,
+  TaskFeedback,
+  TaskRunningProcess,
 } from 'shared/ai-types'
+import type {
+  ReviewStatusInfo,
+  ReviewApprovalResult,
+  ReviewRunningProcess,
+  ReviewTerminalSession,
+  ReviewScriptInfo,
+} from 'shared/ipc-types'
 
 // ============================================================================
 // Types
@@ -73,6 +82,14 @@ export interface AgentTaskState {
   dependencyStatuses: Map<string, TaskDependencyStatus>
   isLoadingDependencies: boolean
 
+  // Review workflow state (per task)
+  feedbackHistories: Map<string, TaskFeedback[]>
+  runningProcesses: Map<string, ReviewRunningProcess>
+  openTerminals: Map<string, ReviewTerminalSession[]>
+  reviewStatuses: Map<string, ReviewStatusInfo>
+  isLoadingReview: boolean
+  reviewError: string | null
+
   // Actions - Task management
   setTasks: (tasks: AgentTask[]) => void
   addTask: (task: AgentTask) => void
@@ -118,6 +135,33 @@ export interface AgentTaskState {
   loadBlockingStatus: (taskId: string) => Promise<void>
   saveDependencies: (taskId: string, dependsOn: string[]) => Promise<void>
 
+  // Actions - Review Workflow State Management
+  setFeedbackHistory: (taskId: string, feedback: TaskFeedback[]) => void
+  addFeedbackEntry: (taskId: string, feedback: TaskFeedback) => void
+  setRunningProcess: (
+    taskId: string,
+    process: ReviewRunningProcess | null
+  ) => void
+  setOpenTerminals: (taskId: string, terminals: ReviewTerminalSession[]) => void
+  addOpenTerminal: (taskId: string, terminal: ReviewTerminalSession) => void
+  removeOpenTerminal: (taskId: string, terminalId: string) => void
+  setReviewStatus: (taskId: string, status: ReviewStatusInfo) => void
+  clearReviewState: (taskId: string) => void
+  setLoadingReview: (loading: boolean) => void
+  setReviewError: (error: string | null) => void
+
+  // Async Actions - Review Workflow
+  submitFeedback: (taskId: string, feedback: string) => Promise<void>
+  approveChanges: (taskId: string) => Promise<ReviewApprovalResult>
+  discardChanges: (taskId: string) => Promise<void>
+  runProject: (taskId: string, script?: string) => Promise<ReviewRunningProcess>
+  stopProject: (taskId: string) => Promise<void>
+  openTerminal: (taskId: string) => Promise<ReviewTerminalSession>
+  loadReviewStatus: (taskId: string) => Promise<void>
+  loadFeedbackHistory: (taskId: string) => Promise<void>
+  loadAvailableScripts: (taskId: string) => Promise<ReviewScriptInfo[]>
+  loadOpenTerminals: (taskId: string) => Promise<void>
+
   // Selectors
   getTask: (taskId: string) => AgentTask | undefined
   getTasksByStatus: (status: TaskStatus) => AgentTask[]
@@ -129,6 +173,11 @@ export interface AgentTaskState {
   getTasksAwaitingApproval: () => AgentTask[]
   getTasksByPlanningMode: (mode: PlanningMode) => AgentTask[]
   getTasksByBranch: (branchName: string) => AgentTask[]
+  getTasksInReview: () => AgentTask[]
+  getTaskFeedbackHistory: (taskId: string) => TaskFeedback[]
+  getTaskRunningProcess: (taskId: string) => ReviewRunningProcess | undefined
+  getTaskOpenTerminals: (taskId: string) => ReviewTerminalSession[]
+  getTaskReviewStatus: (taskId: string) => ReviewStatusInfo | undefined
 }
 
 // ============================================================================
@@ -158,6 +207,14 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
   dependencies: new Map(),
   dependencyStatuses: new Map(),
   isLoadingDependencies: false,
+
+  // Review workflow state
+  feedbackHistories: new Map(),
+  runningProcesses: new Map(),
+  openTerminals: new Map(),
+  reviewStatuses: new Map(),
+  isLoadingReview: false,
+  reviewError: null,
 
   // Task management actions
   setTasks: tasks =>
@@ -254,9 +311,10 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
       let newActiveTab = state.activeTaskTab
       if (state.activeTaskTab === taskId) {
         const closedIndex = state.openTaskTabs.indexOf(taskId)
-        newActiveTab = newOpenTabs.length > 0
-          ? newOpenTabs[Math.max(0, closedIndex - 1)]
-          : null
+        newActiveTab =
+          newOpenTabs.length > 0
+            ? newOpenTabs[Math.max(0, closedIndex - 1)]
+            : null
       }
 
       return {
@@ -536,6 +594,268 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
     }
   },
 
+  // Review workflow state management actions
+  setFeedbackHistory: (taskId, feedback) =>
+    set(state => {
+      const newHistories = new Map(state.feedbackHistories)
+      newHistories.set(taskId, feedback)
+      return { feedbackHistories: newHistories }
+    }),
+
+  addFeedbackEntry: (taskId, feedback) =>
+    set(state => {
+      const newHistories = new Map(state.feedbackHistories)
+      const existing = newHistories.get(taskId) || []
+      newHistories.set(taskId, [...existing, feedback])
+      return { feedbackHistories: newHistories }
+    }),
+
+  setRunningProcess: (taskId, process) =>
+    set(state => {
+      const newProcesses = new Map(state.runningProcesses)
+      if (process) {
+        newProcesses.set(taskId, process)
+      } else {
+        newProcesses.delete(taskId)
+      }
+      return { runningProcesses: newProcesses }
+    }),
+
+  setOpenTerminals: (taskId, terminals) =>
+    set(state => {
+      const newTerminals = new Map(state.openTerminals)
+      newTerminals.set(taskId, terminals)
+      return { openTerminals: newTerminals }
+    }),
+
+  addOpenTerminal: (taskId, terminal) =>
+    set(state => {
+      const newTerminals = new Map(state.openTerminals)
+      const existing = newTerminals.get(taskId) || []
+      newTerminals.set(taskId, [...existing, terminal])
+      return { openTerminals: newTerminals }
+    }),
+
+  removeOpenTerminal: (taskId, terminalId) =>
+    set(state => {
+      const newTerminals = new Map(state.openTerminals)
+      const existing = newTerminals.get(taskId) || []
+      newTerminals.set(
+        taskId,
+        existing.filter(t => t.id !== terminalId)
+      )
+      return { openTerminals: newTerminals }
+    }),
+
+  setReviewStatus: (taskId, status) =>
+    set(state => {
+      const newStatuses = new Map(state.reviewStatuses)
+      newStatuses.set(taskId, status)
+      return { reviewStatuses: newStatuses }
+    }),
+
+  clearReviewState: taskId =>
+    set(state => {
+      const newHistories = new Map(state.feedbackHistories)
+      newHistories.delete(taskId)
+      const newProcesses = new Map(state.runningProcesses)
+      newProcesses.delete(taskId)
+      const newTerminals = new Map(state.openTerminals)
+      newTerminals.delete(taskId)
+      const newStatuses = new Map(state.reviewStatuses)
+      newStatuses.delete(taskId)
+      return {
+        feedbackHistories: newHistories,
+        runningProcesses: newProcesses,
+        openTerminals: newTerminals,
+        reviewStatuses: newStatuses,
+      }
+    }),
+
+  setLoadingReview: loading => set({ isLoadingReview: loading }),
+
+  setReviewError: error => set({ reviewError: error }),
+
+  // Async review workflow actions
+  submitFeedback: async (taskId, feedback) => {
+    const { setLoadingReview, setReviewError, addFeedbackEntry, updateTask } =
+      get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      await window.api.review.submitFeedback({ taskId, feedback })
+      // The feedback entry will be added via the status update event
+      // Update task status to running since agent is restarting
+      updateTask(taskId, { status: 'running' })
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to submit feedback'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  approveChanges: async taskId => {
+    const { setLoadingReview, setReviewError, updateTask, clearReviewState } =
+      get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.approveChanges({ taskId })
+      if (response.result.success) {
+        updateTask(taskId, { status: 'completed' })
+        clearReviewState(taskId)
+      }
+      return response.result
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to approve changes'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  discardChanges: async taskId => {
+    const { setLoadingReview, setReviewError, updateTask, clearReviewState } =
+      get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      await window.api.review.discardChanges({ taskId })
+      updateTask(taskId, { status: 'stopped' })
+      clearReviewState(taskId)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to discard changes'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  runProject: async (taskId, script) => {
+    const { setLoadingReview, setReviewError, setRunningProcess } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.runProject({ taskId, script })
+      setRunningProcess(taskId, response.process)
+      return response.process
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to run project'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  stopProject: async taskId => {
+    const { setLoadingReview, setReviewError, setRunningProcess } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      await window.api.review.stopProject({ taskId })
+      setRunningProcess(taskId, null)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to stop project'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  openTerminal: async taskId => {
+    const { setLoadingReview, setReviewError, addOpenTerminal } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.openTerminal({ taskId })
+      addOpenTerminal(taskId, response.session)
+      return response.session
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to open terminal'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  loadReviewStatus: async taskId => {
+    const { setLoadingReview, setReviewError, setReviewStatus } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.getStatus({ taskId })
+      setReviewStatus(taskId, response.status)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load review status'
+      setReviewError(message)
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  loadFeedbackHistory: async taskId => {
+    const { setLoadingReview, setReviewError, setFeedbackHistory } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.getFeedbackHistory({ taskId })
+      setFeedbackHistory(taskId, response.feedback)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load feedback history'
+      setReviewError(message)
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  loadAvailableScripts: async taskId => {
+    const { setLoadingReview, setReviewError } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.getAvailableScripts({ taskId })
+      return response.scripts
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load available scripts'
+      setReviewError(message)
+      throw err
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
+  loadOpenTerminals: async taskId => {
+    const { setLoadingReview, setReviewError, setOpenTerminals } = get()
+    setLoadingReview(true)
+    setReviewError(null)
+    try {
+      const response = await window.api.review.getOpenTerminals({ taskId })
+      setOpenTerminals(taskId, response.terminals)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load open terminals'
+      setReviewError(message)
+    } finally {
+      setLoadingReview(false)
+    }
+  },
+
   // Selectors
   getTask: taskId => {
     return get().tasks.get(taskId)
@@ -602,6 +922,33 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
         (task): task is AgentTask =>
           task !== undefined && task.branchName === branchName
       )
+  },
+
+  // Review workflow selectors
+  getTasksInReview: () => {
+    const state = get()
+    return state.taskOrder
+      .map(id => state.tasks.get(id))
+      .filter(
+        (task): task is AgentTask =>
+          task !== undefined && task.status === 'review'
+      )
+  },
+
+  getTaskFeedbackHistory: (taskId: string) => {
+    return get().feedbackHistories.get(taskId) || []
+  },
+
+  getTaskRunningProcess: (taskId: string) => {
+    return get().runningProcesses.get(taskId)
+  },
+
+  getTaskOpenTerminals: (taskId: string) => {
+    return get().openTerminals.get(taskId) || []
+  },
+
+  getTaskReviewStatus: (taskId: string) => {
+    return get().reviewStatuses.get(taskId)
   },
 }))
 
@@ -951,5 +1298,105 @@ export const useOpenTaskTabsWithData = (): AgentTask[] => {
         .map(id => state.tasks.get(id))
         .filter((task): task is AgentTask => task !== undefined)
     )
+  )
+}
+
+// ============================================================================
+// Review Workflow Hooks
+// ============================================================================
+
+/**
+ * Hook to get all tasks in review status
+ * Requirements: 1.3
+ */
+export const useTasksInReview = (): AgentTask[] => {
+  return useAgentTaskStore(
+    useShallow(state =>
+      state.taskOrder
+        .map(id => state.tasks.get(id))
+        .filter(
+          (task): task is AgentTask =>
+            task !== undefined && task.status === 'review'
+        )
+    )
+  )
+}
+
+/**
+ * Hook to get feedback history for a specific task
+ * Requirements: 4.5
+ */
+export const useTaskFeedbackHistory = (taskId: string): TaskFeedback[] => {
+  return useAgentTaskStore(
+    useShallow(state => state.feedbackHistories.get(taskId) || [])
+  )
+}
+
+/**
+ * Hook to get running process for a specific task
+ * Requirements: 2.3
+ */
+export const useTaskRunningProcess = (
+  taskId: string
+): ReviewRunningProcess | undefined => {
+  return useAgentTaskStore(state => state.runningProcesses.get(taskId))
+}
+
+/**
+ * Hook to get open terminals for a specific task
+ * Requirements: 3.4
+ */
+export const useTaskOpenTerminals = (
+  taskId: string
+): ReviewTerminalSession[] => {
+  return useAgentTaskStore(
+    useShallow(state => state.openTerminals.get(taskId) || [])
+  )
+}
+
+/**
+ * Hook to get review status for a specific task
+ * Requirements: 1.3
+ */
+export const useTaskReviewStatus = (
+  taskId: string
+): ReviewStatusInfo | undefined => {
+  return useAgentTaskStore(state => state.reviewStatuses.get(taskId))
+}
+
+/**
+ * Hook to check if review operations are loading
+ */
+export const useReviewLoading = (): boolean => {
+  return useAgentTaskStore(state => state.isLoadingReview)
+}
+
+/**
+ * Hook to get review error
+ */
+export const useReviewError = (): string | null => {
+  return useAgentTaskStore(state => state.reviewError)
+}
+
+/**
+ * Hook to get review workflow actions
+ * Requirements: 4.2, 5.2, 6.4, 2.2, 3.2
+ */
+export const useReviewActions = () => {
+  return useAgentTaskStore(
+    useShallow(state => ({
+      submitFeedback: state.submitFeedback,
+      approveChanges: state.approveChanges,
+      discardChanges: state.discardChanges,
+      runProject: state.runProject,
+      stopProject: state.stopProject,
+      openTerminal: state.openTerminal,
+      loadReviewStatus: state.loadReviewStatus,
+      loadFeedbackHistory: state.loadFeedbackHistory,
+      loadAvailableScripts: state.loadAvailableScripts,
+      loadOpenTerminals: state.loadOpenTerminals,
+      setReviewError: state.setReviewError,
+      clearReviewState: state.clearReviewState,
+    }))
   )
 }

@@ -141,6 +141,7 @@ import type { SessionService } from 'main/services/session-service'
 import type { AgentServiceV2 } from 'main/services/agent-service-v2'
 import type { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
 import type { OpencodeSdkService } from 'main/services/agent/opencode-sdk-service'
+import type { ReviewService } from 'main/services/review-service'
 import type {
   AgentV2SessionCreateRequest,
   AgentV2SessionGetRequest,
@@ -178,6 +179,18 @@ import type {
   OpencodeBackupConfigRequest,
   OpencodeRestoreConfigRequest,
   OpencodeWriteConfigRequest,
+  // Review Workflow types
+  ReviewTransitionToReviewRequest,
+  ReviewGetStatusRequest,
+  ReviewSubmitFeedbackRequest,
+  ReviewGetFeedbackHistoryRequest,
+  ReviewApproveChangesRequest,
+  ReviewDiscardChangesRequest,
+  ReviewRunProjectRequest,
+  ReviewStopProjectRequest,
+  ReviewGetAvailableScriptsRequest,
+  ReviewOpenTerminalRequest,
+  ReviewGetOpenTerminalsRequest,
 } from 'shared/ipc-types'
 
 /**
@@ -210,6 +223,7 @@ export class IPCHandlers {
   private agentServiceV2?: AgentServiceV2
   private autoModeServiceV2?: AutoModeServiceV2
   private opencodeSdkService?: OpencodeSdkService
+  private reviewService?: ReviewService
 
   constructor(
     db: DatabaseService,
@@ -228,7 +242,8 @@ export class IPCHandlers {
     worktreeService?: WorktreeService,
     dependencyManager?: DependencyManager,
     sessionService?: SessionService,
-    opencodeSdkService?: OpencodeSdkService
+    opencodeSdkService?: OpencodeSdkService,
+    reviewService?: ReviewService
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -250,6 +265,7 @@ export class IPCHandlers {
     this.agentServiceV2 = agentServiceV2
     this.autoModeServiceV2 = autoModeServiceV2
     this.opencodeSdkService = opencodeSdkService
+    this.reviewService = reviewService
   }
 
   /**
@@ -292,6 +308,8 @@ export class IPCHandlers {
     this.registerAutoModeServiceV2Handlers()
     // OpenCode SDK handlers
     this.registerOpencodeHandlers()
+    // Review Workflow handlers
+    this.registerReviewHandlers()
   }
 
   /**
@@ -1293,6 +1311,8 @@ export class IPCHandlers {
             julesParams: request.julesParams,
             planningMode: request.planningMode,
             requirePlanApproval: request.requirePlanApproval,
+            projectId: request.projectId,
+            projectName: request.projectName,
           })
           return { task }
         } catch (error) {
@@ -3556,6 +3576,280 @@ export class IPCHandlers {
         }
       }
     )
+  }
+
+  /**
+   * Task Review Workflow operation handlers
+   * Requirements: 1.1, 4.2, 5.2, 6.4, 2.2, 2.4, 2.5, 3.2, 3.4
+   */
+  private registerReviewHandlers(): void {
+    // Transition task to review status
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_TRANSITION_TO_REVIEW,
+      async (_event, request: ReviewTransitionToReviewRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.reviewService.transitionToReview(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get review status for a task
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_GET_STATUS,
+      async (_event, request: ReviewGetStatusRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const status = this.reviewService.getReviewStatus(request.taskId)
+          return { status }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Submit feedback for a task in review
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_SUBMIT_FEEDBACK,
+      async (_event, request: ReviewSubmitFeedbackRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.reviewService.submitFeedback(
+            request.taskId,
+            request.feedback
+          )
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get feedback history for a task
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_GET_FEEDBACK_HISTORY,
+      async (_event, request: ReviewGetFeedbackHistoryRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const feedback = this.reviewService.getFeedbackHistory(request.taskId)
+          return { feedback }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Approve changes and copy to original project
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_APPROVE_CHANGES,
+      async (_event, request: ReviewApproveChangesRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const result = await this.reviewService.approveChanges(request.taskId)
+          return { result }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Discard changes and cleanup
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_DISCARD_CHANGES,
+      async (_event, request: ReviewDiscardChangesRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.reviewService.discardChanges(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Run project in working directory
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_RUN_PROJECT,
+      async (_event, request: ReviewRunProjectRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const process = await this.reviewService.runProject(
+            request.taskId,
+            request.script
+          )
+          return { process }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stop running project
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_STOP_PROJECT,
+      async (_event, request: ReviewStopProjectRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.reviewService.stopProject(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get available scripts from working directory
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_GET_AVAILABLE_SCRIPTS,
+      async (_event, request: ReviewGetAvailableScriptsRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const scripts = await this.reviewService.getAvailableScripts(
+            request.taskId
+          )
+          return { scripts }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Open terminal in working directory
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_OPEN_TERMINAL,
+      async (_event, request: ReviewOpenTerminalRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const session = await this.reviewService.openTerminal(request.taskId)
+          return { session }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get open terminals for a task
+    ipcMain.handle(
+      IPC_CHANNELS.REVIEW_GET_OPEN_TERMINALS,
+      async (_event, request: ReviewGetOpenTerminalsRequest) => {
+        try {
+          if (!this.reviewService) {
+            return {
+              error: 'Review service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const terminals = this.reviewService.getOpenTerminals(request.taskId)
+          return { terminals }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Set up event forwarding for review status updates
+    if (this.reviewService) {
+      this.reviewService.on(
+        'taskTransitionedToReview',
+        (task: import('shared/ai-types').AgentTask) => {
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.REVIEW_STATUS_UPDATE, {
+              taskId: task.id,
+              status: {
+                taskId: task.id,
+                status: task.status,
+                feedbackCount: 0,
+                hasRunningProcess: false,
+                openTerminalCount: 0,
+                workingDirectory: task.workingDirectory || task.worktreePath,
+                fileChanges: task.fileChanges,
+              },
+            })
+          }
+        }
+      )
+
+      this.reviewService.on(
+        'changesApproved',
+        (
+          taskId: string,
+          result: import('shared/ipc-types').ReviewApprovalResult
+        ) => {
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.REVIEW_STATUS_UPDATE, {
+              taskId,
+              approved: true,
+              result,
+            })
+          }
+        }
+      )
+
+      this.reviewService.on('changesDiscarded', (taskId: string) => {
+        const windows = BrowserWindow.getAllWindows()
+        for (const window of windows) {
+          window.webContents.send(IPC_CHANNELS.REVIEW_STATUS_UPDATE, {
+            taskId,
+            discarded: true,
+          })
+        }
+      })
+    }
   }
 
   /**

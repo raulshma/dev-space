@@ -1,7 +1,10 @@
 /**
  * Task Execution Panel Component
  *
- * Side panel showing task details, output stream, and controls
+ * Side panel showing task details, output stream, and controls.
+ * Renders ReviewPanel for tasks in "review" status.
+ *
+ * Requirements: 1.3, 7.1
  */
 
 import { useEffect, useRef, useCallback, useState, memo, useMemo } from 'react'
@@ -45,6 +48,7 @@ import {
   IconGitCommit,
   IconArchive,
   IconRefresh,
+  IconEye,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -68,6 +72,7 @@ import {
   useSendJulesMessage,
 } from 'renderer/hooks/use-jules-notifications'
 import { useNotificationStore } from 'renderer/stores/notification-store'
+import { ReviewPanel } from 'renderer/components/Agent/ReviewPanel'
 import { Input } from 'renderer/components/ui/input'
 import { SimpleMarkdown } from 'renderer/components/ui/simple-markdown'
 import { IconSend } from '@tabler/icons-react'
@@ -131,6 +136,11 @@ const STATUS_CONFIG: Record<
     label: 'Archived',
     color: 'text-slate-500',
     icon: <IconArchive className="h-4 w-4" />,
+  },
+  review: {
+    label: 'Review',
+    color: 'text-amber-500',
+    icon: <IconEye className="h-4 w-4" />,
   },
 }
 
@@ -1668,6 +1678,44 @@ export function TaskExecutionPanel({
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">Task not found</p>
+      </div>
+    )
+  }
+
+  // Render ReviewPanel for tasks in "review" status
+  // Requirements: 1.3, 7.1
+  if (task.status === 'review') {
+    return (
+      <div className="flex h-full flex-col bg-card">
+        {/* Header with close button */}
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {task.agentType === 'autonomous' ? (
+              <IconRocket className="h-5 w-5 text-muted-foreground shrink-0" />
+            ) : (
+              <IconGitBranch className="h-5 w-5 text-muted-foreground shrink-0" />
+            )}
+            <div className="min-w-0">
+              <h3 className="font-medium truncate">{task.description}</h3>
+              <p className="text-xs text-muted-foreground font-mono truncate">
+                {task.targetDirectory}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge className="gap-1 text-amber-500">
+              <IconEye className="h-4 w-4" />
+              Review
+            </Badge>
+            <Button onClick={onClose} size="icon-sm" variant="ghost">
+              <IconX className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        {/* ReviewPanel content */}
+        <div className="flex-1 min-h-0 overflow-auto">
+          <ReviewPanel taskId={taskId} />
+        </div>
       </div>
     )
   }

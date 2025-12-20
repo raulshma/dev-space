@@ -10,9 +10,7 @@ import { useAppStore } from 'renderer/stores/app-store'
 import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { useProject } from 'renderer/hooks/use-projects'
-import {
-  TasksHeader,
-} from 'renderer/components/Tasks/TasksHeader'
+import { TasksHeader } from 'renderer/components/Tasks/TasksHeader'
 import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
@@ -85,8 +83,8 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
     []
   )
 
-  // Load tasks
-  useAgentTasks()
+  // Load tasks for the active project
+  useAgentTasks(activeProjectId ? { projectId: activeProjectId } : undefined)
 
   const handleTaskCreated = useCallback(
     (taskId: string) => {
@@ -180,6 +178,8 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
         onOpenChange={setShowTaskCreation}
         onTaskCreated={handleTaskCreated}
         open={showTaskCreation}
+        projectId={activeProjectId ?? undefined}
+        projectName={project?.name}
       />
     </div>
   )

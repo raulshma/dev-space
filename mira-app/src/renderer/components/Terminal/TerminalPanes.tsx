@@ -164,8 +164,6 @@ function PaneLayout({
     )
   }
 
-
-
   return (
     <div className="relative w-full h-full group">
       <TerminalView

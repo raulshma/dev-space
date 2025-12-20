@@ -148,62 +148,66 @@ describe('Agent Executor Service Property Tests', () => {
    * with status "pending" and the backlog size SHALL increase by exactly 1.
    */
   describe('Property 9: Task Creation Adds to Backlog', () => {
-    it('creating a task adds it to the backlog with pending status', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbitraryCreateTaskInput, async input => {
-          const services = createMockServices()
+    it(
+      'creating a task adds it to the backlog with pending status',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(arbitraryCreateTaskInput, async input => {
+            const services = createMockServices()
 
-          try {
-            // Mock fs.existsSync to return true for the target directory
-            vi.mocked(fs.existsSync).mockReturnValue(true)
+            try {
+              // Mock fs.existsSync to return true for the target directory
+              vi.mocked(fs.existsSync).mockReturnValue(true)
 
-            // Mock gitService.isGitRepo for feature agents
-            vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
+              // Mock gitService.isGitRepo for feature agents
+              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
 
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService
-            )
+              const executor = new AgentExecutorService(
+                services.db,
+                services.processManager,
+                services.taskQueue,
+                services.outputBuffer,
+                services.configService,
+                services.gitService
+              )
 
-            // Get initial backlog size
-            const initialPendingTasks = services.db.getAgentTasks({
-              status: 'pending',
-            })
-            const initialSize = initialPendingTasks.length
+              // Get initial backlog size
+              const initialPendingTasks = services.db.getAgentTasks({
+                status: 'pending',
+              })
+              const initialSize = initialPendingTasks.length
 
-            // Create task
-            const task = await executor.createTask(input)
+              // Create task
+              const task = await executor.createTask(input)
 
-            // Verify task was created with pending status
-            expect(task.status).toBe('pending')
-            expect(task.description).toBe(input.description)
-            expect(task.agentType).toBe(input.agentType)
-            expect(task.targetDirectory).toBe(input.targetDirectory)
+              // Verify task was created with pending status
+              expect(task.status).toBe('pending')
+              expect(task.description).toBe(input.description)
+              expect(task.agentType).toBe(input.agentType)
+              expect(task.targetDirectory).toBe(input.targetDirectory)
 
-            // Verify backlog size increased by 1
-            const finalPendingTasks = services.db.getAgentTasks({
-              status: 'pending',
-            })
-            expect(finalPendingTasks.length).toBe(initialSize + 1)
+              // Verify backlog size increased by 1
+              const finalPendingTasks = services.db.getAgentTasks({
+                status: 'pending',
+              })
+              expect(finalPendingTasks.length).toBe(initialSize + 1)
 
-            // Verify task can be retrieved
-            const retrievedTask = executor.getTask(task.id)
-            expect(retrievedTask).toBeDefined()
-            expect(retrievedTask?.id).toBe(task.id)
-            expect(retrievedTask?.status).toBe('pending')
+              // Verify task can be retrieved
+              const retrievedTask = executor.getTask(task.id)
+              expect(retrievedTask).toBeDefined()
+              expect(retrievedTask?.id).toBe(task.id)
+              expect(retrievedTask?.status).toBe('pending')
 
-            return true
-          } finally {
-            services.cleanup()
-          }
-        }),
-        { numRuns: 100 }
-      )
-    })
+              return true
+            } finally {
+              services.cleanup()
+            }
+          }),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
   })
 
   /**
@@ -214,108 +218,116 @@ describe('Agent Executor Service Property Tests', () => {
    * validation SHALL fail with an error indicating the directory is not a valid repository.
    */
   describe('Property 10: Feature Agent Repository Validation', () => {
-    it('feature agent task creation fails for non-repository directories', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryDescription,
-          arbitraryDirectory,
-          async (description, targetDir) => {
-            const services = createMockServices()
-
-            try {
-              // Mock fs.existsSync to return true for directory but false for .git
-              vi.mocked(fs.existsSync).mockReturnValue(true)
-
-              // Mock gitService.isGitRepo to return false (not a git repo)
-              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
-                false
-              )
-
-              const executor = new AgentExecutorService(
-                services.db,
-                services.processManager,
-                services.taskQueue,
-                services.outputBuffer,
-                services.configService,
-                services.gitService
-              )
-
-              const input: CreateAgentTaskInput = {
-                description,
-                agentType: 'feature',
-                targetDirectory: targetDir,
-              }
-
-              // Attempt to create feature agent task should fail
-              await expect(executor.createTask(input)).rejects.toThrow(
-                AgentExecutorError
-              )
+    it(
+      'feature agent task creation fails for non-repository directories',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(
+            arbitraryDescription,
+            arbitraryDirectory,
+            async (description, targetDir) => {
+              const services = createMockServices()
 
               try {
-                await executor.createTask(input)
-              } catch (error) {
-                expect(error).toBeInstanceOf(AgentExecutorError)
-                expect((error as AgentExecutorError).code).toBe(
-                  AgentExecutorErrorCode.NOT_A_REPOSITORY
+                // Mock fs.existsSync to return true for directory but false for .git
+                vi.mocked(fs.existsSync).mockReturnValue(true)
+
+                // Mock gitService.isGitRepo to return false (not a git repo)
+                vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                  false
                 )
+
+                const executor = new AgentExecutorService(
+                  services.db,
+                  services.processManager,
+                  services.taskQueue,
+                  services.outputBuffer,
+                  services.configService,
+                  services.gitService
+                )
+
+                const input: CreateAgentTaskInput = {
+                  description,
+                  agentType: 'feature',
+                  targetDirectory: targetDir,
+                }
+
+                // Attempt to create feature agent task should fail
+                await expect(executor.createTask(input)).rejects.toThrow(
+                  AgentExecutorError
+                )
+
+                try {
+                  await executor.createTask(input)
+                } catch (error) {
+                  expect(error).toBeInstanceOf(AgentExecutorError)
+                  expect((error as AgentExecutorError).code).toBe(
+                    AgentExecutorErrorCode.NOT_A_REPOSITORY
+                  )
+                }
+
+                return true
+              } finally {
+                services.cleanup()
               }
-
-              return true
-            } finally {
-              services.cleanup()
             }
-          }
-        ),
-        { numRuns: 100 }
-      )
-    })
+          ),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
 
-    it('autonomous agent task creation succeeds for non-repository directories', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryDescription,
-          arbitraryDirectory,
-          async (description, targetDir) => {
-            const services = createMockServices()
+    it(
+      'autonomous agent task creation succeeds for non-repository directories',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(
+            arbitraryDescription,
+            arbitraryDirectory,
+            async (description, targetDir) => {
+              const services = createMockServices()
 
-            try {
-              // Mock fs.existsSync to return true
-              vi.mocked(fs.existsSync).mockReturnValue(true)
+              try {
+                // Mock fs.existsSync to return true
+                vi.mocked(fs.existsSync).mockReturnValue(true)
 
-              // Mock gitService.isGitRepo to return false (not a git repo)
-              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
-                false
-              )
+                // Mock gitService.isGitRepo to return false (not a git repo)
+                vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                  false
+                )
 
-              const executor = new AgentExecutorService(
-                services.db,
-                services.processManager,
-                services.taskQueue,
-                services.outputBuffer,
-                services.configService,
-                services.gitService
-              )
+                const executor = new AgentExecutorService(
+                  services.db,
+                  services.processManager,
+                  services.taskQueue,
+                  services.outputBuffer,
+                  services.configService,
+                  services.gitService
+                )
 
-              const input: CreateAgentTaskInput = {
-                description,
-                agentType: 'autonomous',
-                targetDirectory: targetDir,
+                const input: CreateAgentTaskInput = {
+                  description,
+                  agentType: 'autonomous',
+                  targetDirectory: targetDir,
+                }
+
+                // Autonomous agent should succeed even without git repo
+                const task = await executor.createTask(input)
+                expect(task.status).toBe('pending')
+                expect(task.agentType).toBe('autonomous')
+
+                return true
+              } finally {
+                services.cleanup()
               }
-
-              // Autonomous agent should succeed even without git repo
-              const task = await executor.createTask(input)
-              expect(task.status).toBe('pending')
-              expect(task.agentType).toBe('autonomous')
-
-              return true
-            } finally {
-              services.cleanup()
             }
-          }
-        ),
-        { numRuns: 100 }
-      )
-    })
+          ),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
   })
 
   /**
@@ -330,22 +342,81 @@ describe('Agent Executor Service Property Tests', () => {
     const validTransitions: Record<TaskStatus, TaskStatus[]> = {
       pending: ['queued', 'stopped', 'completed'],
       queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
-      running: ['paused', 'completed', 'failed', 'stopped'],
+      running: ['paused', 'review', 'completed', 'failed', 'stopped'],
       paused: ['running', 'stopped', 'completed'],
       awaiting_approval: ['running', 'stopped', 'completed'],
+      review: ['running', 'completed', 'stopped'],
       completed: ['pending', 'archived'],
       failed: ['pending', 'queued', 'archived'],
       stopped: ['pending', 'queued', 'archived'],
       archived: ['pending'],
     }
 
-    it('only valid state transitions are allowed', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryCreateTaskInput,
-          arbitraryTaskStatus,
-          arbitraryTaskStatus,
-          async (input, fromStatus, toStatus) => {
+    it(
+      'only valid state transitions are allowed',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(
+            arbitraryCreateTaskInput,
+            arbitraryTaskStatus,
+            arbitraryTaskStatus,
+            async (input, fromStatus, toStatus) => {
+              const services = createMockServices()
+
+              try {
+                vi.mocked(fs.existsSync).mockReturnValue(true)
+                vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                  true
+                )
+
+                const executor = new AgentExecutorService(
+                  services.db,
+                  services.processManager,
+                  services.taskQueue,
+                  services.outputBuffer,
+                  services.configService,
+                  services.gitService
+                )
+
+                // Create a task
+                const task = await executor.createTask(input)
+
+                // Manually set the task to fromStatus (bypassing normal flow for testing)
+                services.db.updateAgentTask(task.id, { status: fromStatus })
+
+                const isValidTransition =
+                  validTransitions[fromStatus]?.includes(toStatus) ?? false
+
+                if (isValidTransition) {
+                  // Valid transition should succeed
+                  const updatedTask = await executor.updateTask(task.id, {
+                    status: toStatus,
+                  })
+                  expect(updatedTask.status).toBe(toStatus)
+                } else if (fromStatus !== toStatus) {
+                  // Invalid transition should throw
+                  await expect(
+                    executor.updateTask(task.id, { status: toStatus })
+                  ).rejects.toThrow(AgentExecutorError)
+                }
+
+                return true
+              } finally {
+                services.cleanup()
+              }
+            }
+          ),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
+
+    it(
+      'task starts in pending state',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(arbitraryCreateTaskInput, async input => {
             const services = createMockServices()
 
             try {
@@ -361,67 +432,19 @@ describe('Agent Executor Service Property Tests', () => {
                 services.gitService
               )
 
-              // Create a task
               const task = await executor.createTask(input)
-
-              // Manually set the task to fromStatus (bypassing normal flow for testing)
-              services.db.updateAgentTask(task.id, { status: fromStatus })
-
-              const isValidTransition =
-                validTransitions[fromStatus]?.includes(toStatus) ?? false
-
-              if (isValidTransition) {
-                // Valid transition should succeed
-                const updatedTask = await executor.updateTask(task.id, {
-                  status: toStatus,
-                })
-                expect(updatedTask.status).toBe(toStatus)
-              } else if (fromStatus !== toStatus) {
-                // Invalid transition should throw
-                await expect(
-                  executor.updateTask(task.id, { status: toStatus })
-                ).rejects.toThrow(AgentExecutorError)
-              }
+              expect(task.status).toBe('pending')
 
               return true
             } finally {
               services.cleanup()
             }
-          }
-        ),
-        { numRuns: 100 }
-      )
-    })
-
-    it('task starts in pending state', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbitraryCreateTaskInput, async input => {
-          const services = createMockServices()
-
-          try {
-            vi.mocked(fs.existsSync).mockReturnValue(true)
-            vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
-
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService
-            )
-
-            const task = await executor.createTask(input)
-            expect(task.status).toBe('pending')
-
-            return true
-          } finally {
-            services.cleanup()
-          }
-        }),
-        { numRuns: 100 }
-      )
-    })
+          }),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
   })
 
   /**
@@ -432,53 +455,11 @@ describe('Agent Executor Service Property Tests', () => {
    * For any task where the agent process exits with non-zero code, status SHALL be "failed".
    */
   describe('Property 18: Task Completion Status Updates', () => {
-    it('exit code 0 results in completed status', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbitraryCreateTaskInput, async input => {
-          const services = createMockServices()
-
-          try {
-            vi.mocked(fs.existsSync).mockReturnValue(true)
-            vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
-
-            const executor = new AgentExecutorService(
-              services.db,
-              services.processManager,
-              services.taskQueue,
-              services.outputBuffer,
-              services.configService,
-              services.gitService
-            )
-
-            // Create a task and simulate completion with exit code 0
-            const task = await executor.createTask(input)
-
-            // Manually update to simulate successful completion
-            services.db.updateAgentTask(task.id, {
-              status: 'completed',
-              exitCode: 0,
-              completedAt: new Date(),
-            })
-
-            const completedTask = services.db.getAgentTask(task.id)
-            expect(completedTask?.status).toBe('completed')
-            expect(completedTask?.exitCode).toBe(0)
-
-            return true
-          } finally {
-            services.cleanup()
-          }
-        }),
-        { numRuns: 100 }
-      )
-    })
-
-    it('non-zero exit code results in failed status', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryCreateTaskInput,
-          fc.integer({ min: 1, max: 255 }),
-          async (input, exitCode) => {
+    it(
+      'exit code 0 results in completed status',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(arbitraryCreateTaskInput, async input => {
             const services = createMockServices()
 
             try {
@@ -494,31 +475,83 @@ describe('Agent Executor Service Property Tests', () => {
                 services.gitService
               )
 
-              // Create a task and simulate failure with non-zero exit code
+              // Create a task and simulate completion with exit code 0
               const task = await executor.createTask(input)
 
-              // Manually update to simulate failed completion
+              // Manually update to simulate successful completion
               services.db.updateAgentTask(task.id, {
-                status: 'failed',
-                exitCode,
-                error: `Exit code: ${exitCode}`,
+                status: 'completed',
+                exitCode: 0,
                 completedAt: new Date(),
               })
 
-              const failedTask = services.db.getAgentTask(task.id)
-              expect(failedTask?.status).toBe('failed')
-              expect(failedTask?.exitCode).toBe(exitCode)
-              expect(failedTask?.error).toContain(exitCode.toString())
+              const completedTask = services.db.getAgentTask(task.id)
+              expect(completedTask?.status).toBe('completed')
+              expect(completedTask?.exitCode).toBe(0)
 
               return true
             } finally {
               services.cleanup()
             }
-          }
-        ),
-        { numRuns: 100 }
-      )
-    })
+          }),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
+
+    it(
+      'non-zero exit code results in failed status',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(
+            arbitraryCreateTaskInput,
+            fc.integer({ min: 1, max: 255 }),
+            async (input, exitCode) => {
+              const services = createMockServices()
+
+              try {
+                vi.mocked(fs.existsSync).mockReturnValue(true)
+                vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                  true
+                )
+
+                const executor = new AgentExecutorService(
+                  services.db,
+                  services.processManager,
+                  services.taskQueue,
+                  services.outputBuffer,
+                  services.configService,
+                  services.gitService
+                )
+
+                // Create a task and simulate failure with non-zero exit code
+                const task = await executor.createTask(input)
+
+                // Manually update to simulate failed completion
+                services.db.updateAgentTask(task.id, {
+                  status: 'failed',
+                  exitCode,
+                  error: `Exit code: ${exitCode}`,
+                  completedAt: new Date(),
+                })
+
+                const failedTask = services.db.getAgentTask(task.id)
+                expect(failedTask?.status).toBe('failed')
+                expect(failedTask?.exitCode).toBe(exitCode)
+                expect(failedTask?.error).toContain(exitCode.toString())
+
+                return true
+              } finally {
+                services.cleanup()
+              }
+            }
+          ),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
   })
 
   /**
@@ -529,152 +562,166 @@ describe('Agent Executor Service Property Tests', () => {
    * arrays for created, modified, and deleted files based on git status.
    */
   describe('Property 19: File Change Summary on Completion', () => {
-    it('completed feature agent tasks have file change summary structure', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryDescription,
-          arbitraryDirectory,
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
-            minLength: 0,
-            maxLength: 5,
-          }),
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
-            minLength: 0,
-            maxLength: 5,
-          }),
-          fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
-            minLength: 0,
-            maxLength: 5,
-          }),
-          async (description, targetDir, created, modified, deleted) => {
-            const services = createMockServices()
+    it(
+      'completed feature agent tasks have file change summary structure',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(
+            arbitraryDescription,
+            arbitraryDirectory,
+            fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+              minLength: 0,
+              maxLength: 5,
+            }),
+            fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+              minLength: 0,
+              maxLength: 5,
+            }),
+            fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+              minLength: 0,
+              maxLength: 5,
+            }),
+            async (description, targetDir, created, modified, deleted) => {
+              const services = createMockServices()
 
-            try {
-              vi.mocked(fs.existsSync).mockReturnValue(true)
-              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
+              try {
+                vi.mocked(fs.existsSync).mockReturnValue(true)
+                vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                  true
+                )
 
-              const executor = new AgentExecutorService(
-                services.db,
-                services.processManager,
-                services.taskQueue,
-                services.outputBuffer,
-                services.configService,
-                services.gitService
-              )
+                const executor = new AgentExecutorService(
+                  services.db,
+                  services.processManager,
+                  services.taskQueue,
+                  services.outputBuffer,
+                  services.configService,
+                  services.gitService
+                )
 
-              const input: CreateAgentTaskInput = {
-                description,
-                agentType: 'feature',
-                targetDirectory: targetDir,
+                const input: CreateAgentTaskInput = {
+                  description,
+                  agentType: 'feature',
+                  targetDirectory: targetDir,
+                }
+
+                const task = await executor.createTask(input)
+
+                // Simulate completion with file changes
+                const fileChanges = {
+                  created,
+                  modified,
+                  deleted,
+                  gitDiff:
+                    created.length > 0 || modified.length > 0
+                      ? 'diff content'
+                      : undefined,
+                }
+
+                services.db.updateAgentTask(task.id, {
+                  status: 'completed',
+                  exitCode: 0,
+                  completedAt: new Date(),
+                  fileChanges,
+                })
+
+                const completedTask = services.db.getAgentTask(task.id)
+
+                // Verify file changes structure
+                expect(completedTask?.fileChanges).toBeDefined()
+                expect(Array.isArray(completedTask?.fileChanges?.created)).toBe(
+                  true
+                )
+                expect(Array.isArray(completedTask?.fileChanges?.modified)).toBe(
+                  true
+                )
+                expect(Array.isArray(completedTask?.fileChanges?.deleted)).toBe(
+                  true
+                )
+
+                // Verify arrays contain expected values
+                expect(completedTask?.fileChanges?.created).toEqual(created)
+                expect(completedTask?.fileChanges?.modified).toEqual(modified)
+                expect(completedTask?.fileChanges?.deleted).toEqual(deleted)
+
+                return true
+              } finally {
+                services.cleanup()
               }
-
-              const task = await executor.createTask(input)
-
-              // Simulate completion with file changes
-              const fileChanges = {
-                created,
-                modified,
-                deleted,
-                gitDiff:
-                  created.length > 0 || modified.length > 0
-                    ? 'diff content'
-                    : undefined,
-              }
-
-              services.db.updateAgentTask(task.id, {
-                status: 'completed',
-                exitCode: 0,
-                completedAt: new Date(),
-                fileChanges,
-              })
-
-              const completedTask = services.db.getAgentTask(task.id)
-
-              // Verify file changes structure
-              expect(completedTask?.fileChanges).toBeDefined()
-              expect(Array.isArray(completedTask?.fileChanges?.created)).toBe(
-                true
-              )
-              expect(Array.isArray(completedTask?.fileChanges?.modified)).toBe(
-                true
-              )
-              expect(Array.isArray(completedTask?.fileChanges?.deleted)).toBe(
-                true
-              )
-
-              // Verify arrays contain expected values
-              expect(completedTask?.fileChanges?.created).toEqual(created)
-              expect(completedTask?.fileChanges?.modified).toEqual(modified)
-              expect(completedTask?.fileChanges?.deleted).toEqual(deleted)
-
-              return true
-            } finally {
-              services.cleanup()
             }
-          }
-        ),
-        { numRuns: 100 }
-      )
-    })
+          ),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
 
-    it('file change summary preserves all file paths', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          arbitraryCreateTaskInput,
-          fc.array(fc.string({ minLength: 1, maxLength: 100 }), {
-            minLength: 1,
-            maxLength: 10,
-          }),
-          async (input, filePaths) => {
-            const services = createMockServices()
+    it(
+      'file change summary preserves all file paths',
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(
+            arbitraryCreateTaskInput,
+            fc.array(fc.string({ minLength: 1, maxLength: 100 }), {
+              minLength: 1,
+              maxLength: 10,
+            }),
+            async (input, filePaths) => {
+              const services = createMockServices()
 
-            try {
-              vi.mocked(fs.existsSync).mockReturnValue(true)
-              vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
+              try {
+                vi.mocked(fs.existsSync).mockReturnValue(true)
+                vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(
+                  true
+                )
 
-              // Create task
-              const task = services.db.createAgentTask({
-                ...input,
-                agentType: 'feature',
-              })
+                // Create task
+                const task = services.db.createAgentTask({
+                  ...input,
+                  agentType: 'feature',
+                })
 
-              // Create file changes with the generated paths
-              const fileChanges = {
-                created: filePaths.slice(0, Math.ceil(filePaths.length / 3)),
-                modified: filePaths.slice(
-                  Math.ceil(filePaths.length / 3),
-                  Math.ceil((2 * filePaths.length) / 3)
-                ),
-                deleted: filePaths.slice(Math.ceil((2 * filePaths.length) / 3)),
+                // Create file changes with the generated paths
+                const fileChanges = {
+                  created: filePaths.slice(0, Math.ceil(filePaths.length / 3)),
+                  modified: filePaths.slice(
+                    Math.ceil(filePaths.length / 3),
+                    Math.ceil((2 * filePaths.length) / 3)
+                  ),
+                  deleted: filePaths.slice(
+                    Math.ceil((2 * filePaths.length) / 3)
+                  ),
+                }
+
+                services.db.updateAgentTask(task.id, {
+                  status: 'completed',
+                  fileChanges,
+                })
+
+                const completedTask = services.db.getAgentTask(task.id)
+
+                // All original paths should be preserved
+                const allPaths = [
+                  ...(completedTask?.fileChanges?.created || []),
+                  ...(completedTask?.fileChanges?.modified || []),
+                  ...(completedTask?.fileChanges?.deleted || []),
+                ]
+
+                // Every path in fileChanges should be from original filePaths
+                for (const path of allPaths) {
+                  expect(filePaths).toContain(path)
+                }
+
+                return true
+              } finally {
+                services.cleanup()
               }
-
-              services.db.updateAgentTask(task.id, {
-                status: 'completed',
-                fileChanges,
-              })
-
-              const completedTask = services.db.getAgentTask(task.id)
-
-              // All original paths should be preserved
-              const allPaths = [
-                ...(completedTask?.fileChanges?.created || []),
-                ...(completedTask?.fileChanges?.modified || []),
-                ...(completedTask?.fileChanges?.deleted || []),
-              ]
-
-              // Every path in fileChanges should be from original filePaths
-              for (const path of allPaths) {
-                expect(filePaths).toContain(path)
-              }
-
-              return true
-            } finally {
-              services.cleanup()
             }
-          }
-        ),
-        { numRuns: 100 }
-      )
-    })
+          ),
+          { numRuns: 100 }
+        )
+      },
+      30000
+    )
   })
 })

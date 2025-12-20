@@ -5,8 +5,9 @@
  * - Live output stream with ANSI rendering
  * - Auto-scroll with pause on user scroll
  * - Pause, resume, stop controls
+ * - Review panel for tasks in "review" status
  *
- * Requirements: 9.2, 9.3, 9.4, 9.5, 10.1
+ * Requirements: 1.3, 7.1, 9.2, 9.3, 9.4, 9.5, 10.1
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
@@ -32,6 +33,7 @@ import {
   IconX,
   IconAlertTriangle,
   IconArchive,
+  IconEye,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -46,6 +48,7 @@ import {
   useResumeAgentTask,
   useStopAgentTask,
 } from 'renderer/hooks/use-agent-tasks'
+import { ReviewPanel } from './ReviewPanel'
 import type { TaskStatus, OutputLine, ExecutionStep } from 'shared/ai-types'
 import { EXECUTION_STEPS } from 'shared/ai-types'
 
@@ -102,6 +105,11 @@ const STATUS_CONFIG: Record<
     label: 'Archived',
     color: 'text-slate-500',
     icon: <IconArchive className="h-4 w-4" />,
+  },
+  review: {
+    label: 'Review',
+    color: 'text-amber-500',
+    icon: <IconEye className="h-4 w-4" />,
   },
 }
 
@@ -390,6 +398,12 @@ export function TaskDetailView({
         <p className="text-muted-foreground">Task not found</p>
       </div>
     )
+  }
+
+  // Render ReviewPanel for tasks in "review" status
+  // Requirements: 1.3, 7.1
+  if (task.status === 'review') {
+    return <ReviewPanel taskId={taskId} />
   }
 
   const statusConfig = STATUS_CONFIG[task.status]

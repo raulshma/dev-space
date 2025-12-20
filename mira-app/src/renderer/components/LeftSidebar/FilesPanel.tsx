@@ -383,7 +383,9 @@ export const FilesPanel = memo(function FilesPanel({
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="text-sm font-medium">Explorer</span>
         </div>
-        <div className="p-4 text-sm text-destructive scrollbar-gutter-stable">{error}</div>
+        <div className="p-4 text-sm text-destructive scrollbar-gutter-stable">
+          {error}
+        </div>
       </div>
     )
   }

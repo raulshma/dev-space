@@ -44,3 +44,4 @@ export {
   BranchInput,
   CompactBranchInput,
 } from './BranchInput'
+export { ReviewPanel } from './ReviewPanel'

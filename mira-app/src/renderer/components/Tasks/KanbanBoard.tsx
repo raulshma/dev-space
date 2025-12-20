@@ -119,6 +119,7 @@ export function KanbanBoard({
       running: [],
       paused: [],
       awaiting_approval: [],
+      review: [],
       completed: [],
       failed: [],
       stopped: [],

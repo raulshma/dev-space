@@ -24,8 +24,11 @@ import type {
 export const agentTaskKeys = {
   all: ['agentTasks'] as const,
   lists: () => [...agentTaskKeys.all, 'list'] as const,
-  list: (filter?: { status?: TaskStatus; agentType?: AgentType }) =>
-    [...agentTaskKeys.lists(), filter] as const,
+  list: (filter?: {
+    status?: TaskStatus
+    agentType?: AgentType
+    projectId?: string
+  }) => [...agentTaskKeys.lists(), filter] as const,
   details: () => [...agentTaskKeys.all, 'detail'] as const,
   detail: (taskId: string) => [...agentTaskKeys.details(), taskId] as const,
   output: (taskId: string) => [...agentTaskKeys.all, 'output', taskId] as const,
@@ -42,6 +45,7 @@ export function useAgentTasks(filter?: {
   status?: TaskStatus
   agentType?: AgentType
   limit?: number
+  projectId?: string
 }) {
   const { setTasks, setTasksLoading, setTasksError } = useAgentTaskStore()
 
@@ -148,6 +152,8 @@ export function useCreateAgentTask() {
       planningMode,
       requirePlanApproval,
       branchName,
+      projectId,
+      projectName,
     }: {
       description: string
       agentType: AgentType
@@ -159,6 +165,8 @@ export function useCreateAgentTask() {
       planningMode?: import('shared/ai-types').PlanningMode
       requirePlanApproval?: boolean
       branchName?: string
+      projectId?: string
+      projectName?: string
     }) => {
       const response = await window.api.agentTasks.create({
         description,
@@ -171,6 +179,8 @@ export function useCreateAgentTask() {
         planningMode,
         requirePlanApproval,
         branchName,
+        projectId,
+        projectName,
       })
 
       const task = {

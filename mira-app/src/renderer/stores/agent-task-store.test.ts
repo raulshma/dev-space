@@ -19,6 +19,13 @@ describe('AgentTaskStore', () => {
       outputBuffers: new Map(),
       isAutoScrollEnabled: true,
       subscribedTaskIds: new Set(),
+      // Review workflow state
+      feedbackHistories: new Map(),
+      runningProcesses: new Map(),
+      openTerminals: new Map(),
+      reviewStatuses: new Map(),
+      isLoadingReview: false,
+      reviewError: null,
     })
   })
 

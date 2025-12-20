@@ -95,6 +95,11 @@ const COLUMN_CONFIG: Record<
     icon: <IconArchive className="h-4 w-4" />,
     headerClass: 'bg-slate-500/10',
   },
+  review: {
+    label: 'Review',
+    icon: <IconCheck className="h-4 w-4" />,
+    headerClass: 'bg-amber-500/10',
+  },
 }
 
 export const KanbanColumn = memo(function KanbanColumn({

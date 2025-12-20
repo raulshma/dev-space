@@ -246,6 +246,20 @@ export const IPC_CHANNELS = {
   THEME_UPDATE: 'theme:update',
   THEME_DELETE: 'theme:delete',
 
+  // Task Review Workflow operations
+  REVIEW_TRANSITION_TO_REVIEW: 'review:transitionToReview',
+  REVIEW_GET_STATUS: 'review:getStatus',
+  REVIEW_SUBMIT_FEEDBACK: 'review:submitFeedback',
+  REVIEW_GET_FEEDBACK_HISTORY: 'review:getFeedbackHistory',
+  REVIEW_APPROVE_CHANGES: 'review:approveChanges',
+  REVIEW_DISCARD_CHANGES: 'review:discardChanges',
+  REVIEW_RUN_PROJECT: 'review:runProject',
+  REVIEW_STOP_PROJECT: 'review:stopProject',
+  REVIEW_GET_AVAILABLE_SCRIPTS: 'review:getAvailableScripts',
+  REVIEW_OPEN_TERMINAL: 'review:openTerminal',
+  REVIEW_GET_OPEN_TERMINALS: 'review:getOpenTerminals',
+  REVIEW_STATUS_UPDATE: 'review:statusUpdate', // event for real-time review status updates
+
   // OpenCode operations
   OPENCODE_EXECUTE: 'opencode:execute',
   OPENCODE_STOP: 'opencode:stop',
@@ -841,6 +855,10 @@ export interface AgentTaskCreateRequest {
   planningMode?: import('./ai-types').PlanningMode
   requirePlanApproval?: boolean
   branchName?: string
+  /** Project ID this task belongs to */
+  projectId?: string
+  /** Project name for display purposes */
+  projectName?: string
 }
 
 export interface AgentTaskCreateResponse {
@@ -2157,4 +2175,168 @@ export interface OpencodeSessionInitData {
 
 export interface OpencodeCompleteData {
   taskId: string
+}
+
+// ============================================================================
+// Task Review Workflow Request/Response Types
+// ============================================================================
+
+/**
+ * Review status information for a task
+ */
+export interface ReviewStatusInfo {
+  taskId: string
+  status: import('./ai-types').TaskStatus
+  feedbackCount: number
+  hasRunningProcess: boolean
+  openTerminalCount: number
+  workingDirectory?: string
+  fileChanges?: import('./ai-types').FileChangeSummary
+}
+
+/**
+ * Result of an approval operation
+ */
+export interface ReviewApprovalResult {
+  success: boolean
+  copiedFiles: string[]
+  conflicts?: Array<{
+    filePath: string
+    reason: 'modified' | 'deleted' | 'permission'
+    sourceModified: Date
+    targetModified?: Date
+  }>
+  error?: string
+}
+
+/**
+ * Information about a running process during review
+ */
+export interface ReviewRunningProcess {
+  pid: number
+  script: string
+  startedAt: Date
+  ptyId: string
+}
+
+/**
+ * Information about a terminal session during review
+ */
+export interface ReviewTerminalSession {
+  id: string
+  taskId: string
+  workingDirectory: string
+  createdAt: Date
+  ptyId: string
+}
+
+/**
+ * Script information for project execution
+ */
+export interface ReviewScriptInfo {
+  name: string
+  command: string
+  description?: string
+}
+
+// Review Service Request/Response Types
+
+export interface ReviewTransitionToReviewRequest {
+  taskId: string
+}
+
+export interface ReviewTransitionToReviewResponse {
+  success: boolean
+}
+
+export interface ReviewGetStatusRequest {
+  taskId: string
+}
+
+export interface ReviewGetStatusResponse {
+  status: ReviewStatusInfo
+}
+
+export interface ReviewSubmitFeedbackRequest {
+  taskId: string
+  feedback: string
+}
+
+export interface ReviewSubmitFeedbackResponse {
+  success: boolean
+}
+
+export interface ReviewGetFeedbackHistoryRequest {
+  taskId: string
+}
+
+export interface ReviewGetFeedbackHistoryResponse {
+  feedback: import('./ai-types').TaskFeedback[]
+}
+
+export interface ReviewApproveChangesRequest {
+  taskId: string
+}
+
+export interface ReviewApproveChangesResponse {
+  result: ReviewApprovalResult
+}
+
+export interface ReviewDiscardChangesRequest {
+  taskId: string
+}
+
+export interface ReviewDiscardChangesResponse {
+  success: boolean
+}
+
+// Project Execution Request/Response Types
+
+export interface ReviewRunProjectRequest {
+  taskId: string
+  script?: string
+}
+
+export interface ReviewRunProjectResponse {
+  process: ReviewRunningProcess
+}
+
+export interface ReviewStopProjectRequest {
+  taskId: string
+}
+
+export interface ReviewStopProjectResponse {
+  success: boolean
+}
+
+export interface ReviewGetAvailableScriptsRequest {
+  taskId: string
+}
+
+export interface ReviewGetAvailableScriptsResponse {
+  scripts: ReviewScriptInfo[]
+}
+
+// Terminal Management Request/Response Types
+
+export interface ReviewOpenTerminalRequest {
+  taskId: string
+}
+
+export interface ReviewOpenTerminalResponse {
+  session: ReviewTerminalSession
+}
+
+export interface ReviewGetOpenTerminalsRequest {
+  taskId: string
+}
+
+export interface ReviewGetOpenTerminalsResponse {
+  terminals: ReviewTerminalSession[]
+}
+
+// Review Status Update Event Data
+export interface ReviewStatusUpdateData {
+  taskId: string
+  status: ReviewStatusInfo
 }

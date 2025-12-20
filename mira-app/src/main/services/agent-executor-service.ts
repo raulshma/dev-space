@@ -108,9 +108,17 @@ export class AgentExecutorError extends Error {
 const VALID_STATE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   pending: ['queued', 'stopped', 'completed'],
   queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
-  running: ['paused', 'awaiting_approval', 'completed', 'failed', 'stopped'],
+  running: [
+    'paused',
+    'awaiting_approval',
+    'review',
+    'completed',
+    'failed',
+    'stopped',
+  ],
   paused: ['running', 'stopped', 'completed'],
   awaiting_approval: ['running', 'stopped', 'failed'],
+  review: ['queued', 'running', 'completed', 'stopped'],
   completed: ['pending', 'archived'],
   failed: ['pending', 'queued', 'archived'],
   stopped: ['pending', 'queued', 'archived'],
@@ -136,6 +144,10 @@ export interface IAgentExecutorService {
     taskId: string,
     resumeSession?: boolean,
     forkSession?: boolean
+  ): Promise<{ sessionId?: string }>
+  restartTaskWithFeedback(
+    taskId: string,
+    feedback: string
   ): Promise<{ sessionId?: string }>
   stopTask(taskId: string): Promise<void>
 
@@ -164,6 +176,7 @@ export interface AgentExecutorEvents {
   taskResumed: (task: AgentTask) => void
   taskRestarted: (task: AgentTask, resumedSession: boolean) => void
   taskStopped: (task: AgentTask) => void
+  taskEnteredReview: (task: AgentTask) => void
   taskCompleted: (task: AgentTask) => void
   taskFailed: (task: AgentTask, error: string) => void
   taskAwaitingApproval: (task: AgentTask) => void
@@ -848,6 +861,100 @@ export class AgentExecutorService
     const updatedTask = this.db.getAgentTask(taskId)
     if (updatedTask) {
       this.emit('taskRestarted', updatedTask, willResumeSession)
+    }
+
+    // If no task is currently running, start this one
+    if (!this.taskQueue.isProcessing()) {
+      await this.processNextTask()
+    }
+
+    return { sessionId: task.parameters.sessionId }
+  }
+
+  /**
+   * Restart a task with feedback context
+   *
+   * Restarts the agent with user feedback as additional context.
+   * This is used during the review workflow when a user submits feedback.
+   * The task transitions from "review" to "running" status.
+   *
+   * Implements Requirements:
+   * - 4.2: Restart agent with feedback as additional context
+   * - 4.3: Update task status to "running" when restarting
+   * - 4.4: Return to "review" status on completion
+   *
+   * @param taskId - The task ID
+   * @param feedback - The user feedback to include as context
+   * @returns Object containing the session ID
+   * @throws AgentExecutorError if task not found or not in review status
+   */
+  async restartTaskWithFeedback(
+    taskId: string,
+    feedback: string
+  ): Promise<{ sessionId?: string }> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      throw new AgentExecutorError(
+        `Task not found: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
+    // Can only restart with feedback from review status
+    if (task.status !== 'review') {
+      throw new AgentExecutorError(
+        `Cannot restart task with feedback in ${task.status} state. Task must be in review status.`,
+        AgentExecutorErrorCode.INVALID_STATE_TRANSITION,
+        taskId
+      )
+    }
+
+    // Validate configuration
+    const isConfigured = await this.configService.isConfigured()
+    if (!isConfigured) {
+      throw new AgentExecutorError(
+        'Agent environment is not properly configured',
+        AgentExecutorErrorCode.INVALID_CONFIGURATION,
+        taskId
+      )
+    }
+
+    // Build the feedback prompt to prepend to the original description
+    const feedbackPrompt = `\n\n---\nUser Review Feedback:\n${feedback}\n\nPlease address the feedback above and continue working on the task.\n---\n\n`
+
+    // Log the restart action
+    const line = this.outputBuffer.append(
+      taskId,
+      `[Mira] Restarting task with user feedback\n` +
+        `[Mira] Feedback: ${feedback.substring(0, 100)}${feedback.length > 100 ? '...' : ''}\n`,
+      'stdout'
+    )
+    this.emit('outputReceived', taskId, line)
+
+    // Update task with feedback context appended to description
+    // The original description is preserved, feedback is added as context
+    const updatedDescription = task.description + feedbackPrompt
+
+    // Increment review iterations counter
+    const reviewIterations = (task.reviewIterations ?? 0) + 1
+
+    // Update task to running status with feedback context
+    await this.updateTask(taskId, {
+      status: 'queued',
+      description: updatedDescription,
+      reviewIterations,
+      error: undefined,
+      completedAt: undefined,
+      exitCode: undefined,
+    })
+
+    // Add to queue
+    this.taskQueue.enqueue(taskId)
+
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (updatedTask) {
+      this.emit('taskRestarted', updatedTask, true)
     }
 
     // If no task is currently running, start this one
@@ -2018,6 +2125,15 @@ export class AgentExecutorService
 
   /**
    * Handle Claude SDK execution completion
+   *
+   * On successful completion, transitions to "review" status instead of "completed"
+   * to allow user review before changes are copied to the original project.
+   * The working directory is preserved for review.
+   *
+   * Implements Requirements:
+   * - 1.1: Update task status to "review" instead of "completed"
+   * - 1.2: Preserve working directory with all agent changes intact
+   * - 1.4: Update status to "failed" on error (not "review")
    */
   private async handleClaudeSdkCompletion(
     taskId: string,
@@ -2071,7 +2187,7 @@ export class AgentExecutorService
       return
     }
 
-    const newStatus: TaskStatus = success ? 'completed' : 'failed'
+    const newStatus: TaskStatus = success ? 'review' : 'failed'
 
     // Check if task is using a worktree (worktrees don't need sync/cleanup)
     const isUsingWorktree =
@@ -2102,60 +2218,28 @@ export class AgentExecutorService
       )
       this.emit('outputReceived', taskId, line)
     }
-    // Sync changes back to original project if using working directory (not worktree)
+    // For review workflow: preserve working directory for user review
+    // Changes will be synced when user approves via ReviewService
     else if (
       success &&
       this.workingDirectoryService &&
       effectiveWorkingDir !== task.targetDirectory
     ) {
-      try {
-        await this.updateExecutionStep(
-          taskId,
-          'syncing-back',
-          'Syncing changes back to original project...'
-        )
-
-        const syncResult = await this.workingDirectoryService.syncChangesBack(
-          effectiveWorkingDir,
-          task.targetDirectory,
-          message => {
-            const line = this.outputBuffer.append(
-              taskId,
-              `[Mira] ${message}\n`,
-              'stdout'
-            )
-            this.emit('outputReceived', taskId, line)
-          }
-        )
-
-        if (fileChanges) {
-          fileChanges.created = syncResult.filesCreated
-          fileChanges.modified = syncResult.filesModified
-          fileChanges.deleted = syncResult.filesDeleted
-        }
-
-        const line = this.outputBuffer.append(
-          taskId,
-          `[Mira] Changes synced: ${syncResult.filesCreated.length} created, ` +
-            `${syncResult.filesModified.length} modified, ${syncResult.filesDeleted.length} deleted\n`,
-          'stdout'
-        )
-        this.emit('outputReceived', taskId, line)
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error)
-        const line = this.outputBuffer.append(
-          taskId,
-          `[Mira] Warning: Failed to sync changes back: ${errMsg}\n` +
-            `[Mira] Changes are preserved in: ${effectiveWorkingDir}\n`,
-          'stderr'
-        )
-        this.emit('outputReceived', taskId, line)
-      }
+      const line = this.outputBuffer.append(
+        taskId,
+        `[Mira] Task entering review status\n` +
+          `[Mira] Working directory preserved at: ${effectiveWorkingDir}\n` +
+          `[Mira] Review the changes and approve to copy them to your project\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', taskId, line)
     }
 
-    // Clean up working directory on success (but NOT worktrees - they should be preserved)
+    // Working directory cleanup is now handled by ReviewService after user approval
+    // Do NOT clean up on success - preserve for review workflow
+    // Only clean up on failure if needed
     if (
-      success &&
+      !success &&
       !isUsingWorktree &&
       this.workingDirectoryService &&
       effectiveWorkingDir !== task.targetDirectory
@@ -2164,7 +2248,7 @@ export class AgentExecutorService
         await this.workingDirectoryService.cleanup(effectiveWorkingDir)
         const line = this.outputBuffer.append(
           taskId,
-          `[Mira] Working directory cleaned up\n`,
+          `[Mira] Working directory cleaned up after failure\n`,
           'stdout'
         )
         this.emit('outputReceived', taskId, line)
@@ -2178,7 +2262,8 @@ export class AgentExecutorService
       status: newStatus,
       completedAt: new Date(),
       fileChanges,
-      executionStep: success ? 'completed' : 'failed',
+      // Use 'review' execution step for successful tasks entering review status
+      executionStep: success ? 'review' : 'failed',
     }
 
     if (!success && errorMessage) {
@@ -2195,7 +2280,9 @@ export class AgentExecutorService
     }
 
     if (success) {
-      this.emit('taskCompleted', finalTask)
+      // Emit taskEnteredReview for tasks entering review status
+      // taskCompleted will be emitted by ReviewService when user approves changes
+      this.emit('taskEnteredReview', finalTask)
     } else {
       this.emit('taskFailed', finalTask, updates.error || 'Unknown error')
     }

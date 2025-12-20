@@ -351,6 +351,7 @@ export type TaskStatus =
   | 'running'
   | 'paused'
   | 'awaiting_approval'
+  | 'review'
   | 'completed'
   | 'failed'
   | 'stopped'
@@ -412,6 +413,26 @@ export interface FileChangeSummary {
 }
 
 /**
+ * Feedback entry for task review workflow
+ */
+export interface TaskFeedback {
+  id: string
+  taskId: string
+  content: string
+  submittedAt: Date
+  iteration: number
+}
+
+/**
+ * Running process info during task review
+ */
+export interface TaskRunningProcess {
+  pid: number
+  script: string
+  startedAt: Date
+}
+
+/**
  * Execution step for tracking agent progress
  */
 export type ExecutionStep =
@@ -421,6 +442,7 @@ export type ExecutionStep =
   | 'running'
   | 'capturing-changes'
   | 'syncing-back'
+  | 'review'
   | 'completed'
   | 'failed'
 
@@ -556,6 +578,18 @@ export interface AgentTask {
   branchName?: string
   /** Path to the worktree for isolated development */
   worktreePath?: string
+  /** Project ID this task belongs to (for filtering by project) */
+  projectId?: string
+  /** Project name for display purposes */
+  projectName?: string
+  /** Feedback history for review iterations */
+  feedbackHistory?: TaskFeedback[]
+  /** Number of review iterations */
+  reviewIterations?: number
+  /** Running process info during review */
+  runningProcess?: TaskRunningProcess
+  /** Open terminal session IDs for this task */
+  openTerminals?: string[]
 }
 
 /**
@@ -581,6 +615,10 @@ export interface CreateAgentTaskInput {
   branchName?: string
   /** Path to the worktree for isolated development */
   worktreePath?: string
+  /** Project ID this task belongs to */
+  projectId?: string
+  /** Project name for display purposes */
+  projectName?: string
 }
 
 /**
@@ -615,6 +653,8 @@ export interface UpdateAgentTaskInput {
   branchName?: string
   /** Path to the worktree for isolated development */
   worktreePath?: string
+  /** Number of review iterations (feedback cycles) */
+  reviewIterations?: number
 }
 
 /**
@@ -624,6 +664,8 @@ export interface AgentTaskFilter {
   status?: TaskStatus
   agentType?: AgentType
   limit?: number
+  /** Filter by project ID */
+  projectId?: string
 }
 
 // ============================================================================

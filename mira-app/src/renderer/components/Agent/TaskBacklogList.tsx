@@ -119,6 +119,11 @@ const STATUS_CONFIG: Record<
     variant: 'outline',
     icon: <IconArchive className="h-3 w-3" />,
   },
+  review: {
+    label: 'Review',
+    variant: 'secondary',
+    icon: <IconCheck className="h-3 w-3" />,
+  },
 }
 
 function formatRelativeTime(date: Date): string {

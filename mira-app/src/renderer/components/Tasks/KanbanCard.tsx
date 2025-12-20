@@ -34,6 +34,7 @@ import {
   IconAlertTriangle,
   IconRefresh,
   IconGripVertical,
+  IconFolder,
 } from '@tabler/icons-react'
 import { VALID_DROP_TARGETS } from 'renderer/hooks/use-kanban-dnd'
 import { InlineBlockedIndicator } from 'renderer/components/Agent/BlockedIndicator'
@@ -63,6 +64,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   running: 'border-l-green-500',
   paused: 'border-l-yellow-500',
   awaiting_approval: 'border-l-orange-500',
+  review: 'border-l-amber-500',
   completed: 'border-l-emerald-500',
   failed: 'border-l-red-500',
   stopped: 'border-l-gray-500',
@@ -266,6 +268,12 @@ export const KanbanCard = memo(function KanbanCard({
       </CardHeader>
 
       <CardContent className="py-0">
+        {task.projectName && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+            <IconFolder className="h-3 w-3 shrink-0" />
+            <span className="font-medium truncate">{task.projectName}</span>
+          </div>
+        )}
         <p className="text-xs text-muted-foreground font-mono truncate">
           {task.targetDirectory}
         </p>

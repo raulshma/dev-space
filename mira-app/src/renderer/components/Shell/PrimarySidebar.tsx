@@ -81,7 +81,10 @@ export const PrimarySidebar = memo(function PrimarySidebar({
   return (
     <div className="h-full w-full overflow-hidden relative bg-card">
       {/* Projects Panel */}
-      <PanelWrapper isActive={isActive('projects')} isMounted={isMounted('projects')}>
+      <PanelWrapper
+        isActive={isActive('projects')}
+        isMounted={isMounted('projects')}
+      >
         <ProjectsPanel />
       </PanelWrapper>
 
@@ -104,7 +107,10 @@ export const PrimarySidebar = memo(function PrimarySidebar({
       </PanelWrapper>
 
       {/* Scripts Panel */}
-      <PanelWrapper isActive={isActive('scripts')} isMounted={isMounted('scripts')}>
+      <PanelWrapper
+        isActive={isActive('scripts')}
+        isMounted={isMounted('scripts')}
+      >
         {projectId && projectPath ? (
           <div className="flex flex-col h-full overflow-hidden w-full">
             <div className="flex items-center px-3 py-2 border-b border-border">
@@ -120,7 +126,10 @@ export const PrimarySidebar = memo(function PrimarySidebar({
       </PanelWrapper>
 
       {/* Commands Panel */}
-      <PanelWrapper isActive={isActive('commands')} isMounted={isMounted('commands')}>
+      <PanelWrapper
+        isActive={isActive('commands')}
+        isMounted={isMounted('commands')}
+      >
         {projectId ? (
           <div className="flex flex-col h-full overflow-hidden w-full">
             <div className="flex items-center px-3 py-2 border-b border-border">
@@ -141,10 +150,12 @@ export const PrimarySidebar = memo(function PrimarySidebar({
       </PanelWrapper>
 
       {/* Agents Panel */}
-      <PanelWrapper isActive={isActive('agents')} isMounted={isMounted('agents')}>
+      <PanelWrapper
+        isActive={isActive('agents')}
+        isMounted={isMounted('agents')}
+      >
         <AgentsSidebarPanel />
       </PanelWrapper>
     </div>
   )
 })
-
