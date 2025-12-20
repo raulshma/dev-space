@@ -38,7 +38,13 @@ export const aiKeys = {
  * Hook to fetch available AI models
  */
 export function useAIModels() {
-  const { setAvailableModels, setModelsLoading, setModelsError, setDefaultModelId, setActionModel } = useAIStore()
+  const {
+    setAvailableModels,
+    setModelsLoading,
+    setModelsError,
+    setDefaultModelId,
+    setActionModel,
+  } = useAIStore()
 
   return useQuery({
     queryKey: aiKeys.models(),
@@ -47,15 +53,17 @@ export function useAIModels() {
       try {
         const response = await window.api.ai.getModels({})
         setAvailableModels(response.models)
-        
+
         // Restore model settings from the backend
         if (response.defaultModelId) {
           setDefaultModelId(response.defaultModelId)
         }
-        
+
         // Restore action-specific models
         if (response.actionModels) {
-          const actions = Object.keys(response.actionModels) as import('shared/ai-types').AIAction[]
+          const actions = Object.keys(
+            response.actionModels
+          ) as import('shared/ai-types').AIAction[]
           for (const action of actions) {
             const modelId = response.actionModels[action]
             if (modelId) {
@@ -63,7 +71,7 @@ export function useAIModels() {
             }
           }
         }
-        
+
         return response.models
       } catch (error) {
         const message =

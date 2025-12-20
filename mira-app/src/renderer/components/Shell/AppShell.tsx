@@ -32,10 +32,14 @@ import {
 
 // Lazy load heavy overlay components that aren't needed immediately
 const CommandPalette = lazy(() =>
-  import('renderer/components/CommandPalette').then(m => ({ default: m.CommandPalette }))
+  import('renderer/components/CommandPalette').then(m => ({
+    default: m.CommandPalette,
+  }))
 )
 const SettingsPanel = lazy(() =>
-  import('renderer/components/Settings').then(m => ({ default: m.SettingsPanel }))
+  import('renderer/components/Settings').then(m => ({
+    default: m.SettingsPanel,
+  }))
 )
 const SecondarySidebar = lazy(() =>
   import('./SecondarySidebar').then(m => ({ default: m.SecondarySidebar }))
@@ -50,7 +54,9 @@ export function AppShell(): React.JSX.Element {
   const closeSettingsPanel = useAppStore(state => state.closeSettingsPanel)
   const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
   const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
-  const devToolsPanelCollapsed = useAppStore(state => state.devToolsPanelCollapsed)
+  const devToolsPanelCollapsed = useAppStore(
+    state => state.devToolsPanelCollapsed
+  )
   const zenMode = useAppStore(state => state.zenMode)
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
   const toggleDevToolsPanel = useAppStore(state => state.toggleDevToolsPanel)
@@ -239,10 +245,12 @@ export function AppShell(): React.JSX.Element {
         <CommandPalette />
       </Suspense>
       <Suspense fallback={<LazyFallback />}>
-        <SettingsPanel isOpen={settingsPanelOpen} onClose={closeSettingsPanel} />
+        <SettingsPanel
+          isOpen={settingsPanelOpen}
+          onClose={closeSettingsPanel}
+        />
       </Suspense>
       <ErrorToast />
     </div>
   )
 }
-

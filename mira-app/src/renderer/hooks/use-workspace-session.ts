@@ -172,7 +172,8 @@ export function useWorkspaceSession({
       if (session?.workspace) {
         hydrateWorkspaceState({
           sidebarCollapsed: session.workspace.sidebarCollapsed ?? false,
-          devToolsPanelCollapsed: session.workspace.devToolsPanelCollapsed ?? false,
+          devToolsPanelCollapsed:
+            session.workspace.devToolsPanelCollapsed ?? false,
           zenMode: session.workspace.zenMode ?? false,
           previousSidebarState: session.workspace.previousSidebarState ?? false,
           previousDevToolsPanelState:

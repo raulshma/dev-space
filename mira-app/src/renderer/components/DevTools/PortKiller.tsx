@@ -108,10 +108,16 @@ export function PortKiller(): React.JSX.Element {
                 className="grid grid-cols-[3.5rem_1fr_4.5rem_1.5rem] gap-2 items-center p-2 rounded-md hover:bg-muted/50 group"
                 key={`${port.port}-${port.pid}`}
               >
-                <Badge className="font-mono text-[10px] px-1 justify-center shrink-0" variant="secondary">
+                <Badge
+                  className="font-mono text-[10px] px-1 justify-center shrink-0"
+                  variant="secondary"
+                >
                   :{port.port}
                 </Badge>
-                <div className="text-xs truncate min-w-0" title={port.processName}>
+                <div
+                  className="text-xs truncate min-w-0"
+                  title={port.processName}
+                >
                   {port.processName}
                 </div>
                 <span className="text-[10px] text-muted-foreground tabular-nums text-right shrink-0">

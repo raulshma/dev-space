@@ -72,9 +72,15 @@ export function createAsyncLazyService<T>(
  * Allows for dependency injection and deferred initialization
  */
 export class ServiceRegistry {
-  private services = new Map<string, LazyService<unknown> | AsyncLazyService<unknown>>()
+  private services = new Map<
+    string,
+    LazyService<unknown> | AsyncLazyService<unknown>
+  >()
 
-  register<T>(name: string, service: LazyService<T> | AsyncLazyService<T>): void {
+  register<T>(
+    name: string,
+    service: LazyService<T> | AsyncLazyService<T>
+  ): void {
     this.services.set(name, service)
   }
 

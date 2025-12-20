@@ -34,6 +34,8 @@ const SETTINGS_KEYS = {
   PYTHON_PATH: 'agent.python_path',
   CUSTOM_ENV_VARS: 'agent.custom_env_vars',
   CUSTOM_COMMAND: 'agent.custom_command',
+  OPENCODE_SERVER_PORT: 'agent.opencode_server_port',
+  OPENCODE_DEFAULT_MODEL: 'agent.opencode_default_model',
 } as const
 
 /**
@@ -43,6 +45,7 @@ const KEYCHAIN_SERVICE = 'mira-agent'
 const KEYCHAIN_ACCOUNT_AUTH_TOKEN = 'anthropic_auth_token'
 const KEYCHAIN_ACCOUNT_GOOGLE_API_KEY = 'google_api_key'
 const KEYCHAIN_ACCOUNT_OPENAI_API_KEY = 'openai_api_key'
+const KEYCHAIN_ACCOUNT_OPENROUTER_API_KEY = 'openrouter_api_key'
 
 /**
  * Default configuration values
@@ -60,6 +63,9 @@ const DEFAULT_CONFIG: Omit<AgentEnvironmentConfig, 'anthropicAuthToken'> = {
   googleApiKey: undefined,
   openaiApiKey: undefined,
   customCommand: undefined,
+  openrouterApiKey: undefined,
+  opencodeServerPort: 4096,
+  opencodeDefaultModel: undefined,
 }
 
 /**
@@ -143,13 +149,19 @@ export class AgentConfigService implements IAgentConfigService {
       KEYCHAIN_SERVICE,
       KEYCHAIN_ACCOUNT_OPENAI_API_KEY
     )
+    const openrouterApiKey = await this.keychain.getSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_OPENROUTER_API_KEY
+    )
 
     // Get other settings from database
     const agentService = this.db.getAISetting(
       SETTINGS_KEYS.AGENT_SERVICE
     ) as AgentCLIService | null
     const baseUrl = this.db.getAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
-    const anthropicApiKey = this.db.getAISetting(SETTINGS_KEYS.ANTHROPIC_API_KEY)
+    const anthropicApiKey = this.db.getAISetting(
+      SETTINGS_KEYS.ANTHROPIC_API_KEY
+    )
     const defaultSonnetModel = this.db.getAISetting(
       SETTINGS_KEYS.ANTHROPIC_DEFAULT_SONNET_MODEL
     )
@@ -163,6 +175,12 @@ export class AgentConfigService implements IAgentConfigService {
     const pythonPath = this.db.getAISetting(SETTINGS_KEYS.PYTHON_PATH)
     const customEnvStr = this.db.getAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS)
     const customCommand = this.db.getAISetting(SETTINGS_KEYS.CUSTOM_COMMAND)
+    const opencodeServerPortStr = this.db.getAISetting(
+      SETTINGS_KEYS.OPENCODE_SERVER_PORT
+    )
+    const opencodeDefaultModel = this.db.getAISetting(
+      SETTINGS_KEYS.OPENCODE_DEFAULT_MODEL
+    )
 
     // Parse custom env vars
     let customEnvVars: Record<string, string> = {}
@@ -197,6 +215,12 @@ export class AgentConfigService implements IAgentConfigService {
       googleApiKey: googleApiKey ?? DEFAULT_CONFIG.googleApiKey,
       openaiApiKey: openaiApiKey ?? DEFAULT_CONFIG.openaiApiKey,
       customCommand: customCommand ?? DEFAULT_CONFIG.customCommand,
+      openrouterApiKey: openrouterApiKey ?? DEFAULT_CONFIG.openrouterApiKey,
+      opencodeServerPort: opencodeServerPortStr
+        ? Number.parseInt(opencodeServerPortStr, 10)
+        : DEFAULT_CONFIG.opencodeServerPort,
+      opencodeDefaultModel:
+        opencodeDefaultModel ?? DEFAULT_CONFIG.opencodeDefaultModel,
     }
   }
 
@@ -258,6 +282,22 @@ export class AgentConfigService implements IAgentConfigService {
         await this.keychain.deleteSecret(
           KEYCHAIN_SERVICE,
           KEYCHAIN_ACCOUNT_OPENAI_API_KEY
+        )
+      }
+    }
+
+    // Store OpenRouter API key in keychain if provided
+    if (updates.openrouterApiKey !== undefined) {
+      if (updates.openrouterApiKey) {
+        await this.keychain.setSecret(
+          KEYCHAIN_SERVICE,
+          KEYCHAIN_ACCOUNT_OPENROUTER_API_KEY,
+          updates.openrouterApiKey
+        )
+      } else {
+        await this.keychain.deleteSecret(
+          KEYCHAIN_SERVICE,
+          KEYCHAIN_ACCOUNT_OPENROUTER_API_KEY
         )
       }
     }
@@ -350,6 +390,25 @@ export class AgentConfigService implements IAgentConfigService {
         this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_COMMAND)
       }
     }
+
+    // Store OpenCode settings
+    if (updates.opencodeServerPort !== undefined) {
+      this.db.setAISetting(
+        SETTINGS_KEYS.OPENCODE_SERVER_PORT,
+        updates.opencodeServerPort.toString()
+      )
+    }
+
+    if (updates.opencodeDefaultModel !== undefined) {
+      if (updates.opencodeDefaultModel) {
+        this.db.setAISetting(
+          SETTINGS_KEYS.OPENCODE_DEFAULT_MODEL,
+          updates.opencodeDefaultModel
+        )
+      } else {
+        this.db.deleteAISetting(SETTINGS_KEYS.OPENCODE_DEFAULT_MODEL)
+      }
+    }
   }
 
   /**
@@ -358,7 +417,8 @@ export class AgentConfigService implements IAgentConfigService {
    * Validates based on selected service:
    * - claude-code: Requires anthropicAuthToken
    * - google-jules: Requires googleApiKey
-   * - opencode/aider: Requires openaiApiKey or anthropicAuthToken, and pythonPath
+   * - opencode: Requires at least one API key (anthropic, openai, google, or openrouter)
+   * - aider: Requires openaiApiKey or anthropicAuthToken, and pythonPath
    * - custom: Requires customCommand and pythonPath
    * - apiTimeoutMs must be positive for all services
    *
@@ -390,7 +450,42 @@ export class AgentConfigService implements IAgentConfigService {
           })
         }
         break
-      case 'opencode':
+      case 'opencode': {
+        // At least one API key is required for OpenCode
+        const hasAnthropicKey =
+          config.anthropicAuthToken && config.anthropicAuthToken.trim() !== ''
+        const hasOpenaiKey =
+          config.openaiApiKey && config.openaiApiKey.trim() !== ''
+        const hasGoogleKey =
+          config.googleApiKey && config.googleApiKey.trim() !== ''
+        const hasOpenrouterKey =
+          config.openrouterApiKey && config.openrouterApiKey.trim() !== ''
+
+        if (
+          !hasAnthropicKey &&
+          !hasOpenaiKey &&
+          !hasGoogleKey &&
+          !hasOpenrouterKey
+        ) {
+          errors.push({
+            field: 'openaiApiKey',
+            message:
+              'At least one API key (Anthropic, OpenAI, Google, or OpenRouter) is required for OpenCode',
+          })
+        }
+
+        // Validate server port if provided
+        if (
+          config.opencodeServerPort !== undefined &&
+          (config.opencodeServerPort < 1 || config.opencodeServerPort > 65535)
+        ) {
+          errors.push({
+            field: 'opencodeServerPort' as keyof AgentEnvironmentConfig,
+            message: 'OpenCode server port must be between 1 and 65535',
+          })
+        }
+        break
+      }
       case 'aider':
         // At least one API key is required
         if (
@@ -486,6 +581,20 @@ export class AgentConfigService implements IAgentConfigService {
       configuredServices.push('google-jules')
     }
 
+    // Check OpenCode - requires at least one API key
+    const hasAnthropicKey =
+      config.anthropicAuthToken && config.anthropicAuthToken.trim() !== ''
+    const hasOpenaiKey =
+      config.openaiApiKey && config.openaiApiKey.trim() !== ''
+    const hasGoogleKey =
+      config.googleApiKey && config.googleApiKey.trim() !== ''
+    const hasOpenrouterKey =
+      config.openrouterApiKey && config.openrouterApiKey.trim() !== ''
+
+    if (hasAnthropicKey || hasOpenaiKey || hasGoogleKey || hasOpenrouterKey) {
+      configuredServices.push('opencode')
+    }
+
     return configuredServices
   }
 
@@ -510,6 +619,10 @@ export class AgentConfigService implements IAgentConfigService {
       KEYCHAIN_SERVICE,
       KEYCHAIN_ACCOUNT_OPENAI_API_KEY
     )
+    await this.keychain.deleteSecret(
+      KEYCHAIN_SERVICE,
+      KEYCHAIN_ACCOUNT_OPENROUTER_API_KEY
+    )
 
     // Remove settings from database
     this.db.deleteAISetting(SETTINGS_KEYS.AGENT_SERVICE)
@@ -522,6 +635,8 @@ export class AgentConfigService implements IAgentConfigService {
     this.db.deleteAISetting(SETTINGS_KEYS.PYTHON_PATH)
     this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS)
     this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_COMMAND)
+    this.db.deleteAISetting(SETTINGS_KEYS.OPENCODE_SERVER_PORT)
+    this.db.deleteAISetting(SETTINGS_KEYS.OPENCODE_DEFAULT_MODEL)
   }
 }
 

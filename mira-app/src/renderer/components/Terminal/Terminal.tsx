@@ -29,15 +29,16 @@ export function Terminal({
 }: TerminalProps): React.JSX.Element {
   const terminals = useTerminalsByProject(projectId)
   const addTerminal = useTerminalStore(state => state.addTerminal)
-  
+
   // Fetch custom shell setting
   const { data: customShell } = useSetting(SETTING_KEYS.TERMINAL_SHELL)
 
   const handleCreateTerminal = async (): Promise<void> => {
     try {
       // Use custom shell if set, otherwise let PTY manager use default
-      const shell = customShell && customShell.trim() !== '' ? customShell : undefined
-      
+      const shell =
+        customShell && customShell.trim() !== '' ? customShell : undefined
+
       const response = await window.api.pty.create({
         projectId,
         cwd: projectPath,

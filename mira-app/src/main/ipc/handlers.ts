@@ -139,6 +139,7 @@ import type { DependencyManager } from 'main/services/dependency-manager'
 import type { SessionService } from 'main/services/session-service'
 import type { AgentServiceV2 } from 'main/services/agent-service-v2'
 import type { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
+import type { OpencodeSdkService } from 'main/services/agent/opencode-sdk-service'
 import type {
   AgentV2SessionCreateRequest,
   AgentV2SessionGetRequest,
@@ -167,6 +168,15 @@ import type {
   ThemeCreateRequest,
   ThemeUpdateRequest,
   ThemeDeleteRequest,
+  // OpenCode types
+  OpencodeExecuteRequest,
+  OpencodeStopRequest,
+  OpencodeGetSessionsRequest,
+  OpencodeGetMessagesRequest,
+  OpencodeDeleteSessionRequest,
+  OpencodeBackupConfigRequest,
+  OpencodeRestoreConfigRequest,
+  OpencodeWriteConfigRequest,
 } from 'shared/ipc-types'
 
 /**
@@ -198,6 +208,7 @@ export class IPCHandlers {
   private sessionService?: SessionService
   private agentServiceV2?: AgentServiceV2
   private autoModeServiceV2?: AutoModeServiceV2
+  private opencodeSdkService?: OpencodeSdkService
 
   constructor(
     db: DatabaseService,
@@ -215,7 +226,8 @@ export class IPCHandlers {
     globalProcessService?: GlobalProcessService,
     worktreeService?: WorktreeService,
     dependencyManager?: DependencyManager,
-    sessionService?: SessionService
+    sessionService?: SessionService,
+    opencodeSdkService?: OpencodeSdkService
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -236,6 +248,7 @@ export class IPCHandlers {
     this.sessionService = sessionService
     this.agentServiceV2 = agentServiceV2
     this.autoModeServiceV2 = autoModeServiceV2
+    this.opencodeSdkService = opencodeSdkService
   }
 
   /**
@@ -275,6 +288,8 @@ export class IPCHandlers {
     // V2 service handlers (Claude SDK integration)
     this.registerAgentServiceV2Handlers()
     this.registerAutoModeServiceV2Handlers()
+    // OpenCode SDK handlers
+    this.registerOpencodeHandlers()
   }
 
   /**
@@ -1096,17 +1111,17 @@ export class IPCHandlers {
           const models = await this.aiService.getAvailableModels()
           const defaultModelId = this.aiService.getDefaultModelId()
           const actionModelsMap = this.aiService.getActionModels()
-          
+
           // Convert Map to Record for IPC serialization
           const actionModels: Record<string, string> = {}
           actionModelsMap.forEach((modelId, action) => {
             actionModels[action] = modelId
           })
-          
-          return { 
-            models, 
-            defaultModelId, 
-            actionModels 
+
+          return {
+            models,
+            defaultModelId,
+            actionModels,
           }
         } catch (error) {
           return this.handleError(error)
@@ -3256,6 +3271,239 @@ export class IPCHandlers {
       async (_event, request: ThemeDeleteRequest) => {
         try {
           this.db.deleteCustomTheme(request.id)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * OpenCode SDK operation handlers
+   */
+  private registerOpencodeHandlers(): void {
+    // Execute task
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_EXECUTE,
+      async (event, request: OpencodeExecuteRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+
+          const sender = event.sender
+          const taskId = request.taskId
+
+          // Set up event forwarding
+          const outputHandler = (data: string, stream: 'stdout' | 'stderr') => {
+            sender.send(IPC_CHANNELS.OPENCODE_OUTPUT, { taskId, data, stream })
+          }
+          const toolCallHandler = (
+            toolName: string,
+            input: Record<string, unknown>
+          ) => {
+            sender.send(IPC_CHANNELS.OPENCODE_TOOL_CALL, {
+              taskId,
+              toolName,
+              input,
+            })
+          }
+          const toolResultHandler = (toolName: string, result: string) => {
+            sender.send(IPC_CHANNELS.OPENCODE_TOOL_RESULT, {
+              taskId,
+              toolName,
+              result,
+            })
+          }
+          const errorHandler = (error: string) => {
+            sender.send(IPC_CHANNELS.OPENCODE_ERROR, { taskId, error })
+          }
+          const sessionInitHandler = (sessionId: string) => {
+            sender.send(IPC_CHANNELS.OPENCODE_SESSION_INIT, {
+              taskId,
+              sessionId,
+            })
+          }
+          const completionHandler = () => {
+            sender.send(IPC_CHANNELS.OPENCODE_COMPLETE, { taskId })
+          }
+
+          this.opencodeSdkService.on('output', outputHandler)
+          this.opencodeSdkService.on('toolCall', toolCallHandler)
+          this.opencodeSdkService.on('toolResult', toolResultHandler)
+          this.opencodeSdkService.on('error', errorHandler)
+          this.opencodeSdkService.on('sessionInit', sessionInitHandler)
+          this.opencodeSdkService.on('completion', completionHandler)
+
+          try {
+            const result = await this.opencodeSdkService.execute(taskId, {
+              prompt: request.prompt,
+              workingDirectory: request.workingDirectory,
+              model: request.model,
+              sessionId: request.sessionId,
+              agentName: request.agentName,
+              serverPort: request.serverPort,
+              serverBaseUrl: request.serverBaseUrl,
+            })
+            return result
+          } finally {
+            // Clean up event listeners
+            this.opencodeSdkService.off('output', outputHandler)
+            this.opencodeSdkService.off('toolCall', toolCallHandler)
+            this.opencodeSdkService.off('toolResult', toolResultHandler)
+            this.opencodeSdkService.off('error', errorHandler)
+            this.opencodeSdkService.off('sessionInit', sessionInitHandler)
+            this.opencodeSdkService.off('completion', completionHandler)
+          }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stop task
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_STOP,
+      async (_event, request: OpencodeStopRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.opencodeSdkService.stop(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get sessions
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_GET_SESSIONS,
+      async (_event, request: OpencodeGetSessionsRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const sessions = await this.opencodeSdkService.listSessions(
+            request.serverBaseUrl
+          )
+          return { sessions }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get messages
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_GET_MESSAGES,
+      async (_event, request: OpencodeGetMessagesRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const messages = await this.opencodeSdkService.getSessionMessages(
+            request.sessionId,
+            request.serverBaseUrl
+          )
+          return { messages }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Delete session
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_DELETE_SESSION,
+      async (_event, request: OpencodeDeleteSessionRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const success = await this.opencodeSdkService.deleteSession(
+            request.sessionId,
+            request.serverBaseUrl
+          )
+          return { success }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Backup config
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_BACKUP_CONFIG,
+      async (_event, request: OpencodeBackupConfigRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const backup = await this.opencodeSdkService.backupConfig(
+            request.workingDirectory
+          )
+          return { backup }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Restore config
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_RESTORE_CONFIG,
+      async (_event, request: OpencodeRestoreConfigRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.opencodeSdkService.restoreConfig(request.backup)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Write config
+    ipcMain.handle(
+      IPC_CHANNELS.OPENCODE_WRITE_CONFIG,
+      async (_event, request: OpencodeWriteConfigRequest) => {
+        try {
+          if (!this.opencodeSdkService) {
+            return {
+              error: 'OpenCode SDK service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          await this.opencodeSdkService.writeConfig(
+            request.workingDirectory,
+            request.config
+          )
           return { success: true }
         } catch (error) {
           return this.handleError(error)

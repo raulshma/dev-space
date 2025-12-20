@@ -1,8 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type {
-  CustomTheme,
-  CreateCustomThemeInput,
-} from 'shared/models'
+import type { CustomTheme, CreateCustomThemeInput } from 'shared/models'
 
 export function useCustomThemes() {
   const queryClient = useQueryClient()
@@ -26,7 +23,13 @@ export function useCustomThemes() {
   })
 
   const updateThemeMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CreateCustomThemeInput> }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string
+      data: Partial<CreateCustomThemeInput>
+    }) => {
       const response = await window.api.themes.update({ id, data })
       return response.theme as CustomTheme
     },

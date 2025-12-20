@@ -4,10 +4,10 @@
  */
 
 export interface BackgroundPreset {
-  id: string;
-  name: string;
-  style: React.CSSProperties;
-  previewClass?: string;
+  id: string
+  name: string
+  style: React.CSSProperties
+  previewClass?: string
 }
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
@@ -24,7 +24,8 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
       backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)',
       border: '1px solid rgba(255, 255, 255, 0.2)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      boxShadow:
+        '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
     },
   },
   {
@@ -90,9 +91,9 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
       border: 'none',
     },
   },
-];
+]
 
 export function getBackgroundStyle(presetId: string): React.CSSProperties {
-  const preset = BACKGROUND_PRESETS.find(p => p.id === presetId);
-  return preset ? preset.style : {};
+  const preset = BACKGROUND_PRESETS.find(p => p.id === presetId)
+  return preset ? preset.style : {}
 }

@@ -182,8 +182,8 @@ export const TopNav = memo(function TopNav({
                 <button
                   className="p-0.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded"
                   onClick={() => setShowTagMenu(prev => !prev)}
-                  title="Add tag"
                   style={iconStyle}
+                  title="Add tag"
                 >
                   <IconPlus size={12} />
                 </button>
@@ -234,8 +234,8 @@ export const TopNav = memo(function TopNav({
                         showThemeMenu && 'text-primary bg-primary/10'
                       )}
                       onClick={() => setShowThemeMenu(prev => !prev)}
-                      type="button"
                       style={iconStyle}
+                      type="button"
                     >
                       <IconPalette size={14} />
                     </button>
@@ -255,9 +255,9 @@ export const TopNav = memo(function TopNav({
                   />
                   <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded shadow-lg py-1 min-w-[180px] max-h-[300px] overflow-y-auto">
                     <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-muted-foreground/50 flex items-center gap-2">
-                       <div className="h-px flex-1 bg-border" />
-                       Predefined
-                       <div className="h-px flex-1 bg-border" />
+                      <div className="h-px flex-1 bg-border" />
+                      Predefined
+                      <div className="h-px flex-1 bg-border" />
                     </div>
                     {PREDEFINED_THEMES.map(theme => (
                       <button
@@ -288,9 +288,9 @@ export const TopNav = memo(function TopNav({
                     {customThemes.length > 0 && (
                       <>
                         <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-muted-foreground/50 flex items-center gap-2 mt-1">
-                           <div className="h-px flex-1 bg-border" />
-                           Custom
-                           <div className="h-px flex-1 bg-border" />
+                          <div className="h-px flex-1 bg-border" />
+                          Custom
+                          <div className="h-px flex-1 bg-border" />
                         </div>
                         {customThemes.map(theme => (
                           <button
@@ -307,7 +307,8 @@ export const TopNav = memo(function TopNav({
                                 className="w-3 h-3 rounded-full border border-border shrink-0"
                                 style={{
                                   backgroundColor:
-                                    (theme.colors as any).primary || 'var(--primary)',
+                                    (theme.colors as any).primary ||
+                                    'var(--primary)',
                                 }}
                               />
                               <span>{theme.name}</span>
@@ -344,8 +345,8 @@ export const TopNav = memo(function TopNav({
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 )}
                 onClick={onToggleZenMode}
-                type="button"
                 style={iconStyle}
+                type="button"
               >
                 🧘
               </button>
@@ -364,8 +365,8 @@ export const TopNav = memo(function TopNav({
                   <button
                     className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     onClick={onToggleLeftSidebar}
-                    type="button"
                     style={iconStyle}
+                    type="button"
                   >
                     {leftSidebarCollapsed ? (
                       <IconLayoutSidebarLeftExpand className="h-4 w-4" />
@@ -384,8 +385,8 @@ export const TopNav = memo(function TopNav({
                   <button
                     className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     onClick={onToggleRightSidebar}
-                    type="button"
                     style={iconStyle}
+                    type="button"
                   >
                     {rightSidebarCollapsed ? (
                       <IconLayoutSidebarRightExpand className="h-4 w-4" />

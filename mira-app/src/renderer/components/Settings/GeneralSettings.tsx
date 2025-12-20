@@ -243,14 +243,15 @@ export function GeneralSettings(): React.JSX.Element {
                 Apply creative backgrounds to navigation and sidebar icons
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Top Nav Icons */}
               <div className="space-y-2">
                 <Label className="text-xs">Top Nav Icons</Label>
                 <Select
-                  onValueChange={(value) => {
-                    if (value) handleSettingChange(SETTING_KEYS.TOP_NAV_ICON_BG, value)
+                  onValueChange={value => {
+                    if (value)
+                      handleSettingChange(SETTING_KEYS.TOP_NAV_ICON_BG, value)
                   }}
                   value={settings?.[SETTING_KEYS.TOP_NAV_ICON_BG] || 'none'}
                 >
@@ -261,8 +262,8 @@ export function GeneralSettings(): React.JSX.Element {
                     {BACKGROUND_PRESETS.map(preset => (
                       <SelectItem key={preset.id} value={preset.id}>
                         <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded border border-border" 
+                          <div
+                            className="w-4 h-4 rounded border border-border"
                             style={preset.style}
                           />
                           {preset.name}
@@ -277,8 +278,9 @@ export function GeneralSettings(): React.JSX.Element {
               <div className="space-y-2">
                 <Label className="text-xs">Sidebar Icons</Label>
                 <Select
-                  onValueChange={(value) => {
-                    if (value) handleSettingChange(SETTING_KEYS.SIDEBAR_ICON_BG, value)
+                  onValueChange={value => {
+                    if (value)
+                      handleSettingChange(SETTING_KEYS.SIDEBAR_ICON_BG, value)
                   }}
                   value={settings?.[SETTING_KEYS.SIDEBAR_ICON_BG] || 'none'}
                 >
@@ -289,8 +291,8 @@ export function GeneralSettings(): React.JSX.Element {
                     {BACKGROUND_PRESETS.map(preset => (
                       <SelectItem key={preset.id} value={preset.id}>
                         <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded border border-border" 
+                          <div
+                            className="w-4 h-4 rounded border border-border"
                             style={preset.style}
                           />
                           {preset.name}

@@ -510,7 +510,9 @@ export function ProjectWorkspace({
   // App store
   const setActiveProject = useAppStore(state => state.setActiveProject)
   const sidebarCollapsed = useAppStore(state => state.sidebarCollapsed)
-  const devToolsPanelCollapsed = useAppStore(state => state.devToolsPanelCollapsed)
+  const devToolsPanelCollapsed = useAppStore(
+    state => state.devToolsPanelCollapsed
+  )
   const zenMode = useAppStore(state => state.zenMode)
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
   const toggleDevToolsPanel = useAppStore(state => state.toggleDevToolsPanel)
@@ -705,8 +707,8 @@ export function ProjectWorkspace({
   return (
     <div className="flex flex-col h-screen bg-background">
       <WorkspaceHeader
-        devToolsPanelCollapsed={devToolsPanelCollapsed}
         availableTags={availableTags}
+        devToolsPanelCollapsed={devToolsPanelCollapsed}
         gitTelemetry={gitTelemetryData}
         onAddTag={handleAddTag}
         onBackToDashboard={handleBackToDashboard}

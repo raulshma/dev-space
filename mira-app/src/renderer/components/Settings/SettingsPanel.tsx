@@ -59,10 +59,10 @@ export function SettingsPanel({
           <div className="px-6 py-4 border-b shrink-0 bg-background relative z-10 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Settings</h2>
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
               className="h-8 w-8 rounded-full"
+              onClick={onClose}
+              size="icon"
+              variant="ghost"
             >
               <IconX className="h-4 w-4" />
               <span className="sr-only">Close</span>

@@ -298,7 +298,7 @@ export type AgentType = 'autonomous' | 'feature'
 /**
  * Service/CLI type for task execution
  */
-export type TaskServiceType = 'claude-code' | 'google-jules'
+export type TaskServiceType = 'claude-code' | 'google-jules' | 'opencode'
 
 /**
  * Metadata for task service types
@@ -331,6 +331,14 @@ export const TASK_SERVICE_TYPES: TaskServiceInfo[] = [
       "Google's cloud-based AI coding assistant with GitHub integration",
     docsUrl: 'https://developers.google.com/jules/api',
     supportsAgentTypes: ['feature'],
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    description:
+      'Open-source AI coding agent with multi-provider support (Anthropic, OpenAI, Google, OpenRouter)',
+    docsUrl: 'https://opencode.ai/docs',
+    supportsAgentTypes: ['autonomous', 'feature'],
   },
 ]
 
@@ -757,8 +765,8 @@ export const AGENT_CLI_SERVICES: AgentCLIServiceInfo[] = [
   {
     id: 'opencode',
     name: 'OpenCode',
-    description: 'Open-source AI coding assistant with multiple model support',
-    docsUrl: 'https://github.com/opencode-ai/opencode',
+    description: 'Open-source AI coding agent with multi-provider support',
+    docsUrl: 'https://opencode.ai/docs',
   },
   {
     id: 'google-jules',
@@ -825,6 +833,12 @@ export interface AgentEnvironmentConfig {
   openaiApiKey?: string
   /** Custom command for custom agent */
   customCommand?: string
+  /** OpenRouter API key for OpenCode */
+  openrouterApiKey?: string
+  /** OpenCode server port (default: 4096) */
+  opencodeServerPort?: number
+  /** OpenCode default model (e.g., "anthropic/claude-sonnet-4-5") */
+  opencodeDefaultModel?: string
 }
 
 /**
@@ -869,4 +883,10 @@ export interface UpdateAgentConfigInput {
   googleApiKey?: string
   openaiApiKey?: string
   customCommand?: string
+  /** OpenRouter API key for OpenCode */
+  openrouterApiKey?: string
+  /** OpenCode server port (default: 4096) */
+  opencodeServerPort?: number
+  /** OpenCode default model (e.g., "anthropic/claude-sonnet-4-5") */
+  opencodeDefaultModel?: string
 }

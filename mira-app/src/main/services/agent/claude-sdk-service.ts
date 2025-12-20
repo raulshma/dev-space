@@ -321,7 +321,9 @@ export class ClaudeSdkService extends EventEmitter {
       input?: Record<string, unknown>
       result?: string
       error?: { message?: string; type?: string } | string
-      content?: string | Array<{ type: string; text?: string; name?: string; input?: unknown }>
+      content?:
+        | string
+        | Array<{ type: string; text?: string; name?: string; input?: unknown }>
     }
 
     switch (message.type) {

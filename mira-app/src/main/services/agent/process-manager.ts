@@ -443,7 +443,7 @@ export function buildAgentEnvironment(
   if (agentConfig.anthropicBaseUrl) {
     env.ANTHROPIC_BASE_URL = agentConfig.anthropicBaseUrl
   }
-  
+
   // Handle ANTHROPIC_API_KEY - when using OpenRouter, this must be explicitly empty
   // Only set if defined (including empty string which is intentional for OpenRouter)
   if (agentConfig.anthropicApiKey !== undefined) {

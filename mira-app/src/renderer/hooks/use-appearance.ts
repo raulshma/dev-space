@@ -1,6 +1,6 @@
 /**
  * Hook for applying appearance settings (font size and font family)
- * 
+ *
  * Applies global appearance settings to the document root element
  * so that the base font size and font family affect the entire app.
  */
@@ -24,11 +24,15 @@ export function useAppearance() {
     const root = document.documentElement
 
     // Apply font size
-    const fontSize = settings[SETTING_KEYS.FONT_SIZE] || DEFAULT_SETTINGS[SETTING_KEYS.FONT_SIZE]
+    const fontSize =
+      settings[SETTING_KEYS.FONT_SIZE] ||
+      DEFAULT_SETTINGS[SETTING_KEYS.FONT_SIZE]
     root.style.fontSize = `${fontSize}px`
 
     // Apply font family
-    const fontFamily = settings[SETTING_KEYS.FONT_FAMILY] || DEFAULT_SETTINGS[SETTING_KEYS.FONT_FAMILY]
+    const fontFamily =
+      settings[SETTING_KEYS.FONT_FAMILY] ||
+      DEFAULT_SETTINGS[SETTING_KEYS.FONT_FAMILY]
     root.style.fontFamily = fontFamily
 
     // Cleanup on unmount

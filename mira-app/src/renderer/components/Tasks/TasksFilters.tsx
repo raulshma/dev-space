@@ -186,7 +186,12 @@ export const TasksFilters = memo(function TasksFilters({
 
           {/* Clear filters */}
           {hasActiveFilters && (
-            <Button className="h-9" onClick={handleClearFilters} size="sm" variant="ghost">
+            <Button
+              className="h-9"
+              onClick={handleClearFilters}
+              size="sm"
+              variant="ghost"
+            >
               <IconX className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Clear</span>
             </Button>

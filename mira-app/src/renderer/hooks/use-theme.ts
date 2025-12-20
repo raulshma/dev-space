@@ -17,10 +17,10 @@ export function useTheme(projectId: string | null) {
 
     // Determine theme to apply
     const themeId = project?.themeId || 'default'
-    
+
     // First check predefined
     let theme = PREDEFINED_THEMES.find(t => t.id === themeId)
-    
+
     // Then check custom if not found
     if (!theme) {
       const customTheme = themes.find(t => t.id === themeId)
@@ -28,18 +28,18 @@ export function useTheme(projectId: string | null) {
         theme = {
           id: customTheme.id,
           name: customTheme.name,
-          colors: customTheme.colors as any
+          colors: customTheme.colors as any,
         }
       }
     }
-    
+
     // Fallback to default
     if (!theme) {
       theme = PREDEFINED_THEMES[0]
     }
-    
+
     applyTheme(theme)
-    
+
     // Cleanup not strictly necessary since we apply default on null projectId,
     // but good for safety
     return () => {
@@ -60,7 +60,10 @@ function applyTheme(theme: Theme) {
   // Helper to map camelCase to kebab-case CSS variables
   const setVar = (name: string, value?: string) => {
     // Convert camelCase to kebab-case and handle digit prefix for charts
-    const cssVarName = `--${name.replace(/([A-Z])/g, '-$1').replace(/(\d)/g, '-$1').toLowerCase()}`
+    const cssVarName = `--${name
+      .replace(/([A-Z])/g, '-$1')
+      .replace(/(\d)/g, '-$1')
+      .toLowerCase()}`
     if (value) {
       root.style.setProperty(cssVarName, value)
     } else {

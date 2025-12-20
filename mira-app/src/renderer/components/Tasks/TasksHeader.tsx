@@ -93,7 +93,11 @@ export const TasksHeader = memo(function TasksHeader({
         </ButtonGroup>
       )}
 
-      <UIButton className="h-8 px-3 gap-2 shrink-0" onClick={onCreateTask} size="sm">
+      <UIButton
+        className="h-8 px-3 gap-2 shrink-0"
+        onClick={onCreateTask}
+        size="sm"
+      >
         <IconPlus className="h-4 w-4" />
         <span className="hidden sm:inline">New Task</span>
       </UIButton>
@@ -111,12 +115,14 @@ export const TasksHeader = memo(function TasksHeader({
         subtitle={projectPath}
         title="Workspace Tasks"
       />
-      
+
       {/* Current task indicator - simplified for section nav usage */}
       {currentTask && (
         <div className="px-4 py-1.5 bg-muted/30 border-b border-border flex items-center gap-2 text-[10px] shrink-0 overflow-hidden">
           <IconLoader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
-          <span className="text-muted-foreground whitespace-nowrap">Executing:</span>
+          <span className="text-muted-foreground whitespace-nowrap">
+            Executing:
+          </span>
           <span className="font-medium truncate">
             {currentTask.description}
           </span>

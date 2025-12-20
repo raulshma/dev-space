@@ -32,6 +32,11 @@ import type { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
 import type { FeatureLoader } from 'main/services/feature-loader'
 import type { RunningProjectsService } from 'main/services/running-projects-service'
 import type { IPCHandlers } from 'main/ipc/handlers'
+import type { OpencodeSdkService } from 'main/services/agent/opencode-sdk-service'
+import type { GlobalProcessService } from 'main/services/global-process-service'
+import type { WorktreeService } from 'main/services/worktree-service'
+import type { DependencyManager } from 'main/services/dependency-manager'
+import type { SessionService } from 'main/services/session-service'
 import type { BrowserWindow } from 'electron'
 
 // ============================================================================
@@ -56,6 +61,11 @@ let agentServiceV2: AgentServiceV2
 let featureLoader: FeatureLoader
 let autoModeServiceV2: AutoModeServiceV2
 let runningProjectsService: RunningProjectsService
+let opencodeSdkService: OpencodeSdkService
+let globalProcessService: GlobalProcessService
+let worktreeService: WorktreeService
+let dependencyManager: DependencyManager
+let sessionService: SessionService
 let ipcHandlers: IPCHandlers
 
 /**
@@ -122,7 +132,12 @@ async function initializeAIServices(): Promise<void> {
   providerRegistry = new ProvReg()
   modelRegistry = new ModelReg(db)
   requestLogger = new ReqLogger(db)
-  aiService = new AISvc(providerRegistry, modelRegistry, requestLogger, keychainService)
+  aiService = new AISvc(
+    providerRegistry,
+    modelRegistry,
+    requestLogger,
+    keychainService
+  )
 
   // Initialize services that depend on database
   modelRegistry.initialize()
@@ -162,6 +177,11 @@ async function initializeAgentServices(): Promise<void> {
     { FeatureLoader: FeatLoader },
     { AutoModeServiceV2: AutoModeSvcV2 },
     { RunningProjectsService: RunProjSvc },
+    { OpencodeSdkService: OpencodeSvc },
+    { GlobalProcessService: GlobalProcSvc },
+    { WorktreeService: WorktreeSvc },
+    { DependencyManager: DepMgr },
+    { SessionService: SessSvc },
   ] = await Promise.all([
     import('main/services/agent/agent-config-service'),
     import('main/services/agent/process-manager'),
@@ -174,6 +194,11 @@ async function initializeAgentServices(): Promise<void> {
     import('main/services/feature-loader'),
     import('main/services/auto-mode-service-v2'),
     import('main/services/running-projects-service'),
+    import('main/services/agent/opencode-sdk-service'),
+    import('main/services/global-process-service'),
+    import('main/services/worktree-service'),
+    import('main/services/dependency-manager'),
+    import('main/services/session-service'),
   ])
 
   agentConfigService = new ConfigSvc(db, keychainService)
@@ -198,9 +223,16 @@ async function initializeAgentServices(): Promise<void> {
   featureLoader = new FeatLoader()
   autoModeServiceV2 = new AutoModeSvcV2(featureLoader)
   runningProjectsService = new RunProjSvc(ptyManager, db)
+  opencodeSdkService = new OpencodeSvc()
+  globalProcessService = new GlobalProcSvc()
+  worktreeService = new WorktreeSvc(db, gitService)
+  dependencyManager = new DepMgr(db)
+  sessionService = new SessSvc(db)
 
   const duration = performance.now() - startTime
-  console.log(`[Startup] Agent services initialized in ${duration.toFixed(2)}ms`)
+  console.log(
+    `[Startup] Agent services initialized in ${duration.toFixed(2)}ms`
+  )
 }
 
 /**
@@ -216,17 +248,25 @@ async function initializeAgentExecutor(): Promise<void> {
     // Check if auto-resume is enabled and resume interrupted Claude Code tasks
     const autoResumeSetting = db.getSetting('tasks.autoResume')
     if (autoResumeSetting === 'true') {
-      const resumedCount = await agentExecutorService.autoResumeInterruptedTasks()
+      const resumedCount =
+        await agentExecutorService.autoResumeInterruptedTasks()
       if (resumedCount > 0) {
-        console.log(`[Startup] Auto-resumed ${resumedCount} interrupted task(s)`)
+        console.log(
+          `[Startup] Auto-resumed ${resumedCount} interrupted task(s)`
+        )
       }
     }
   } catch (error) {
-    console.warn('[Startup] Failed to initialize agent executor service:', error)
+    console.warn(
+      '[Startup] Failed to initialize agent executor service:',
+      error
+    )
   }
 
   const duration = performance.now() - startTime
-  console.log(`[Startup] Agent executor initialized in ${duration.toFixed(2)}ms`)
+  console.log(
+    `[Startup] Agent executor initialized in ${duration.toFixed(2)}ms`
+  )
 }
 
 /**
@@ -250,7 +290,12 @@ async function initializeIPCHandlers(): Promise<void> {
     requestLogger,
     runningProjectsService,
     agentServiceV2,
-    autoModeServiceV2
+    autoModeServiceV2,
+    globalProcessService,
+    worktreeService,
+    dependencyManager,
+    sessionService,
+    opencodeSdkService
   )
 
   ipcHandlers.registerHandlers()
@@ -288,16 +333,15 @@ makeAppWithSingleInstanceLock(async () => {
 
   await app.whenReady()
   const readyTime = performance.now()
-  console.log(`[Startup] App ready in ${(readyTime - appStartTime).toFixed(2)}ms`)
+  console.log(
+    `[Startup] App ready in ${(readyTime - appStartTime).toFixed(2)}ms`
+  )
 
   // Initialize core services first (required for everything else)
   await initializeCoreServices()
 
   // Initialize AI and Agent services in parallel
-  await Promise.all([
-    initializeAIServices(),
-    initializeAgentServices(),
-  ])
+  await Promise.all([initializeAIServices(), initializeAgentServices()])
 
   // Initialize agent executor (depends on agent services)
   await initializeAgentExecutor()
@@ -315,7 +359,9 @@ makeAppWithSingleInstanceLock(async () => {
   loadDevTools(window)
 
   const totalTime = performance.now() - appStartTime
-  console.log(`[Startup] Application fully initialized in ${totalTime.toFixed(2)}ms`)
+  console.log(
+    `[Startup] Application fully initialized in ${totalTime.toFixed(2)}ms`
+  )
 })
 
 // ============================================================================

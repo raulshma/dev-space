@@ -921,7 +921,9 @@ export class DatabaseService {
    */
   getCustomThemes(): CustomTheme[] {
     const db = this.getDb()
-    const stmt = db.prepare('SELECT * FROM custom_themes ORDER BY updated_at DESC')
+    const stmt = db.prepare(
+      'SELECT * FROM custom_themes ORDER BY updated_at DESC'
+    )
     const rows = stmt.all() as CustomThemeRow[]
     return rows.map(row => this.rowToCustomTheme(row))
   }
@@ -966,7 +968,10 @@ export class DatabaseService {
   /**
    * Update a custom theme
    */
-  updateCustomTheme(id: string, data: Partial<CreateCustomThemeInput>): CustomTheme {
+  updateCustomTheme(
+    id: string,
+    data: Partial<CreateCustomThemeInput>
+  ): CustomTheme {
     const db = this.getDb()
     const current = this.getCustomTheme(id)
     if (!current) throw new Error(`Theme ${id} not found`)

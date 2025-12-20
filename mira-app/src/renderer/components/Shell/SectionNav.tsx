@@ -40,7 +40,8 @@ export const SectionNav = memo(function SectionNav({
           <Button
             className={cn(
               'h-8 px-3 text-xs gap-2',
-              activeView === 'workspace' && 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+              activeView === 'workspace' &&
+                'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
             )}
             onClick={() => onViewChange?.('workspace')}
             variant="ghost"
@@ -51,7 +52,8 @@ export const SectionNav = memo(function SectionNav({
           <Button
             className={cn(
               'h-8 px-3 text-xs gap-2',
-              activeView === 'tasks' && 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
+              activeView === 'tasks' &&
+                'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'
             )}
             onClick={() => onViewChange?.('tasks')}
             variant="ghost"

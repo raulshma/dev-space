@@ -243,6 +243,22 @@ export const IPC_CHANNELS = {
   THEME_CREATE: 'theme:create',
   THEME_UPDATE: 'theme:update',
   THEME_DELETE: 'theme:delete',
+
+  // OpenCode operations
+  OPENCODE_EXECUTE: 'opencode:execute',
+  OPENCODE_STOP: 'opencode:stop',
+  OPENCODE_GET_SESSIONS: 'opencode:getSessions',
+  OPENCODE_GET_MESSAGES: 'opencode:getMessages',
+  OPENCODE_DELETE_SESSION: 'opencode:deleteSession',
+  OPENCODE_BACKUP_CONFIG: 'opencode:backupConfig',
+  OPENCODE_RESTORE_CONFIG: 'opencode:restoreConfig',
+  OPENCODE_WRITE_CONFIG: 'opencode:writeConfig',
+  OPENCODE_OUTPUT: 'opencode:output',
+  OPENCODE_TOOL_CALL: 'opencode:toolCall',
+  OPENCODE_TOOL_RESULT: 'opencode:toolResult',
+  OPENCODE_ERROR: 'opencode:error',
+  OPENCODE_SESSION_INIT: 'opencode:sessionInit',
+  OPENCODE_COMPLETE: 'opencode:complete',
 } as const
 
 // Project Request/Response Types
@@ -1950,4 +1966,175 @@ export interface AutoModeV2RateLimitWaitData {
   projectPath: string
   resetTime: string
   waitSeconds: number
+}
+
+// ============================================================================
+// OpenCode Request/Response Types
+// ============================================================================
+
+/**
+ * OpenCode configuration structure
+ */
+export interface OpencodeConfigData {
+  $schema?: string
+  model?: string
+  theme?: string
+  autoupdate?: boolean
+  disabled_providers?: string[]
+  instructions?: string[]
+  provider?: Record<
+    string,
+    {
+      npm?: string
+      name?: string
+      options?: {
+        baseURL?: string
+        apiKey?: string
+        headers?: Record<string, string>
+      }
+      models?: Record<
+        string,
+        {
+          name?: string
+          options?: Record<string, unknown>
+          limit?: {
+            context?: number
+            output?: number
+          }
+        }
+      >
+    }
+  >
+  mode?: Record<
+    string,
+    {
+      model?: string
+      prompt?: string
+      tools?: {
+        write?: boolean
+        edit?: boolean
+        bash?: boolean
+      }
+    }
+  >
+}
+
+export interface OpencodeExecuteRequest {
+  taskId: string
+  prompt: string
+  workingDirectory: string
+  model?: string
+  sessionId?: string
+  agentName?: string
+  serverPort?: number
+  serverBaseUrl?: string
+}
+
+export interface OpencodeExecuteResponse {
+  sessionId?: string
+  success: boolean
+  error?: string
+}
+
+export interface OpencodeStopRequest {
+  taskId: string
+}
+
+export interface OpencodeStopResponse {
+  success: boolean
+}
+
+export interface OpencodeGetSessionsRequest {
+  serverBaseUrl?: string
+}
+
+export interface OpencodeGetSessionsResponse {
+  sessions: Array<{
+    id: string
+    title?: string
+    createdAt?: string
+  }>
+}
+
+export interface OpencodeGetMessagesRequest {
+  sessionId: string
+  serverBaseUrl?: string
+}
+
+export interface OpencodeGetMessagesResponse {
+  messages: unknown[]
+}
+
+export interface OpencodeDeleteSessionRequest {
+  sessionId: string
+  serverBaseUrl?: string
+}
+
+export interface OpencodeDeleteSessionResponse {
+  success: boolean
+}
+
+export interface OpencodeBackupConfigRequest {
+  workingDirectory: string
+}
+
+export interface OpencodeBackupConfigResponse {
+  backup: {
+    originalPath: string
+    backupPath: string
+    hadOriginal: boolean
+  } | null
+}
+
+export interface OpencodeRestoreConfigRequest {
+  backup: {
+    originalPath: string
+    backupPath: string
+    hadOriginal: boolean
+  }
+}
+
+export interface OpencodeRestoreConfigResponse {
+  success: boolean
+}
+
+export interface OpencodeWriteConfigRequest {
+  workingDirectory: string
+  config: OpencodeConfigData
+}
+
+export interface OpencodeWriteConfigResponse {
+  success: boolean
+}
+
+export interface OpencodeOutputData {
+  taskId: string
+  data: string
+  stream: 'stdout' | 'stderr'
+}
+
+export interface OpencodeToolCallData {
+  taskId: string
+  toolName: string
+  input: Record<string, unknown>
+}
+
+export interface OpencodeToolResultData {
+  taskId: string
+  toolName: string
+  result: string
+}
+
+export interface OpencodeErrorData {
+  taskId: string
+  error: string
+}
+
+export interface OpencodeSessionInitData {
+  taskId: string
+  sessionId: string
+}
+
+export interface OpencodeCompleteData {
+  taskId: string
 }

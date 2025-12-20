@@ -304,6 +304,29 @@ import type {
   ThemeUpdateResponse,
   ThemeDeleteRequest,
   ThemeDeleteResponse,
+  // OpenCode types
+  OpencodeExecuteRequest,
+  OpencodeExecuteResponse,
+  OpencodeStopRequest,
+  OpencodeStopResponse,
+  OpencodeGetSessionsRequest,
+  OpencodeGetSessionsResponse,
+  OpencodeGetMessagesRequest,
+  OpencodeGetMessagesResponse,
+  OpencodeDeleteSessionRequest,
+  OpencodeDeleteSessionResponse,
+  OpencodeBackupConfigRequest,
+  OpencodeBackupConfigResponse,
+  OpencodeRestoreConfigRequest,
+  OpencodeRestoreConfigResponse,
+  OpencodeWriteConfigRequest,
+  OpencodeWriteConfigResponse,
+  OpencodeOutputData,
+  OpencodeToolCallData,
+  OpencodeToolResultData,
+  OpencodeErrorData,
+  OpencodeSessionInitData,
+  OpencodeCompleteData,
 } from 'shared/ipc-types'
 
 /**
@@ -1151,6 +1174,103 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.THEME_UPDATE, request),
     delete: (request: ThemeDeleteRequest): Promise<ThemeDeleteResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.THEME_DELETE, request),
+  },
+
+  // OpenCode SDK operations
+  opencode: {
+    execute: (
+      request: OpencodeExecuteRequest
+    ): Promise<OpencodeExecuteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_EXECUTE, request),
+    stop: (request: OpencodeStopRequest): Promise<OpencodeStopResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_STOP, request),
+    getSessions: (
+      request: OpencodeGetSessionsRequest
+    ): Promise<OpencodeGetSessionsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_GET_SESSIONS, request),
+    getMessages: (
+      request: OpencodeGetMessagesRequest
+    ): Promise<OpencodeGetMessagesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_GET_MESSAGES, request),
+    deleteSession: (
+      request: OpencodeDeleteSessionRequest
+    ): Promise<OpencodeDeleteSessionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_DELETE_SESSION, request),
+    backupConfig: (
+      request: OpencodeBackupConfigRequest
+    ): Promise<OpencodeBackupConfigResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_BACKUP_CONFIG, request),
+    restoreConfig: (
+      request: OpencodeRestoreConfigRequest
+    ): Promise<OpencodeRestoreConfigResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_RESTORE_CONFIG, request),
+    writeConfig: (
+      request: OpencodeWriteConfigRequest
+    ): Promise<OpencodeWriteConfigResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.OPENCODE_WRITE_CONFIG, request),
+    // Event listeners
+    onOutput: (callback: (data: OpencodeOutputData) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: OpencodeOutputData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.OPENCODE_OUTPUT, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_OUTPUT, listener)
+    },
+    onToolCall: (
+      callback: (data: OpencodeToolCallData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: OpencodeToolCallData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.OPENCODE_TOOL_CALL, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_TOOL_CALL, listener)
+    },
+    onToolResult: (
+      callback: (data: OpencodeToolResultData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: OpencodeToolResultData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.OPENCODE_TOOL_RESULT, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_TOOL_RESULT, listener)
+    },
+    onError: (callback: (data: OpencodeErrorData) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: OpencodeErrorData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.OPENCODE_ERROR, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_ERROR, listener)
+    },
+    onSessionInit: (
+      callback: (data: OpencodeSessionInitData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: OpencodeSessionInitData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.OPENCODE_SESSION_INIT, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_SESSION_INIT, listener)
+    },
+    onComplete: (
+      callback: (data: OpencodeCompleteData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: OpencodeCompleteData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.OPENCODE_COMPLETE, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.OPENCODE_COMPLETE, listener)
+    },
   },
 }
 

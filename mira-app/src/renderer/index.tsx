@@ -44,4 +44,3 @@ if ('requestIdleCallback' in window) {
   // Fallback for older browsers
   setTimeout(hideLoader, 0)
 }
-

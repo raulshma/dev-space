@@ -86,7 +86,7 @@
     "name": "Red",
     "description": "Bold and assertive",
     "colors": {
-       "background": "oklch(0.12 0.02 0)",
+      "background": "oklch(0.12 0.02 0)",
       "foreground": "oklch(0.98 0.01 0)",
       "card": "oklch(0.16 0.02 0)",
       "cardForeground": "oklch(0.98 0.01 0)",
