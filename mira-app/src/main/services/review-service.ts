@@ -642,7 +642,12 @@ export class ReviewService extends EventEmitter implements IReviewService {
       )
     }
 
-    const workingDir = task.workingDirectory || task.worktreePath
+    // Try working directory first, then worktree path, then target directory
+    let workingDir = task.workingDirectory || task.worktreePath
+    if (!workingDir || !existsSync(workingDir)) {
+      // Fallback to target directory (project root)
+      workingDir = task.targetDirectory
+    }
     if (!workingDir || !existsSync(workingDir)) {
       throw new ReviewServiceError(
         `Working directory not found: ${workingDir}`,
@@ -766,7 +771,13 @@ export class ReviewService extends EventEmitter implements IReviewService {
       )
     }
 
-    const workingDir = task.workingDirectory || task.worktreePath
+    // Try working directory first, then worktree path, then target directory
+    let workingDir = task.workingDirectory || task.worktreePath
+    if (!workingDir || !existsSync(workingDir)) {
+      // Fallback to target directory (project root)
+      workingDir = task.targetDirectory
+    }
+    
     if (!workingDir || !existsSync(workingDir)) {
       return []
     }
@@ -812,7 +823,12 @@ export class ReviewService extends EventEmitter implements IReviewService {
       )
     }
 
-    const workingDir = task.workingDirectory || task.worktreePath
+    // Try working directory first, then worktree path, then target directory
+    let workingDir = task.workingDirectory || task.worktreePath
+    if (!workingDir || !existsSync(workingDir)) {
+      // Fallback to target directory (project root)
+      workingDir = task.targetDirectory
+    }
     if (!workingDir || !existsSync(workingDir)) {
       throw new ReviewServiceError(
         `Working directory not found: ${workingDir}`,

@@ -140,6 +140,7 @@ export const IPC_CHANNELS = {
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   SHELL_OPEN_PATH: 'shell:openPath',
+  SHELL_OPEN_TERMINAL: 'shell:openTerminal',
 
   // Dialog operations
   DIALOG_OPEN_DIRECTORY: 'dialog:openDirectory',
@@ -669,6 +670,14 @@ export interface ShellOpenPathRequest {
 }
 
 export interface ShellOpenPathResponse {
+  success: boolean
+}
+
+export interface ShellOpenTerminalRequest {
+  cwd: string
+}
+
+export interface ShellOpenTerminalResponse {
   success: boolean
 }
 

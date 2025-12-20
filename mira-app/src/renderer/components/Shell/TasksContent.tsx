@@ -25,6 +25,7 @@ import type { TaskStatus, AgentType } from 'shared/ai-types'
 
 const TASK_DETAILS_SIZE_KEY = 'mira:task-details-row-size'
 const DEFAULT_DETAILS_SIZE = 50
+const EXPANDED_DETAILS_SIZE_KEY = 'mira:task-details-expanded'
 
 export interface TasksFilter {
   status?: TaskStatus | 'all'
@@ -57,6 +58,12 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
 
   // Dialog state
   const [showTaskCreation, setShowTaskCreation] = useState(false)
+
+  // Task details expanded state (full window)
+  const [isTaskDetailsExpanded, setIsTaskDetailsExpanded] = useState(() => {
+    const saved = localStorage.getItem(EXPANDED_DETAILS_SIZE_KEY)
+    return saved === 'true'
+  })
 
   // Panel size persistence
   const detailsSizeRef = useRef<number>(DEFAULT_DETAILS_SIZE)
@@ -111,6 +118,14 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
     setActiveView('workspace')
   }, [setActiveView])
 
+  const handleToggleTaskDetailsExpand = useCallback(() => {
+    setIsTaskDetailsExpanded(prev => {
+      const newValue = !prev
+      localStorage.setItem(EXPANDED_DETAILS_SIZE_KEY, String(newValue))
+      return newValue
+    })
+  }, [])
+
   const hasOpenTabs = openTaskTabs.length > 0
 
   return (
@@ -123,54 +138,71 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
         viewMode={viewMode}
       />
 
-      {/* Filters */}
-      <TasksFilters filters={filters} onFilterChange={handleFilterChange} />
+      {/* When expanded, show only the task details */}
+      {hasOpenTabs && isTaskDetailsExpanded ? (
+        <div className="flex-1 overflow-hidden">
+          <TaskDetailsRow
+            className="h-full"
+            isExpanded={isTaskDetailsExpanded}
+            onToggleExpand={handleToggleTaskDetailsExpand}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Filters */}
+          <TasksFilters filters={filters} onFilterChange={handleFilterChange} />
 
-      {/* Content with vertical split */}
-      <div className="flex-1 min-h-0">
-        <ResizablePanelGroup
-          className="h-full"
-          onLayoutChange={handleLayoutChange}
-          orientation="vertical"
-        >
-          {/* Task list/board */}
-          <ResizablePanel
-            defaultSize={hasOpenTabs ? 100 - detailsSizeRef.current : 100}
-            id="task-list-panel"
-            minSize={20}
-          >
-            <div className="h-full overflow-auto p-4">
-              {viewMode === 'kanban' ? (
-                <KanbanBoard
-                  filters={filters}
-                  onTaskSelect={handleTaskSelect}
-                  selectedTaskId={null}
-                />
-              ) : (
-                <TasksTable
-                  filters={filters}
-                  onTaskSelect={handleTaskSelect}
-                  selectedTaskId={null}
-                />
-              )}
-            </div>
-          </ResizablePanel>
-
-          {/* Task details row */}
-          {hasOpenTabs && (
-            <>
-              <ResizableHandle withHandle />
+          {/* Content with vertical split */}
+          <div className="flex-1 min-h-0">
+            <ResizablePanelGroup
+              className="h-full"
+              onLayoutChange={handleLayoutChange}
+              orientation="vertical"
+            >
+              {/* Task list/board */}
               <ResizablePanel
-                defaultSize={detailsSizeRef.current}
-                id="task-details-row"
+                defaultSize={hasOpenTabs ? 100 - detailsSizeRef.current : 100}
+                id="task-list-panel"
                 minSize={20}
               >
-                <TaskDetailsRow className="h-full" />
+                <div className="h-full overflow-auto p-4">
+                  {viewMode === 'kanban' ? (
+                    <KanbanBoard
+                      filters={filters}
+                      onTaskSelect={handleTaskSelect}
+                      selectedTaskId={null}
+                    />
+                  ) : (
+                    <TasksTable
+                      filters={filters}
+                      onTaskSelect={handleTaskSelect}
+                      selectedTaskId={null}
+                    />
+                  )}
+                </div>
               </ResizablePanel>
-            </>
-          )}
-        </ResizablePanelGroup>
-      </div>
+
+              {/* Task details row */}
+              {hasOpenTabs && (
+                <>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel
+                    defaultSize={detailsSizeRef.current}
+                    id="task-details-row"
+                    minSize={20}
+                  >
+                    <TaskDetailsRow
+                      className="h-full"
+                      isExpanded={isTaskDetailsExpanded}
+                      onToggleExpand={handleToggleTaskDetailsExpand}
+                    />
+                  </ResizablePanel>
+                </>
+              )}
+            </ResizablePanelGroup>
+          </div>
+        </>
+      )}
 
       {/* Task creation dialog */}
       <TaskCreationDialog

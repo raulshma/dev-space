@@ -88,6 +88,8 @@ import type {
   ShellOpenExternalResponse,
   ShellOpenPathRequest,
   ShellOpenPathResponse,
+  ShellOpenTerminalRequest,
+  ShellOpenTerminalResponse,
   DialogOpenDirectoryRequest,
   DialogOpenDirectoryResponse,
   ScriptsGetRequest,
@@ -535,6 +537,10 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_EXTERNAL, request),
     openPath: (request: ShellOpenPathRequest): Promise<ShellOpenPathResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_PATH, request),
+    openTerminal: (
+      request: ShellOpenTerminalRequest
+    ): Promise<ShellOpenTerminalResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SHELL_OPEN_TERMINAL, request),
   },
 
   // Scripts operations

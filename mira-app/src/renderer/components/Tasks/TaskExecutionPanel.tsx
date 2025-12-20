@@ -49,6 +49,8 @@ import {
   IconArchive,
   IconRefresh,
   IconEye,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -86,6 +88,8 @@ import type { JulesActivity } from 'shared/ipc-types'
 interface TaskExecutionPanelProps {
   taskId: string
   onClose: () => void
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
 const STATUS_CONFIG: Record<
@@ -1535,6 +1539,8 @@ function JulesActivitiesOutput({
 export function TaskExecutionPanel({
   taskId,
   onClose,
+  isExpanded = false,
+  onToggleExpand,
 }: TaskExecutionPanelProps): React.JSX.Element {
   const task = useTask(taskId)
   const output = useTaskOutput(taskId)
@@ -1707,6 +1713,20 @@ export function TaskExecutionPanel({
               <IconEye className="h-4 w-4" />
               Review
             </Badge>
+            {onToggleExpand && (
+              <Button
+                onClick={onToggleExpand}
+                size="icon-sm"
+                variant="ghost"
+                title={isExpanded ? 'Minimize' : 'Maximize'}
+              >
+                {isExpanded ? (
+                  <IconArrowsMinimize className="h-4 w-4" />
+                ) : (
+                  <IconArrowsMaximize className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button onClick={onClose} size="icon-sm" variant="ghost">
               <IconX className="h-4 w-4" />
             </Button>
@@ -1782,6 +1802,20 @@ export function TaskExecutionPanel({
             {statusConfig.icon}
             {statusConfig.label}
           </Badge>
+          {onToggleExpand && (
+            <Button
+              onClick={onToggleExpand}
+              size="icon-sm"
+              variant="ghost"
+              title={isExpanded ? 'Minimize' : 'Maximize'}
+            >
+              {isExpanded ? (
+                <IconArrowsMinimize className="h-4 w-4" />
+              ) : (
+                <IconArrowsMaximize className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           <Button onClick={onClose} size="icon-sm" variant="ghost">
             <IconX className="h-4 w-4" />
           </Button>

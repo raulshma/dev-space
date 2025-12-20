@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from 'renderer/components/ui/alert-dialog'
+import { toast } from 'sonner'
 import {
   IconEye,
   IconPlayerPlay,
@@ -78,6 +79,7 @@ import {
   useReviewError,
   useReviewActions,
 } from 'renderer/stores/agent-task-store'
+import { useRunningProjectsManager, useIsProjectRunning } from 'renderer/hooks/use-running-projects'
 import type {
   AgentTask,
   FileChangeSummary,
@@ -267,15 +269,15 @@ function GitDiffViewer({ diff }: { diff: string }): React.JSX.Element {
   const lines = diff.split('\n')
 
   return (
-    <div className="rounded-md border bg-muted/30">
-      <div className="flex items-center justify-between border-b px-3 py-2">
+    <div className="h-full flex flex-col rounded-md border bg-muted/30 overflow-hidden">
+      <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
         <span className="text-xs font-medium">Git Diff</span>
         <Button onClick={handleCopy} size="sm" variant="ghost">
           <IconCopy className="mr-2 h-3 w-3" />
           {copied ? 'Copied!' : 'Copy'}
         </Button>
       </div>
-      <ScrollArea className="h-[300px]">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="font-mono text-xs">
           {lines.map((line, index) => renderDiffLine(line, index))}
         </div>
@@ -436,8 +438,16 @@ function ReviewActionButtons({
     setIsRunning(true)
     try {
       await onRunProject(selectedScript || undefined)
+      toast.success('Project started', {
+        description: selectedScript 
+          ? `Running script: ${selectedScript}`
+          : 'Running default dev/start script',
+      })
     } catch (error) {
       console.error('Failed to run project:', error)
+      toast.error('Failed to run project', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setIsRunning(false)
     }
@@ -458,8 +468,14 @@ function ReviewActionButtons({
     setIsOpeningTerminal(true)
     try {
       await onOpenTerminal()
+      toast.success('Terminal opened', {
+        description: 'A new terminal session has been created in the task working directory.',
+      })
     } catch (error) {
       console.error('Failed to open terminal:', error)
+      toast.error('Failed to open terminal', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setIsOpeningTerminal(false)
     }
@@ -493,7 +509,7 @@ function ReviewActionButtons({
       <div className="space-y-2">
         <span className="text-sm font-medium">Test Changes</span>
         <div className="flex items-center gap-2">
-          {availableScripts.length > 0 && (
+          {availableScripts && availableScripts.length > 0 && (
             <Select
               onValueChange={value => setSelectedScript(value ?? '')}
               value={selectedScript || undefined}
@@ -652,7 +668,7 @@ export function ReviewPanel({
   useEffect(() => {
     loadFeedbackHistory(taskId)
     loadAvailableScripts(taskId)
-      .then(scripts => setAvailableScripts(scripts))
+      .then(scripts => setAvailableScripts(scripts || []))
       .catch(err => console.error('Failed to load scripts:', err))
   }, [taskId, loadFeedbackHistory, loadAvailableScripts])
 
@@ -675,20 +691,76 @@ export function ReviewPanel({
     onDiscarded?.()
   }, [taskId, discardChanges, onDiscarded])
 
+  // Use running projects service for proper integration
+  const { startProject: runDevProject, stopProject: stopDevProject } = useRunningProjectsManager()
+  
+  // Get the project ID from the task's target directory
+  const projectPath = task?.targetDirectory || task?.workingDirectory || task?.worktreePath
+  const projectId = task?.projectId || taskId
+  const isProjectRunning = useIsProjectRunning(projectId)
+
   const handleRunProject = useCallback(
     async (script?: string): Promise<void> => {
-      await runProject(taskId, script)
+      if (!projectPath) {
+        toast.error('Cannot run project', {
+          description: 'No project directory found for this task',
+        })
+        return
+      }
+      
+      // Build the dev command from script
+      const devCommand = script ? `pnpm run ${script}` : undefined
+      
+      try {
+        await runDevProject(projectId, devCommand)
+        toast.success('Project started', {
+          description: script 
+            ? `Running script: ${script}`
+            : 'Running default dev command',
+        })
+      } catch (error) {
+        toast.error('Failed to run project', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
     },
-    [taskId, runProject]
+    [projectId, projectPath, runDevProject]
   )
 
   const handleStopProject = useCallback(async (): Promise<void> => {
-    await stopProject(taskId)
-  }, [taskId, stopProject])
+    try {
+      await stopDevProject(projectId)
+      toast.success('Project stopped')
+    } catch (error) {
+      toast.error('Failed to stop project', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }, [projectId, stopDevProject])
 
   const handleOpenTerminal = useCallback(async (): Promise<void> => {
-    await openTerminal(taskId)
-  }, [taskId, openTerminal])
+    if (!projectPath) {
+      toast.error('Cannot open terminal', {
+        description: 'No project directory found for this task',
+      })
+      return
+    }
+    
+    try {
+      // Open external terminal window in the task's working directory
+      await window.api.shell.openTerminal({
+        cwd: projectPath,
+      })
+      
+      toast.success('Terminal opened', {
+        description: `External terminal opened in ${projectPath}`,
+      })
+    } catch (error) {
+      toast.error('Failed to open terminal', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }, [projectPath])
 
   if (!task) {
     return (
@@ -712,12 +784,12 @@ export function ReviewPanel({
     deleted: [],
   }
 
-  const hasRunningProcess = !!runningProcess
+  const hasRunningProcess = isProjectRunning || !!runningProcess
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-4 overflow-hidden">
       {/* Review status header */}
-      <Card className="border-amber-500/30 bg-amber-500/5">
+      <Card className="border-amber-500/30 bg-amber-500/5 shrink-0">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Review Changes</CardTitle>
@@ -738,7 +810,7 @@ export function ReviewPanel({
 
       {/* Error display */}
       {reviewError && (
-        <Card className="border-destructive/50 bg-destructive/10">
+        <Card className="border-destructive/50 bg-destructive/10 shrink-0">
           <CardContent className="py-3">
             <div className="flex items-start gap-2">
               <IconAlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
@@ -758,9 +830,9 @@ export function ReviewPanel({
       )}
 
       {/* Main content tabs */}
-      <Card className="flex-1 flex flex-col min-h-0">
-        <Tabs className="flex-1 flex flex-col" defaultValue="changes">
-          <CardHeader className="pb-0">
+      <Card className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <Tabs className="flex-1 flex flex-col min-h-0" defaultValue="changes">
+          <CardHeader className="pb-0 shrink-0">
             <TabsList>
               <TabsTrigger value="changes">Changes</TabsTrigger>
               <TabsTrigger value="diff">Git Diff</TabsTrigger>
@@ -775,18 +847,20 @@ export function ReviewPanel({
             </TabsList>
           </CardHeader>
 
-          <CardContent className="flex-1 min-h-0 pt-4">
+          <CardContent className="flex-1 min-h-0 pt-4 overflow-hidden">
             {/* File changes tab */}
-            <TabsContent className="h-full mt-0" value="changes">
+            <TabsContent className="h-full mt-0 overflow-hidden" value="changes">
               <ScrollArea className="h-full">
                 <FileChangesSummary fileChanges={fileChanges} />
               </ScrollArea>
             </TabsContent>
 
             {/* Git diff tab */}
-            <TabsContent className="h-full mt-0" value="diff">
+            <TabsContent className="h-full mt-0 overflow-hidden" value="diff">
               {fileChanges.gitDiff ? (
-                <GitDiffViewer diff={fileChanges.gitDiff} />
+                <div className="h-full overflow-hidden">
+                  <GitDiffViewer diff={fileChanges.gitDiff} />
+                </div>
               ) : (
                 <div className="flex h-full items-center justify-center">
                   <p className="text-sm text-muted-foreground">
@@ -797,24 +871,26 @@ export function ReviewPanel({
             </TabsContent>
 
             {/* Feedback tab */}
-            <TabsContent className="h-full mt-0 flex flex-col" value="feedback">
-              <div className="flex-1 min-h-0 mb-4">
+            <TabsContent className="h-full mt-0 flex flex-col overflow-hidden" value="feedback">
+              <div className="flex-1 min-h-0 mb-4 overflow-hidden">
                 <ScrollArea className="h-full">
                   <FeedbackHistory feedbackHistory={feedbackHistory} />
                 </ScrollArea>
               </div>
-              <FeedbackInput
-                isLoading={isLoading}
-                onSubmit={handleSubmitFeedback}
-                taskId={taskId}
-              />
+              <div className="shrink-0">
+                <FeedbackInput
+                  isLoading={isLoading}
+                  onSubmit={handleSubmitFeedback}
+                  taskId={taskId}
+                />
+              </div>
             </TabsContent>
           </CardContent>
         </Tabs>
       </Card>
 
       {/* Action buttons */}
-      <Card>
+      <Card className="shrink-0">
         <CardContent className="py-4">
           <ReviewActionButtons
             availableScripts={availableScripts}

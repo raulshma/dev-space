@@ -1,4 +1,5 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron'
+import { spawn } from 'node:child_process'
 import { IPC_CHANNELS } from 'shared/ipc-types'
 import type {
   ProjectListRequest,
@@ -38,6 +39,7 @@ import type {
   ShortcutSetRequest,
   ShellOpenExternalRequest,
   ShellOpenPathRequest,
+  ShellOpenTerminalRequest,
   DialogOpenDirectoryRequest,
   // New AI Service types
   AIGenerateTextRequest,
@@ -995,6 +997,77 @@ export class IPCHandlers {
       async (_event, request: ShellOpenPathRequest) => {
         try {
           await shell.openPath(request.path)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Open external terminal window in specified directory
+    ipcMain.handle(
+      IPC_CHANNELS.SHELL_OPEN_TERMINAL,
+      async (_event, request: ShellOpenTerminalRequest) => {
+        try {
+          const platform = process.platform
+          
+          if (platform === 'win32') {
+            // Try Windows Terminal first, fall back to cmd.exe
+            try {
+              spawn('wt.exe', ['-d', request.cwd], {
+                detached: true,
+                stdio: 'ignore',
+              }).unref()
+            } catch {
+              // Fallback to cmd.exe if Windows Terminal is not available
+              spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/K', `cd /d "${request.cwd}"`], {
+                detached: true,
+                stdio: 'ignore',
+                shell: true,
+              }).unref()
+            }
+          } else if (platform === 'darwin') {
+            // macOS: Open Terminal.app
+            spawn('open', ['-a', 'Terminal', request.cwd], {
+              detached: true,
+              stdio: 'ignore',
+            }).unref()
+          } else {
+            // Linux: Try common terminal emulators
+            const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm']
+            let opened = false
+            
+            for (const term of terminals) {
+              try {
+                if (term === 'gnome-terminal') {
+                  spawn(term, ['--working-directory=' + request.cwd], {
+                    detached: true,
+                    stdio: 'ignore',
+                  }).unref()
+                } else if (term === 'konsole') {
+                  spawn(term, ['--workdir', request.cwd], {
+                    detached: true,
+                    stdio: 'ignore',
+                  }).unref()
+                } else {
+                  spawn(term, [], {
+                    cwd: request.cwd,
+                    detached: true,
+                    stdio: 'ignore',
+                  }).unref()
+                }
+                opened = true
+                break
+              } catch {
+                // Try next terminal
+              }
+            }
+            
+            if (!opened) {
+              throw new Error('No terminal emulator found')
+            }
+          }
+          
           return { success: true }
         } catch (error) {
           return this.handleError(error)

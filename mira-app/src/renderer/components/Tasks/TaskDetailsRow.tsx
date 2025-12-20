@@ -3,6 +3,7 @@
  *
  * Bottom row showing task details with tabbed interface for multiple open tasks.
  * Replaces the side panel approach with a horizontal row below the task list.
+ * Supports expand/collapse to use the full window size.
  */
 
 import { memo, useCallback } from 'react'
@@ -104,10 +105,14 @@ const TaskTab = memo(function TaskTab({
 
 interface TaskDetailsRowProps {
   className?: string
+  isExpanded?: boolean
+  onToggleExpand?: () => void
 }
 
 export const TaskDetailsRow = memo(function TaskDetailsRow({
   className,
+  isExpanded = false,
+  onToggleExpand,
 }: TaskDetailsRowProps) {
   const openTabs = useOpenTaskTabs()
   const activeTab = useActiveTaskTab()
@@ -159,7 +164,9 @@ export const TaskDetailsRow = memo(function TaskDetailsRow({
       {activeTab && (
         <div className="flex-1 min-h-0">
           <TaskExecutionPanel
+            isExpanded={isExpanded}
             onClose={() => closeTaskTab(activeTab)}
+            onToggleExpand={onToggleExpand}
             taskId={activeTab}
           />
         </div>
