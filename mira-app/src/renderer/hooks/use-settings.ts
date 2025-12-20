@@ -13,6 +13,8 @@ export const SETTING_KEYS = {
   THEME: 'appearance.theme',
   FONT_SIZE: 'appearance.fontSize',
   FONT_FAMILY: 'appearance.fontFamily',
+  TOP_NAV_ICON_BG: 'appearance.topNavIconBg',
+  SIDEBAR_ICON_BG: 'appearance.sidebarIconBg',
 
   // Terminal
   TERMINAL_FONT_SIZE: 'terminal.fontSize',
@@ -52,6 +54,8 @@ export const DEFAULT_SETTINGS: Record<SettingKey, string> = {
   [SETTING_KEYS.THEME]: 'system',
   [SETTING_KEYS.FONT_SIZE]: '14',
   [SETTING_KEYS.FONT_FAMILY]: 'system-ui',
+  [SETTING_KEYS.TOP_NAV_ICON_BG]: 'none',
+  [SETTING_KEYS.SIDEBAR_ICON_BG]: 'none',
 
   [SETTING_KEYS.TERMINAL_FONT_SIZE]: '14',
   [SETTING_KEYS.TERMINAL_FONT_FAMILY]: 'monospace',

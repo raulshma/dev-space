@@ -11,6 +11,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from 'renderer/components/ui/tooltip'
+import { useSetting, SETTING_KEYS } from 'renderer/hooks/use-settings'
+import { getBackgroundStyle } from 'renderer/lib/background-presets'
 
 export type SidebarTab = 'files' | 'git' | 'scripts' | 'commands'
 
@@ -30,6 +32,9 @@ export const ActivityBar = memo(function ActivityBar({
   activeTab,
   onTabChange,
 }: ActivityBarProps) {
+  const { data: iconBg } = useSetting(SETTING_KEYS.SIDEBAR_ICON_BG)
+  const iconStyle = getBackgroundStyle(iconBg || 'none')
+
   return (
     <div className="flex flex-col items-center w-12 bg-card border-r border-border py-2 gap-1">
       {tabs.map(tab => {
@@ -45,6 +50,7 @@ export const ActivityBar = memo(function ActivityBar({
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               )}
               onClick={() => onTabChange(tab.id)}
+              style={iconStyle}
             >
               <Icon className="h-5 w-5" />
             </TooltipTrigger>

@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from 'renderer/components/ui/alert-dialog'
+import { BACKGROUND_PRESETS } from 'renderer/lib/background-presets'
 
 const THEME_OPTIONS = [
   { value: 'system', label: 'System' },
@@ -232,6 +233,74 @@ export function GeneralSettings(): React.JSX.Element {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Icon Backgrounds */}
+          <div className="pt-4 border-t space-y-4">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-medium">Icon Customization</h4>
+              <p className="text-xs text-muted-foreground">
+                Apply creative backgrounds to navigation and sidebar icons
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Top Nav Icons */}
+              <div className="space-y-2">
+                <Label className="text-xs">Top Nav Icons</Label>
+                <Select
+                  onValueChange={(value) => {
+                    if (value) handleSettingChange(SETTING_KEYS.TOP_NAV_ICON_BG, value)
+                  }}
+                  value={settings?.[SETTING_KEYS.TOP_NAV_ICON_BG] || 'none'}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BACKGROUND_PRESETS.map(preset => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded border border-border" 
+                            style={preset.style}
+                          />
+                          {preset.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Sidebar Icons */}
+              <div className="space-y-2">
+                <Label className="text-xs">Sidebar Icons</Label>
+                <Select
+                  onValueChange={(value) => {
+                    if (value) handleSettingChange(SETTING_KEYS.SIDEBAR_ICON_BG, value)
+                  }}
+                  value={settings?.[SETTING_KEYS.SIDEBAR_ICON_BG] || 'none'}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BACKGROUND_PRESETS.map(preset => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded border border-border" 
+                            style={preset.style}
+                          />
+                          {preset.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

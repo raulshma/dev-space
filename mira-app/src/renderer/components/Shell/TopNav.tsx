@@ -18,6 +18,8 @@ import {
 import { PREDEFINED_THEMES } from 'shared/themes'
 import { useProject, useUpdateProject } from 'renderer/hooks/use-projects'
 import { useCustomThemes } from 'renderer/hooks/use-custom-themes'
+import { useSetting, SETTING_KEYS } from 'renderer/hooks/use-settings'
+import { getBackgroundStyle } from 'renderer/lib/background-presets'
 import {
   useGitTelemetry,
   useGitTelemetryRefresh,
@@ -71,6 +73,8 @@ export const TopNav = memo(function TopNav({
   const removeTagFromProject = useRemoveTagFromProject()
   const updateProject = useUpdateProject()
   const { themes: customThemes } = useCustomThemes()
+  const { data: iconBg } = useSetting(SETTING_KEYS.TOP_NAV_ICON_BG)
+  const iconStyle = getBackgroundStyle(iconBg || 'none')
 
   const availableTags = allTags.filter(
     tag => !project?.tags.some(t => t.id === tag.id)
@@ -179,6 +183,7 @@ export const TopNav = memo(function TopNav({
                   className="p-0.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded"
                   onClick={() => setShowTagMenu(prev => !prev)}
                   title="Add tag"
+                  style={iconStyle}
                 >
                   <IconPlus size={12} />
                 </button>
@@ -230,6 +235,7 @@ export const TopNav = memo(function TopNav({
                       )}
                       onClick={() => setShowThemeMenu(prev => !prev)}
                       type="button"
+                      style={iconStyle}
                     >
                       <IconPalette size={14} />
                     </button>
@@ -339,6 +345,7 @@ export const TopNav = memo(function TopNav({
                 )}
                 onClick={onToggleZenMode}
                 type="button"
+                style={iconStyle}
               >
                 🧘
               </button>
@@ -358,6 +365,7 @@ export const TopNav = memo(function TopNav({
                     className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     onClick={onToggleLeftSidebar}
                     type="button"
+                    style={iconStyle}
                   >
                     {leftSidebarCollapsed ? (
                       <IconLayoutSidebarLeftExpand className="h-4 w-4" />
@@ -377,6 +385,7 @@ export const TopNav = memo(function TopNav({
                     className="p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     onClick={onToggleRightSidebar}
                     type="button"
+                    style={iconStyle}
                   >
                     {rightSidebarCollapsed ? (
                       <IconLayoutSidebarRightExpand className="h-4 w-4" />
