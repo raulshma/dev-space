@@ -247,7 +247,7 @@ export const TopNav = memo(function TopNav({
                     tabIndex={-1}
                     type="button"
                   />
-                  <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded shadow-lg py-1 min-w-[180px]">
+                  <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded shadow-lg py-1 min-w-[180px] max-h-[300px] overflow-y-auto">
                     <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-muted-foreground/50 flex items-center gap-2">
                        <div className="h-px flex-1 bg-border" />
                        Predefined
