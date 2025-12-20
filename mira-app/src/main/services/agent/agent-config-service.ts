@@ -26,6 +26,10 @@ import type {
 const SETTINGS_KEYS = {
   AGENT_SERVICE: 'agent.service',
   ANTHROPIC_BASE_URL: 'agent.anthropic_base_url',
+  ANTHROPIC_API_KEY: 'agent.anthropic_api_key',
+  ANTHROPIC_DEFAULT_SONNET_MODEL: 'agent.anthropic_default_sonnet_model',
+  ANTHROPIC_DEFAULT_OPUS_MODEL: 'agent.anthropic_default_opus_model',
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: 'agent.anthropic_default_haiku_model',
   API_TIMEOUT_MS: 'agent.api_timeout_ms',
   PYTHON_PATH: 'agent.python_path',
   CUSTOM_ENV_VARS: 'agent.custom_env_vars',
@@ -46,6 +50,10 @@ const KEYCHAIN_ACCOUNT_OPENAI_API_KEY = 'openai_api_key'
 const DEFAULT_CONFIG: Omit<AgentEnvironmentConfig, 'anthropicAuthToken'> = {
   agentService: 'claude-code',
   anthropicBaseUrl: undefined,
+  anthropicApiKey: undefined,
+  anthropicDefaultSonnetModel: undefined,
+  anthropicDefaultOpusModel: undefined,
+  anthropicDefaultHaikuModel: undefined,
   apiTimeoutMs: 30000,
   pythonPath: 'python',
   customEnvVars: {},
@@ -141,6 +149,16 @@ export class AgentConfigService implements IAgentConfigService {
       SETTINGS_KEYS.AGENT_SERVICE
     ) as AgentCLIService | null
     const baseUrl = this.db.getAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
+    const anthropicApiKey = this.db.getAISetting(SETTINGS_KEYS.ANTHROPIC_API_KEY)
+    const defaultSonnetModel = this.db.getAISetting(
+      SETTINGS_KEYS.ANTHROPIC_DEFAULT_SONNET_MODEL
+    )
+    const defaultOpusModel = this.db.getAISetting(
+      SETTINGS_KEYS.ANTHROPIC_DEFAULT_OPUS_MODEL
+    )
+    const defaultHaikuModel = this.db.getAISetting(
+      SETTINGS_KEYS.ANTHROPIC_DEFAULT_HAIKU_MODEL
+    )
     const timeoutStr = this.db.getAISetting(SETTINGS_KEYS.API_TIMEOUT_MS)
     const pythonPath = this.db.getAISetting(SETTINGS_KEYS.PYTHON_PATH)
     const customEnvStr = this.db.getAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS)
@@ -161,6 +179,13 @@ export class AgentConfigService implements IAgentConfigService {
       agentService: agentService ?? DEFAULT_CONFIG.agentService,
       anthropicAuthToken: authToken ?? '',
       anthropicBaseUrl: baseUrl ?? DEFAULT_CONFIG.anthropicBaseUrl,
+      anthropicApiKey: anthropicApiKey ?? DEFAULT_CONFIG.anthropicApiKey,
+      anthropicDefaultSonnetModel:
+        defaultSonnetModel ?? DEFAULT_CONFIG.anthropicDefaultSonnetModel,
+      anthropicDefaultOpusModel:
+        defaultOpusModel ?? DEFAULT_CONFIG.anthropicDefaultOpusModel,
+      anthropicDefaultHaikuModel:
+        defaultHaikuModel ?? DEFAULT_CONFIG.anthropicDefaultHaikuModel,
       apiTimeoutMs: timeoutStr
         ? Number.parseInt(timeoutStr, 10)
         : DEFAULT_CONFIG.apiTimeoutMs,
@@ -246,6 +271,50 @@ export class AgentConfigService implements IAgentConfigService {
         )
       } else {
         this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
+      }
+    }
+
+    // Handle anthropicApiKey - empty string is a valid value for OpenRouter
+    // undefined means "don't update", null or explicit deletion would remove it
+    if (updates.anthropicApiKey !== undefined) {
+      // Store even empty string - this is intentional for OpenRouter config
+      this.db.setAISetting(
+        SETTINGS_KEYS.ANTHROPIC_API_KEY,
+        updates.anthropicApiKey
+      )
+    }
+
+    // Store model override settings
+    if (updates.anthropicDefaultSonnetModel !== undefined) {
+      if (updates.anthropicDefaultSonnetModel) {
+        this.db.setAISetting(
+          SETTINGS_KEYS.ANTHROPIC_DEFAULT_SONNET_MODEL,
+          updates.anthropicDefaultSonnetModel
+        )
+      } else {
+        this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_DEFAULT_SONNET_MODEL)
+      }
+    }
+
+    if (updates.anthropicDefaultOpusModel !== undefined) {
+      if (updates.anthropicDefaultOpusModel) {
+        this.db.setAISetting(
+          SETTINGS_KEYS.ANTHROPIC_DEFAULT_OPUS_MODEL,
+          updates.anthropicDefaultOpusModel
+        )
+      } else {
+        this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_DEFAULT_OPUS_MODEL)
+      }
+    }
+
+    if (updates.anthropicDefaultHaikuModel !== undefined) {
+      if (updates.anthropicDefaultHaikuModel) {
+        this.db.setAISetting(
+          SETTINGS_KEYS.ANTHROPIC_DEFAULT_HAIKU_MODEL,
+          updates.anthropicDefaultHaikuModel
+        )
+      } else {
+        this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_DEFAULT_HAIKU_MODEL)
       }
     }
 
@@ -445,6 +514,10 @@ export class AgentConfigService implements IAgentConfigService {
     // Remove settings from database
     this.db.deleteAISetting(SETTINGS_KEYS.AGENT_SERVICE)
     this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_BASE_URL)
+    this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_API_KEY)
+    this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_DEFAULT_SONNET_MODEL)
+    this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_DEFAULT_OPUS_MODEL)
+    this.db.deleteAISetting(SETTINGS_KEYS.ANTHROPIC_DEFAULT_HAIKU_MODEL)
     this.db.deleteAISetting(SETTINGS_KEYS.API_TIMEOUT_MS)
     this.db.deleteAISetting(SETTINGS_KEYS.PYTHON_PATH)
     this.db.deleteAISetting(SETTINGS_KEYS.CUSTOM_ENV_VARS)

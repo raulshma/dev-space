@@ -1679,6 +1679,13 @@ export class AgentExecutorService
         ...config.customEnvVars,
         ...task.parameters.customEnv,
       },
+      // Resume from previous session if available (for interrupted tasks)
+      resumeSessionId: task.parameters.sessionId,
+      // Apply tool restrictions if specified in task parameters
+      allowedTools: task.parameters.allowedTools,
+      disallowedTools: task.parameters.disallowedTools,
+      // Apply budget limit if specified
+      maxBudgetUsd: task.parameters.maxBudgetUsd,
     }
 
     // Update step to running
@@ -1765,12 +1772,23 @@ export class AgentExecutorService
       // Clean up event handlers
       this.claudeSdkService.off('output', handleOutput)
 
+      // Store session ID for potential future resume
+      if (result.sessionId) {
+        await this.updateTask(task.id, {
+          parameters: {
+            ...task.parameters,
+            sessionId: result.sessionId,
+          },
+        })
+      }
+
       // Handle completion
       await this.handleClaudeSdkCompletion(
         task.id,
         result.success,
         result.error,
-        workingDirectory
+        workingDirectory,
+        result.totalCost
       )
     } catch (error) {
       // Clean up event handlers
@@ -1792,11 +1810,22 @@ export class AgentExecutorService
     taskId: string,
     success: boolean,
     errorMessage: string | undefined,
-    workingDirectory: string
+    workingDirectory: string,
+    totalCost?: number
   ): Promise<void> {
     const task = this.db.getAgentTask(taskId)
     if (!task) {
       return
+    }
+
+    // Log cost if available
+    if (totalCost !== undefined && totalCost > 0) {
+      const line = this.outputBuffer.append(
+        taskId,
+        `[Claude] Total cost: $${totalCost.toFixed(4)}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', taskId, line)
     }
 
     // Clear current task

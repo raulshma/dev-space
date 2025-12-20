@@ -357,6 +357,14 @@ export interface AgentParameters {
   testCount?: number
   taskFile?: string
   customEnv?: Record<string, string>
+  /** Session ID to resume (for interrupted tasks) */
+  sessionId?: string
+  /** Allowed tools (restrict which tools the agent can use) */
+  allowedTools?: string[]
+  /** Disallowed tools (exclude specific tools) */
+  disallowedTools?: string[]
+  /** Maximum budget in USD for the task */
+  maxBudgetUsd?: number
 }
 
 /**
@@ -780,8 +788,31 @@ export interface AgentEnvironmentConfig {
   agentService: AgentCLIService
   /** Anthropic authentication token for Claude Code agents */
   anthropicAuthToken: string
-  /** Optional custom base URL for Anthropic API */
+  /** Optional custom base URL for Anthropic API (e.g., https://openrouter.ai/api) */
   anthropicBaseUrl?: string
+  /**
+   * Anthropic API key - when using OpenRouter, this MUST be explicitly empty string.
+   * If left undefined, Claude Code may try to use default Anthropic authentication.
+   */
+  anthropicApiKey?: string
+  /**
+   * Override for default Sonnet model alias.
+   * Can be any OpenRouter model ID (e.g., 'openai/gpt-5.1-codex-max')
+   * or a preset reference (e.g., '@preset/my-coding-setup')
+   */
+  anthropicDefaultSonnetModel?: string
+  /**
+   * Override for default Opus model alias.
+   * Can be any OpenRouter model ID (e.g., 'openai/gpt-5.2-pro')
+   * or a preset reference (e.g., '@preset/my-coding-setup')
+   */
+  anthropicDefaultOpusModel?: string
+  /**
+   * Override for default Haiku model alias.
+   * Can be any OpenRouter model ID (e.g., 'minimax/minimax-m2:exacto')
+   * or a preset reference (e.g., '@preset/my-coding-setup')
+   */
+  anthropicDefaultHaikuModel?: string
   /** API timeout in milliseconds (default: 30000) */
   apiTimeoutMs: number
   /** Path to Python executable */
@@ -824,6 +855,14 @@ export interface UpdateAgentConfigInput {
   agentService?: AgentCLIService
   anthropicAuthToken?: string
   anthropicBaseUrl?: string
+  /** When using OpenRouter, set this to empty string '' to prevent conflicts */
+  anthropicApiKey?: string
+  /** Override for default Sonnet model alias (e.g., 'openai/gpt-5.1-codex-max') */
+  anthropicDefaultSonnetModel?: string
+  /** Override for default Opus model alias (e.g., 'openai/gpt-5.2-pro') */
+  anthropicDefaultOpusModel?: string
+  /** Override for default Haiku model alias (e.g., 'minimax/minimax-m2:exacto') */
+  anthropicDefaultHaikuModel?: string
   apiTimeoutMs?: number
   pythonPath?: string
   customEnvVars?: Record<string, string>

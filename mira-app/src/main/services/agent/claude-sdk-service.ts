@@ -14,6 +14,8 @@ import {
   type SDKResultMessage,
   type SDKSystemMessage,
   type SDKAssistantMessage,
+  type CanUseTool,
+  type PermissionResult,
 } from '@anthropic-ai/claude-agent-sdk'
 import { EventEmitter } from 'node:events'
 
@@ -37,6 +39,14 @@ export interface ClaudeExecutionConfig {
   customEnvVars?: Record<string, string>
   /** Anthropic API key */
   apiKey?: string
+  /** Custom tool permission callback (uses SDK's CanUseTool type) */
+  canUseTool?: CanUseTool
+  /** Session ID to resume */
+  resumeSessionId?: string
+  /** Allowed tools (restrict which tools the agent can use) */
+  allowedTools?: string[]
+  /** Disallowed tools (exclude specific tools) */
+  disallowedTools?: string[]
 }
 
 /**
@@ -135,6 +145,52 @@ export class ClaudeSdkService extends EventEmitter {
           ...options.env,
           ...config.customEnvVars,
         }
+      }
+
+      // Add custom tool permission callback if provided
+      if (config.canUseTool) {
+        options.canUseTool = config.canUseTool
+      } else {
+        // Default safety callback - block dangerous commands
+        options.canUseTool = async (
+          toolName: string,
+          input: Record<string, unknown>
+        ): Promise<PermissionResult> => {
+          if (toolName === 'Bash') {
+            const command = String(input.command || '')
+            const dangerousPatterns = [
+              'rm -rf /',
+              'rm -rf ~',
+              'dd if=',
+              'mkfs',
+              '> /dev/',
+              ':(){:|:&};:',
+              'chmod -R 777 /',
+            ]
+            if (dangerousPatterns.some(pattern => command.includes(pattern))) {
+              return {
+                behavior: 'deny',
+                message: 'Destructive command blocked for safety',
+              }
+            }
+          }
+          // Allow with original input (required by SDK type)
+          return { behavior: 'allow', updatedInput: input }
+        }
+      }
+
+      // Add session resume if provided
+      if (config.resumeSessionId) {
+        options.resume = config.resumeSessionId
+      }
+
+      // Add tool restrictions if provided
+      if (config.allowedTools && config.allowedTools.length > 0) {
+        options.allowedTools = config.allowedTools
+      }
+
+      if (config.disallowedTools && config.disallowedTools.length > 0) {
+        options.disallowedTools = config.disallowedTools
       }
 
       // Execute query with streaming
@@ -238,6 +294,14 @@ export class ClaudeSdkService extends EventEmitter {
     message: SDKMessage,
     _context: ExecutionContext
   ): void {
+    // Cast to access potential properties not in base type
+    const msg = message as SDKMessage & {
+      tool_name?: string
+      input?: Record<string, unknown>
+      result?: string
+      error?: { message?: string; type?: string } | string
+    }
+
     switch (message.type) {
       case 'system':
         if ('subtype' in message && message.subtype === 'init') {
@@ -261,6 +325,15 @@ export class ClaudeSdkService extends EventEmitter {
                 this.emit('output', `${block.text}\n`, 'stdout')
               } else if (block.type === 'tool_use' && 'name' in block) {
                 this.emit('output', `[Tool] ${block.name}\n`, 'stdout')
+                // Emit tool call event from assistant message
+                this.emit(
+                  'toolCall',
+                  block.name as string,
+                  ('input' in block ? block.input : {}) as Record<
+                    string,
+                    unknown
+                  >
+                )
               }
             }
           }
@@ -281,6 +354,7 @@ export class ClaudeSdkService extends EventEmitter {
             if (errorResult.errors) {
               for (const err of errorResult.errors) {
                 this.emit('output', `[Error] ${err}\n`, 'stderr')
+                this.emit('error', err)
               }
             }
           }
@@ -288,8 +362,35 @@ export class ClaudeSdkService extends EventEmitter {
         break
 
       case 'tool_progress':
-        if ('tool_name' in message) {
-          this.emit('output', `[Executing] ${message.tool_name}...\n`, 'stdout')
+        if (msg.tool_name) {
+          this.emit('output', `[Executing] ${msg.tool_name}...\n`, 'stdout')
+        }
+        break
+
+      default:
+        // Handle any other message types that may come from the SDK
+        // This provides forward compatibility with new SDK versions
+        if (msg.tool_name && msg.result !== undefined) {
+          // Tool result message
+          const result = String(msg.result || '')
+          this.emit('toolResult', msg.tool_name, result)
+          const truncatedResult =
+            result.length > 500 ? `${result.slice(0, 500)}...` : result
+          if (truncatedResult) {
+            this.emit(
+              'output',
+              `[Result] ${msg.tool_name}: ${truncatedResult}\n`,
+              'stdout'
+            )
+          }
+        } else if (msg.error) {
+          // Error message
+          const errorMsg =
+            typeof msg.error === 'string'
+              ? msg.error
+              : msg.error.message || String(msg.error)
+          this.emit('error', errorMsg)
+          this.emit('output', `[Error] ${errorMsg}\n`, 'stderr')
         }
         break
     }

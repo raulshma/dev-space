@@ -427,6 +427,10 @@ export function buildAgentEnvironment(
   agentConfig: {
     anthropicAuthToken: string
     anthropicBaseUrl?: string
+    anthropicApiKey?: string
+    anthropicDefaultSonnetModel?: string
+    anthropicDefaultOpusModel?: string
+    anthropicDefaultHaikuModel?: string
     apiTimeoutMs: number
     pythonPath: string
     customEnvVars: Record<string, string>
@@ -439,6 +443,24 @@ export function buildAgentEnvironment(
   if (agentConfig.anthropicBaseUrl) {
     env.ANTHROPIC_BASE_URL = agentConfig.anthropicBaseUrl
   }
+  
+  // Handle ANTHROPIC_API_KEY - when using OpenRouter, this must be explicitly empty
+  // Only set if defined (including empty string which is intentional for OpenRouter)
+  if (agentConfig.anthropicApiKey !== undefined) {
+    env.ANTHROPIC_API_KEY = agentConfig.anthropicApiKey
+  }
+
+  // Add model override settings for OpenRouter integration
+  if (agentConfig.anthropicDefaultSonnetModel) {
+    env.ANTHROPIC_DEFAULT_SONNET_MODEL = agentConfig.anthropicDefaultSonnetModel
+  }
+  if (agentConfig.anthropicDefaultOpusModel) {
+    env.ANTHROPIC_DEFAULT_OPUS_MODEL = agentConfig.anthropicDefaultOpusModel
+  }
+  if (agentConfig.anthropicDefaultHaikuModel) {
+    env.ANTHROPIC_DEFAULT_HAIKU_MODEL = agentConfig.anthropicDefaultHaikuModel
+  }
+
   env.API_TIMEOUT_MS = agentConfig.apiTimeoutMs.toString()
   env.PYTHON_PATH = agentConfig.pythonPath
 
