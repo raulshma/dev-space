@@ -23,7 +23,7 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
   projectId,
 }: TasksSidebarPanelProps) {
   const [showTaskCreation, setShowTaskCreation] = useState(false)
-  const { setSelectedTask } = useAgentTaskStore()
+  const { setSelectedTask, openTaskTab } = useAgentTaskStore()
   const setActiveView = useAppStore(state => state.setActiveView)
 
   // Get project data to access the path
@@ -35,9 +35,10 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
   const handleTaskSelect = useCallback(
     (taskId: string) => {
       setSelectedTask(taskId)
+      openTaskTab(taskId) // Open the task detail panel
       setActiveView('tasks')
     },
-    [setSelectedTask, setActiveView]
+    [setSelectedTask, openTaskTab, setActiveView]
   )
 
   const handleTaskCreated = useCallback(

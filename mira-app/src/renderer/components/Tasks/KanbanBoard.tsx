@@ -45,6 +45,7 @@ const KANBAN_COLUMNS: TaskStatus[] = [
   'running',
   'paused',
   'awaiting_approval',
+  'review',
   'completed',
   'failed',
   'stopped',

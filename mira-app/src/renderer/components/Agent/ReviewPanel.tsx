@@ -40,6 +40,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from 'renderer/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from 'renderer/components/ui/dropdown-menu'
+import { ButtonGroup } from 'renderer/components/ui/button-group'
 import { Textarea } from 'renderer/components/ui/textarea'
 import {
   AlertDialog,
@@ -416,16 +423,20 @@ function ReviewActionButtons({
   onApprove,
   onDiscard,
   availableScripts,
+  workspacePath,
+  projectPath,
 }: {
   taskId: string
   hasRunningProcess: boolean
   isLoading: boolean
   onRunProject: (script?: string) => Promise<void>
   onStopProject: () => Promise<void>
-  onOpenTerminal: () => Promise<void>
+  onOpenTerminal: (path: string) => Promise<void>
   onApprove: () => Promise<void>
   onDiscard: () => Promise<void>
   availableScripts: ReviewScriptInfo[]
+  workspacePath?: string
+  projectPath?: string
 }): React.JSX.Element {
   const [selectedScript, setSelectedScript] = useState<string>('')
   const [isRunning, setIsRunning] = useState(false)
@@ -464,12 +475,12 @@ function ReviewActionButtons({
     }
   }
 
-  const handleOpenTerminal = async (): Promise<void> => {
+  const handleOpenTerminal = async (path: string): Promise<void> => {
     setIsOpeningTerminal(true)
     try {
-      await onOpenTerminal()
+      await onOpenTerminal(path)
       toast.success('Terminal opened', {
-        description: 'A new terminal session has been created in the task working directory.',
+        description: `Terminal opened in ${path}`,
       })
     } catch (error) {
       console.error('Failed to open terminal:', error)
@@ -555,19 +566,56 @@ function ReviewActionButtons({
               Run Project
             </Button>
           )}
-          <Button
-            disabled={isOpeningTerminal || isLoading}
-            onClick={handleOpenTerminal}
-            size="sm"
-            variant="outline"
-          >
-            {isOpeningTerminal ? (
-              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <IconTerminal2 className="mr-2 h-4 w-4" />
-            )}
-            Open Terminal
-          </Button>
+          {/* Split button for Terminal - main button opens in workspace, dropdown for project path */}
+          <ButtonGroup>
+            <Button
+              disabled={isOpeningTerminal || isLoading || !workspacePath}
+              onClick={() => workspacePath && handleOpenTerminal(workspacePath)}
+              size="sm"
+              variant="outline"
+            >
+              {isOpeningTerminal ? (
+                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <IconTerminal2 className="mr-2 h-4 w-4" />
+              )}
+              Terminal
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="px-1.5 h-6 border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm inline-flex items-center justify-center rounded-md"
+                disabled={isOpeningTerminal || isLoading}
+              >
+                <IconChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!workspacePath}
+                  onClick={() => workspacePath && handleOpenTerminal(workspacePath)}
+                >
+                  <IconTerminal2 className="mr-2 h-4 w-4" />
+                  Open in Workspace
+                  {workspacePath && (
+                    <span className="ml-2 text-xs text-muted-foreground truncate max-w-[150px]">
+                      {workspacePath.split(/[/\\]/).slice(-2).join('/')}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!projectPath}
+                  onClick={() => projectPath && handleOpenTerminal(projectPath)}
+                >
+                  <IconTerminal2 className="mr-2 h-4 w-4" />
+                  Open in Project
+                  {projectPath && (
+                    <span className="ml-2 text-xs text-muted-foreground truncate max-w-[150px]">
+                      {projectPath.split(/[/\\]/).slice(-2).join('/')}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
         </div>
       </div>
 
@@ -694,8 +742,12 @@ export function ReviewPanel({
   // Use running projects service for proper integration
   const { startProject: runDevProject, stopProject: stopDevProject } = useRunningProjectsManager()
   
-  // Get the project ID from the task's target directory
-  const projectPath = task?.targetDirectory || task?.workingDirectory || task?.worktreePath
+  // Get workspace path (where agent made changes) - prefer worktree/working directory
+  const workspacePath = task?.worktreePath || task?.workingDirectory
+  // Get project path (original project directory)
+  const targetProjectPath = task?.targetDirectory
+  // For running projects, use the workspace path first
+  const projectPath = workspacePath || targetProjectPath
   const projectId = task?.projectId || taskId
   const isProjectRunning = useIsProjectRunning(projectId)
 
@@ -738,29 +790,22 @@ export function ReviewPanel({
     }
   }, [projectId, stopDevProject])
 
-  const handleOpenTerminal = useCallback(async (): Promise<void> => {
-    if (!projectPath) {
-      toast.error('Cannot open terminal', {
-        description: 'No project directory found for this task',
-      })
-      return
-    }
-    
+  const handleOpenTerminal = useCallback(async (path: string): Promise<void> => {
     try {
-      // Open external terminal window in the task's working directory
+      // Open external terminal window in the specified directory
       await window.api.shell.openTerminal({
-        cwd: projectPath,
+        cwd: path,
       })
       
       toast.success('Terminal opened', {
-        description: `External terminal opened in ${projectPath}`,
+        description: `External terminal opened in ${path}`,
       })
     } catch (error) {
       toast.error('Failed to open terminal', {
         description: error instanceof Error ? error.message : 'Unknown error',
       })
     }
-  }, [projectPath])
+  }, [])
 
   if (!task) {
     return (
@@ -901,7 +946,9 @@ export function ReviewPanel({
             onOpenTerminal={handleOpenTerminal}
             onRunProject={handleRunProject}
             onStopProject={handleStopProject}
+            projectPath={targetProjectPath}
             taskId={taskId}
+            workspacePath={workspacePath}
           />
         </CardContent>
       </Card>
