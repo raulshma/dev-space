@@ -62,7 +62,7 @@ const COLUMN_CONFIG: Record<
   },
   running: {
     label: 'In Progress',
-    icon: <IconLoader2 className="h-4 w-4 animate-spin" />,
+    icon: <IconLoader2 className="h-4 w-4" />,
     headerClass: 'bg-green-500/10',
   },
   paused: {
