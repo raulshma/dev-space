@@ -400,12 +400,11 @@ export class ClaudeSdkService extends EventEmitter {
         if (msg.tool_name && msg.result !== undefined) {
           const result = String(msg.result || '')
           this.emit('toolResult', msg.tool_name, result)
-          const truncatedResult =
-            result.length > 500 ? `${result.slice(0, 500)}...` : result
-          if (truncatedResult) {
+          // Show full result for complete output visibility
+          if (result) {
             this.emit(
               'output',
-              `[Result] ${msg.tool_name}: ${truncatedResult}\n`,
+              `[Result] ${msg.tool_name}:\n${result}\n`,
               'stdout'
             )
           }

@@ -129,6 +129,8 @@ import type {
   AgentTaskPauseResponse,
   AgentTaskResumeRequest,
   AgentTaskResumeResponse,
+  AgentTaskRestartRequest,
+  AgentTaskRestartResponse,
   AgentTaskStopRequest,
   AgentTaskStopResponse,
   AgentTaskGetOutputRequest,
@@ -597,6 +599,10 @@ const api = {
       request: AgentTaskResumeRequest
     ): Promise<AgentTaskResumeResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_RESUME, request),
+    restart: (
+      request: AgentTaskRestartRequest
+    ): Promise<AgentTaskRestartResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_RESTART, request),
     stop: (request: AgentTaskStopRequest): Promise<AgentTaskStopResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AGENT_TASK_STOP, request),
     getOutput: (

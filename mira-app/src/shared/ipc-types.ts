@@ -110,6 +110,7 @@ export const IPC_CHANNELS = {
   AGENT_TASK_START: 'agentTask:start',
   AGENT_TASK_PAUSE: 'agentTask:pause',
   AGENT_TASK_RESUME: 'agentTask:resume',
+  AGENT_TASK_RESTART: 'agentTask:restart',
   AGENT_TASK_STOP: 'agentTask:stop',
   AGENT_TASK_GET_OUTPUT: 'agentTask:getOutput',
   AGENT_TASK_LOAD_OUTPUT: 'agentTask:loadOutput',
@@ -900,6 +901,20 @@ export interface AgentTaskResumeRequest {
 
 export interface AgentTaskResumeResponse {
   success: boolean
+}
+
+export interface AgentTaskRestartRequest {
+  taskId: string
+  /** Whether to resume from the previous session (if available) */
+  resumeSession?: boolean
+  /** Whether to fork the session instead of continuing it */
+  forkSession?: boolean
+}
+
+export interface AgentTaskRestartResponse {
+  success: boolean
+  /** The new session ID if a new session was created */
+  sessionId?: string
 }
 
 export interface AgentTaskStopRequest {

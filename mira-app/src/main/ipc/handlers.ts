@@ -58,6 +58,7 @@ import type {
   AgentTaskStartRequest,
   AgentTaskPauseRequest,
   AgentTaskResumeRequest,
+  AgentTaskRestartRequest,
   AgentTaskStopRequest,
   AgentTaskGetOutputRequest,
   // Agent Config types
@@ -1408,6 +1409,29 @@ export class IPCHandlers {
           }
           await this.agentExecutorService.resumeTask(request.taskId)
           return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Restart task (with optional session resume)
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_RESTART,
+      async (_event, request: AgentTaskRestartRequest) => {
+        try {
+          if (!this.agentExecutorService) {
+            return {
+              error: 'Agent executor service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const result = await this.agentExecutorService.restartTask(
+            request.taskId,
+            request.resumeSession ?? true,
+            request.forkSession ?? false
+          )
+          return { success: true, sessionId: result.sessionId }
         } catch (error) {
           return this.handleError(error)
         }

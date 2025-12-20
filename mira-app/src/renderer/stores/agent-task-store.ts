@@ -57,6 +57,10 @@ export interface AgentTaskState {
   currentTaskId: string | null
   selectedTaskId: string | null
 
+  // Task detail tabs state (multiple open tabs support)
+  openTaskTabs: string[] // Array of task IDs for open tabs
+  activeTaskTab: string | null // Currently active tab
+
   // Output buffer state (per task)
   outputBuffers: Map<string, OutputLine[]>
   isAutoScrollEnabled: boolean
@@ -81,6 +85,12 @@ export interface AgentTaskState {
   // Actions - Current/Selected task
   setCurrentTask: (taskId: string | null) => void
   setSelectedTask: (taskId: string | null) => void
+
+  // Actions - Task detail tabs
+  openTaskTab: (taskId: string) => void
+  closeTaskTab: (taskId: string) => void
+  setActiveTaskTab: (taskId: string | null) => void
+  closeAllTaskTabs: () => void
 
   // Actions - Output buffer
   appendOutput: (taskId: string, line: OutputLine) => void
@@ -134,6 +144,10 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
 
   currentTaskId: null,
   selectedTaskId: null,
+
+  // Task detail tabs state
+  openTaskTabs: [],
+  activeTaskTab: null,
 
   outputBuffers: new Map(),
   isAutoScrollEnabled: true,
@@ -235,11 +249,23 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
       const newSubscriptions = new Set(state.subscribedTaskIds)
       newSubscriptions.delete(taskId)
 
+      // Clean up task tabs
+      const newOpenTabs = state.openTaskTabs.filter(id => id !== taskId)
+      let newActiveTab = state.activeTaskTab
+      if (state.activeTaskTab === taskId) {
+        const closedIndex = state.openTaskTabs.indexOf(taskId)
+        newActiveTab = newOpenTabs.length > 0
+          ? newOpenTabs[Math.max(0, closedIndex - 1)]
+          : null
+      }
+
       return {
         tasks: newTasks,
         taskOrder: newOrder,
         outputBuffers: newOutputBuffers,
         subscribedTaskIds: newSubscriptions,
+        openTaskTabs: newOpenTabs,
+        activeTaskTab: newActiveTab,
         currentTaskId:
           state.currentTaskId === taskId ? null : state.currentTaskId,
         selectedTaskId:
@@ -294,6 +320,53 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
   setSelectedTask: taskId =>
     set({
       selectedTaskId: taskId,
+    }),
+
+  // Task detail tabs actions
+  openTaskTab: taskId =>
+    set(state => {
+      // If tab already open, just make it active
+      if (state.openTaskTabs.includes(taskId)) {
+        return { activeTaskTab: taskId }
+      }
+      // Add new tab and make it active
+      return {
+        openTaskTabs: [...state.openTaskTabs, taskId],
+        activeTaskTab: taskId,
+      }
+    }),
+
+  closeTaskTab: taskId =>
+    set(state => {
+      const newTabs = state.openTaskTabs.filter(id => id !== taskId)
+      let newActiveTab = state.activeTaskTab
+
+      // If closing the active tab, switch to another tab
+      if (state.activeTaskTab === taskId) {
+        const closedIndex = state.openTaskTabs.indexOf(taskId)
+        if (newTabs.length > 0) {
+          // Prefer the tab to the left, or the first tab
+          newActiveTab = newTabs[Math.max(0, closedIndex - 1)]
+        } else {
+          newActiveTab = null
+        }
+      }
+
+      return {
+        openTaskTabs: newTabs,
+        activeTaskTab: newActiveTab,
+      }
+    }),
+
+  setActiveTaskTab: taskId =>
+    set({
+      activeTaskTab: taskId,
+    }),
+
+  closeAllTaskTabs: () =>
+    set({
+      openTaskTabs: [],
+      activeTaskTab: null,
     }),
 
   // Output buffer actions
@@ -826,5 +899,57 @@ export const useTaskActions = () => {
       addSubscription: state.addSubscription,
       removeSubscription: state.removeSubscription,
     }))
+  )
+}
+
+// ============================================================================
+// Task Detail Tabs Hooks
+// ============================================================================
+
+/**
+ * Hook to get open task tabs
+ */
+export const useOpenTaskTabs = (): string[] => {
+  return useAgentTaskStore(useShallow(state => state.openTaskTabs))
+}
+
+/**
+ * Hook to get the active task tab
+ */
+export const useActiveTaskTab = (): string | null => {
+  return useAgentTaskStore(state => state.activeTaskTab)
+}
+
+/**
+ * Hook to check if a task tab is open
+ */
+export const useIsTaskTabOpen = (taskId: string): boolean => {
+  return useAgentTaskStore(state => state.openTaskTabs.includes(taskId))
+}
+
+/**
+ * Hook to get task tab actions
+ */
+export const useTaskTabActions = () => {
+  return useAgentTaskStore(
+    useShallow(state => ({
+      openTaskTab: state.openTaskTab,
+      closeTaskTab: state.closeTaskTab,
+      setActiveTaskTab: state.setActiveTaskTab,
+      closeAllTaskTabs: state.closeAllTaskTabs,
+    }))
+  )
+}
+
+/**
+ * Hook to get tasks for open tabs with their data
+ */
+export const useOpenTaskTabsWithData = (): AgentTask[] => {
+  return useAgentTaskStore(
+    useShallow(state =>
+      state.openTaskTabs
+        .map(id => state.tasks.get(id))
+        .filter((task): task is AgentTask => task !== undefined)
+    )
   )
 }

@@ -44,6 +44,7 @@ const KANBAN_COLUMNS: TaskStatus[] = [
   'queued',
   'running',
   'paused',
+  'awaiting_approval',
   'completed',
   'failed',
   'stopped',
@@ -285,8 +286,8 @@ export function KanbanBoard({
 
   return (
     <>
-      <ScrollArea className="h-full w-full overflow-auto">
-        <div className="flex gap-4 p-4 h-full min-h[calc(100vh-180px)]">
+      <ScrollArea className="h-full w-full">
+        <div className="flex gap-4 p-4 h-full min-h-[calc(100vh-180px)] min-w-max">
           {visibleColumns.map(status => (
             <KanbanColumn
               canDrop={

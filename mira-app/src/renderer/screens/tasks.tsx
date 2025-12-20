@@ -4,7 +4,7 @@
  * Dedicated page for workspace task management with:
  * - Kanban board view (default) for visual task management
  * - Table view for detailed task list
- * - Task execution monitoring
+ * - Task execution monitoring with tabbed interface
  * - Task creation and management
  * - Output streaming and history
  * - Auto-mode toggle for continuous task execution
@@ -25,7 +25,7 @@ import {
 import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
-import { TaskExecutionPanel } from 'renderer/components/Tasks/TaskExecutionPanel'
+import { TaskDetailsRow } from 'renderer/components/Tasks/TaskDetailsRow'
 import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
 import {
   ResizablePanelGroup,
@@ -34,8 +34,8 @@ import {
 } from 'renderer/components/ui/resizable'
 import type { TaskStatus, AgentType } from 'shared/ai-types'
 
-const TASK_PANEL_SIZE_KEY = 'mira:task-detail-panel-size'
-const DEFAULT_PANEL_SIZE = 50
+const TASK_DETAILS_SIZE_KEY = 'mira:task-details-row-size'
+const DEFAULT_DETAILS_SIZE = 50
 
 export interface TasksFilter {
   status?: TaskStatus | 'all'
@@ -50,7 +50,7 @@ function TasksScreenContent(): React.JSX.Element {
   const setActiveView = useAppStore(state => state.setActiveView)
   const activeProjectId = useAppStore(state => state.activeProjectId)
   const previousView = useAppStore(state => state.previousView)
-  const { selectedTaskId, setSelectedTask } = useAgentTaskStore()
+  const { openTaskTabs, openTaskTab } = useAgentTaskStore()
 
   // Get project data to access the path
   const { data: project } = useProject(activeProjectId)
@@ -72,15 +72,15 @@ function TasksScreenContent(): React.JSX.Element {
   const [showTaskCreation, setShowTaskCreation] = useState(false)
 
   // Panel size persistence - use ref to avoid re-renders during drag
-  const detailPanelSizeRef = useRef<number>(DEFAULT_PANEL_SIZE)
+  const detailsSizeRef = useRef<number>(DEFAULT_DETAILS_SIZE)
   const initializedRef = useRef(false)
   if (!initializedRef.current) {
     initializedRef.current = true
-    const saved = localStorage.getItem(TASK_PANEL_SIZE_KEY)
+    const saved = localStorage.getItem(TASK_DETAILS_SIZE_KEY)
     if (saved) {
       const size = Number.parseFloat(saved)
       if (!Number.isNaN(size) && size >= 20 && size <= 80) {
-        detailPanelSizeRef.current = size
+        detailsSizeRef.current = size
       }
     }
   }
@@ -88,10 +88,10 @@ function TasksScreenContent(): React.JSX.Element {
   // Save panel size when layout changes - only persist, don't update state
   const handleLayoutChange = useCallback(
     (layout: { [panelId: string]: number }) => {
-      const panelSize = layout['task-execution-panel']
+      const panelSize = layout['task-details-row']
       if (typeof panelSize === 'number' && panelSize > 0) {
-        detailPanelSizeRef.current = panelSize
-        localStorage.setItem(TASK_PANEL_SIZE_KEY, String(panelSize))
+        detailsSizeRef.current = panelSize
+        localStorage.setItem(TASK_DETAILS_SIZE_KEY, String(panelSize))
       }
     },
     []
@@ -125,17 +125,19 @@ function TasksScreenContent(): React.JSX.Element {
 
   const handleTaskSelect = useCallback(
     (taskId: string | null) => {
-      setSelectedTask(taskId)
+      if (taskId) {
+        openTaskTab(taskId)
+      }
     },
-    [setSelectedTask]
+    [openTaskTab]
   )
 
   const handleTaskCreated = useCallback(
     (taskId: string) => {
-      setSelectedTask(taskId)
+      openTaskTab(taskId)
       setShowTaskCreation(false)
     },
-    [setSelectedTask]
+    [openTaskTab]
   )
 
   const handleOpenTaskCreation = useCallback(() => {
@@ -145,6 +147,8 @@ function TasksScreenContent(): React.JSX.Element {
   const handleFilterChange = useCallback((newFilters: Partial<TasksFilter>) => {
     setFilters(prev => ({ ...prev, ...newFilters }))
   }, [])
+
+  const hasOpenTabs = openTaskTabs.length > 0
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -162,40 +166,39 @@ function TasksScreenContent(): React.JSX.Element {
         className="flex-1"
         id="tasks-screen-layout"
         onLayoutChange={handleLayoutChange}
-        orientation="horizontal"
+        orientation="vertical"
       >
         <ResizablePanel
-          defaultSize={selectedTaskId ? 100 - detailPanelSizeRef.current : 100}
+          defaultSize={hasOpenTabs ? 100 - detailsSizeRef.current : 100}
           id="tasks-list-panel"
-          minSize={30}
+          minSize={20}
         >
-          {viewMode === 'kanban' ? (
-            <KanbanBoard
-              filters={filters}
-              onTaskSelect={handleTaskSelect}
-              selectedTaskId={selectedTaskId}
-            />
-          ) : (
-            <TasksTable
-              filters={filters}
-              onTaskSelect={handleTaskSelect}
-              selectedTaskId={selectedTaskId}
-            />
-          )}
+          <div className="h-full overflow-auto">
+            {viewMode === 'kanban' ? (
+              <KanbanBoard
+                filters={filters}
+                onTaskSelect={handleTaskSelect}
+                selectedTaskId={null}
+              />
+            ) : (
+              <TasksTable
+                filters={filters}
+                onTaskSelect={handleTaskSelect}
+                selectedTaskId={null}
+              />
+            )}
+          </div>
         </ResizablePanel>
 
-        {selectedTaskId && (
+        {hasOpenTabs && (
           <>
             <ResizableHandle withHandle />
             <ResizablePanel
-              defaultSize={detailPanelSizeRef.current}
-              id="task-execution-panel"
-              minSize={30}
+              defaultSize={detailsSizeRef.current}
+              id="task-details-row"
+              minSize={20}
             >
-              <TaskExecutionPanel
-                onClose={() => handleTaskSelect(null)}
-                taskId={selectedTaskId}
-              />
+              <TaskDetailsRow className="h-full" />
             </ResizablePanel>
           </>
         )}

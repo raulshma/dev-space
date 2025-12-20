@@ -80,6 +80,8 @@ export function useAgentTasks(filter?: {
         setTasksLoading(false)
       }
     },
+    // Poll for task updates every 2 seconds to catch status changes
+    refetchInterval: 2000,
   })
 }
 
@@ -118,6 +120,8 @@ export function useAgentTask(taskId: string | null) {
       return task
     },
     enabled: !!taskId,
+    // Poll for task updates every 2 seconds
+    refetchInterval: 2000,
   })
 }
 
@@ -335,6 +339,43 @@ export function useResumeAgentTask() {
 }
 
 /**
+ * Hook to restart a stopped/failed agent task
+ *
+ * Restarts the task, optionally resuming from the previous Claude SDK session.
+ * This allows continuing work from where the agent left off.
+ */
+export function useRestartAgentTask() {
+  const queryClient = useQueryClient()
+  const { updateTask } = useAgentTaskStore()
+
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      resumeSession = true,
+      forkSession = false,
+    }: {
+      taskId: string
+      resumeSession?: boolean
+      forkSession?: boolean
+    }) => {
+      const response = await window.api.agentTasks.restart({
+        taskId,
+        resumeSession,
+        forkSession,
+      })
+      return response
+    },
+    onSuccess: (response, { taskId }) => {
+      updateTask(taskId, { status: 'queued' })
+      queryClient.invalidateQueries({
+        queryKey: agentTaskKeys.detail(taskId),
+      })
+      queryClient.invalidateQueries({ queryKey: agentTaskKeys.lists() })
+    },
+  })
+}
+
+/**
  * Hook to stop an agent task
  */
 export function useStopAgentTask() {
@@ -365,7 +406,7 @@ export function useStopAgentTask() {
  * Hook to fetch task output
  *
  * For running/paused tasks, gets output from memory buffer.
- * For completed/stopped/failed tasks, loads persisted output from database.
+ * For completed/stopped/failed/awaiting_approval tasks, loads persisted output from database.
  */
 export function useAgentTaskOutput(taskId: string | null) {
   const { setOutput } = useAgentTaskStore()
@@ -374,13 +415,16 @@ export function useAgentTaskOutput(taskId: string | null) {
   )
 
   // Determine if we should load from database (persisted) or memory
+  // awaiting_approval tasks have persisted output since they may survive app reload
   const isPersistedTask =
     task?.status === 'completed' ||
     task?.status === 'failed' ||
-    task?.status === 'stopped'
+    task?.status === 'stopped' ||
+    task?.status === 'awaiting_approval'
 
   return useQuery({
-    queryKey: agentTaskKeys.output(taskId || ''),
+    // Include task status in query key to refetch when status changes
+    queryKey: [...agentTaskKeys.output(taskId || ''), task?.status],
     queryFn: async () => {
       if (!taskId) return []
 
@@ -402,6 +446,9 @@ export function useAgentTaskOutput(taskId: string | null) {
       return output
     },
     enabled: !!taskId,
+    // Refetch more frequently for active tasks (running/paused)
+    refetchInterval:
+      task?.status === 'running' || task?.status === 'paused' ? 2000 : false,
   })
 }
 
@@ -494,6 +541,113 @@ export function useReorderTasks() {
     },
     onError: () => {
       // Refetch to restore correct order on error
+      queryClient.invalidateQueries({ queryKey: agentTaskKeys.lists() })
+    },
+  })
+}
+
+// ============================================================================
+// Plan Approval Hooks
+// ============================================================================
+
+/**
+ * Hook to approve a task's plan
+ *
+ * When a task is in 'awaiting_approval' status, this approves the plan
+ * and resumes execution.
+ */
+export function useApprovePlanForTask() {
+  const queryClient = useQueryClient()
+  const { updateTask } = useAgentTaskStore()
+
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      const response = await window.api.planning.approvePlan({ taskId })
+      if ('error' in response) {
+        throw new Error(String(response.error))
+      }
+
+      const task = {
+        ...response.task,
+        createdAt:
+          response.task.createdAt instanceof Date
+            ? response.task.createdAt
+            : new Date(response.task.createdAt as unknown as string),
+        startedAt: response.task.startedAt
+          ? response.task.startedAt instanceof Date
+            ? response.task.startedAt
+            : new Date(response.task.startedAt as unknown as string)
+          : undefined,
+        completedAt: response.task.completedAt
+          ? response.task.completedAt instanceof Date
+            ? response.task.completedAt
+            : new Date(response.task.completedAt as unknown as string)
+          : undefined,
+      }
+
+      return task
+    },
+    onSuccess: task => {
+      updateTask(task.id, task)
+      queryClient.invalidateQueries({
+        queryKey: agentTaskKeys.detail(task.id),
+      })
+      queryClient.invalidateQueries({ queryKey: agentTaskKeys.lists() })
+    },
+  })
+}
+
+/**
+ * Hook to reject a task's plan with feedback
+ *
+ * When a task is in 'awaiting_approval' status, this rejects the plan
+ * and sends feedback to the agent for regeneration.
+ */
+export function useRejectPlanForTask() {
+  const queryClient = useQueryClient()
+  const { updateTask } = useAgentTaskStore()
+
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      feedback,
+    }: {
+      taskId: string
+      feedback: string
+    }) => {
+      const response = await window.api.planning.rejectPlan({
+        taskId,
+        feedback,
+      })
+      if ('error' in response) {
+        throw new Error(String(response.error))
+      }
+
+      const task = {
+        ...response.task,
+        createdAt:
+          response.task.createdAt instanceof Date
+            ? response.task.createdAt
+            : new Date(response.task.createdAt as unknown as string),
+        startedAt: response.task.startedAt
+          ? response.task.startedAt instanceof Date
+            ? response.task.startedAt
+            : new Date(response.task.startedAt as unknown as string)
+          : undefined,
+        completedAt: response.task.completedAt
+          ? response.task.completedAt instanceof Date
+            ? response.task.completedAt
+            : new Date(response.task.completedAt as unknown as string)
+          : undefined,
+      }
+
+      return task
+    },
+    onSuccess: task => {
+      updateTask(task.id, task)
+      queryClient.invalidateQueries({
+        queryKey: agentTaskKeys.detail(task.id),
+      })
       queryClient.invalidateQueries({ queryKey: agentTaskKeys.lists() })
     },
   })

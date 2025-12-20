@@ -64,6 +64,7 @@ import {
   updateTaskStatuses,
 } from './agent/planning-prompts'
 import type { WorkingDirectoryService } from './agent/working-directory-service'
+import type { WorktreeService, Worktree } from './worktree-service'
 import type {
   JulesSessionStatus,
   JulesTaskState,
@@ -131,6 +132,11 @@ export interface IAgentExecutorService {
   startTask(taskId: string): Promise<void>
   pauseTask(taskId: string): Promise<void>
   resumeTask(taskId: string): Promise<void>
+  restartTask(
+    taskId: string,
+    resumeSession?: boolean,
+    forkSession?: boolean
+  ): Promise<{ sessionId?: string }>
   stopTask(taskId: string): Promise<void>
 
   // Plan approval workflow
@@ -156,6 +162,7 @@ export interface AgentExecutorEvents {
   taskStarted: (task: AgentTask) => void
   taskPaused: (task: AgentTask) => void
   taskResumed: (task: AgentTask) => void
+  taskRestarted: (task: AgentTask, resumedSession: boolean) => void
   taskStopped: (task: AgentTask) => void
   taskCompleted: (task: AgentTask) => void
   taskFailed: (task: AgentTask, error: string) => void
@@ -184,6 +191,7 @@ export class AgentExecutorService
   private gitService: GitService
   private julesService: JulesService | null
   private workingDirectoryService: WorkingDirectoryService | null
+  private worktreeService: WorktreeService | null
 
   /** Map of task IDs to their managed processes (legacy, kept for compatibility) */
   private taskProcesses: Map<string, ManagedProcess> = new Map()
@@ -214,7 +222,8 @@ export class AgentExecutorService
     configService: AgentConfigService,
     gitService: GitService,
     julesService?: JulesService,
-    workingDirectoryService?: WorkingDirectoryService
+    workingDirectoryService?: WorkingDirectoryService,
+    worktreeService?: WorktreeService
   ) {
     super()
     this.db = db
@@ -226,6 +235,7 @@ export class AgentExecutorService
     this.gitService = gitService
     this.julesService = julesService ?? null
     this.workingDirectoryService = workingDirectoryService ?? null
+    this.worktreeService = worktreeService ?? null
   }
 
   /**
@@ -750,6 +760,105 @@ export class AgentExecutorService
   }
 
   /**
+   * Restart a stopped or failed task
+   *
+   * Restarts the task, optionally resuming from the previous Claude SDK session.
+   * This allows continuing work from where the agent left off.
+   *
+   * @param taskId - The task ID
+   * @param resumeSession - Whether to resume from the previous session (default: true if session exists)
+   * @param forkSession - Whether to fork the session instead of continuing it
+   * @returns Object containing the new session ID if created
+   * @throws AgentExecutorError if task not found or invalid state
+   */
+  async restartTask(
+    taskId: string,
+    resumeSession = true,
+    forkSession = false
+  ): Promise<{ sessionId?: string }> {
+    const task = this.db.getAgentTask(taskId)
+    if (!task) {
+      throw new AgentExecutorError(
+        `Task not found: ${taskId}`,
+        AgentExecutorErrorCode.TASK_NOT_FOUND,
+        taskId
+      )
+    }
+
+    // Can restart from stopped, failed, or completed states
+    const restartableStates: TaskStatus[] = ['stopped', 'failed', 'completed']
+    if (!restartableStates.includes(task.status)) {
+      throw new AgentExecutorError(
+        `Cannot restart task in ${task.status} state. Task must be stopped, failed, or completed.`,
+        AgentExecutorErrorCode.INVALID_STATE_TRANSITION,
+        taskId
+      )
+    }
+
+    // Validate configuration
+    const isConfigured = await this.configService.isConfigured()
+    if (!isConfigured) {
+      throw new AgentExecutorError(
+        'Agent environment is not properly configured',
+        AgentExecutorErrorCode.INVALID_CONFIGURATION,
+        taskId
+      )
+    }
+
+    // Check if we have a session to resume
+    const hasSession = !!task.parameters.sessionId
+    const willResumeSession = resumeSession && hasSession
+
+    // Log the restart action
+    const resumeInfo = willResumeSession
+      ? forkSession
+        ? `forking from session ${task.parameters.sessionId}`
+        : `resuming session ${task.parameters.sessionId}`
+      : 'starting fresh (no previous session)'
+
+    const line = this.outputBuffer.append(
+      taskId,
+      `[Mira] Restarting task - ${resumeInfo}\n`,
+      'stdout'
+    )
+    this.emit('outputReceived', taskId, line)
+
+    // Update task parameters for session resume
+    if (willResumeSession) {
+      // The sessionId is already stored, just need to set forkSession flag if needed
+      await this.updateTask(taskId, {
+        parameters: {
+          ...task.parameters,
+          // Store fork preference for the execution
+        },
+      })
+    }
+
+    // Clear error state
+    await this.updateTask(taskId, {
+      status: 'queued',
+      error: undefined,
+      completedAt: undefined,
+      exitCode: undefined,
+    })
+
+    // Add to queue
+    this.taskQueue.enqueue(taskId)
+
+    const updatedTask = this.db.getAgentTask(taskId)
+    if (updatedTask) {
+      this.emit('taskRestarted', updatedTask, willResumeSession)
+    }
+
+    // If no task is currently running, start this one
+    if (!this.taskQueue.isProcessing()) {
+      await this.processNextTask()
+    }
+
+    return { sessionId: task.parameters.sessionId }
+  }
+
+  /**
    * Stop a task
    *
    * Stops the Claude SDK execution and updates status to "stopped".
@@ -866,19 +975,46 @@ export class AgentExecutorService
         }
       : undefined
 
-    // Update task status back to running
-    await this.updateTask(taskId, {
-      status: 'running',
-      planSpec: updatedPlanSpec,
-    })
-
     // Add approval message to output
     const line = this.outputBuffer.append(
       taskId,
-      '\n[Mira] Plan approved. Proceeding with implementation...\napproved\n',
+      '\n[Mira] Plan approved. Proceeding with implementation...\n',
       'stdout'
     )
     this.emit('outputReceived', taskId, line)
+
+    // Check if the SDK execution is still active (paused)
+    if (this.claudeSdkService.isPaused(taskId)) {
+      // SDK is still running, just resume it
+      await this.updateTask(taskId, {
+        status: 'running',
+        planSpec: updatedPlanSpec,
+      })
+      this.claudeSdkService.resume(taskId)
+    } else {
+      // SDK execution has completed, need to restart with session resume
+      // Update task to queued state and re-queue for execution
+      await this.updateTask(taskId, {
+        status: 'queued',
+        planSpec: updatedPlanSpec,
+      })
+
+      // Add to queue to continue execution with session resume
+      this.taskQueue.enqueue(taskId)
+
+      // If no task is currently running, start processing
+      if (!this.taskQueue.isProcessing()) {
+        // Use setImmediate to avoid blocking the current call
+        setImmediate(() => {
+          this.processNextTask().catch(err => {
+            console.error(
+              'Failed to process next task after plan approval:',
+              err
+            )
+          })
+        })
+      }
+    }
 
     const updatedTask = this.db.getAgentTask(taskId)
     if (!updatedTask) {
@@ -937,12 +1073,6 @@ export class AgentExecutorService
           version: 1,
         }
 
-    // Update task - keep status as running so agent can regenerate
-    await this.updateTask(taskId, {
-      status: 'running',
-      planSpec: updatedPlanSpec,
-    })
-
     // Add rejection message with feedback to output
     const line = this.outputBuffer.append(
       taskId,
@@ -950,6 +1080,38 @@ export class AgentExecutorService
       'stdout'
     )
     this.emit('outputReceived', taskId, line)
+
+    // Check if the SDK execution is still active (paused)
+    if (this.claudeSdkService.isPaused(taskId)) {
+      // SDK is still running, just resume it
+      await this.updateTask(taskId, {
+        status: 'running',
+        planSpec: updatedPlanSpec,
+      })
+      this.claudeSdkService.resume(taskId)
+    } else {
+      // SDK execution has completed, need to restart with session resume
+      // Update task to queued state and re-queue for execution
+      await this.updateTask(taskId, {
+        status: 'queued',
+        planSpec: updatedPlanSpec,
+      })
+
+      // Add to queue to continue execution with session resume
+      this.taskQueue.enqueue(taskId)
+
+      // If no task is currently running, start processing
+      if (!this.taskQueue.isProcessing()) {
+        setImmediate(() => {
+          this.processNextTask().catch(err => {
+            console.error(
+              'Failed to process next task after plan rejection:',
+              err
+            )
+          })
+        })
+      }
+    }
 
     const updatedTask = this.db.getAgentTask(taskId)
     if (!updatedTask) {
@@ -994,6 +1156,10 @@ export class AgentExecutorService
       generatedAt: new Date(),
       tasks: parsedTasks,
     }
+
+    // Persist output buffer before changing status
+    // This ensures output is available after app reload
+    await this.outputBuffer.persist(taskId)
 
     // Update task status to awaiting approval
     await this.updateTask(taskId, {
@@ -1610,52 +1776,99 @@ export class AgentExecutorService
       this.emit('taskStarted', updatedTask)
     }
 
-    // Copy project to working directory
+    // Determine working directory - use worktree if branchName is provided, otherwise copy
     let workingDirectory = task.targetDirectory
+    let worktree: Worktree | null = null
 
-    if (this.workingDirectoryService) {
+    // Check if task already has a worktree path (for restarts)
+    if (task.worktreePath && existsSync(task.worktreePath)) {
+      workingDirectory = task.worktreePath
+      worktree = this.worktreeService?.getWorktreeForTask(task.id) ?? null
+
+      const line = this.outputBuffer.append(
+        task.id,
+        `[Mira] Reusing existing worktree: ${workingDirectory}\n` +
+          `[Mira] Branch: ${worktree?.branch ?? task.branchName ?? 'unknown'}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', task.id, line)
+    }
+    // Use worktree if branchName is provided and worktreeService is available
+    else if (task.branchName && this.worktreeService) {
       try {
         await this.updateExecutionStep(
           task.id,
           'copying-project',
-          `Copying project to isolated working directory...`
+          `Creating git worktree for branch: ${task.branchName}...`
         )
 
-        const copyResult =
-          await this.workingDirectoryService.copyToWorkingDirectory(
+        // Check if a worktree already exists for this branch
+        const existingWorktree =
+          await this.worktreeService.findWorktreeForBranch(
             task.targetDirectory,
-            task.id,
-            message => {
-              const line = this.outputBuffer.append(
-                task.id,
-                `[Mira] ${message}\n`,
-                'stdout'
-              )
-              this.emit('outputReceived', task.id, line)
-            }
+            task.branchName
           )
 
-        workingDirectory = copyResult.workingDirectory
+        if (existingWorktree) {
+          // Reuse existing worktree and associate with this task
+          worktree = existingWorktree
+          workingDirectory = existingWorktree.path
 
-        await this.updateTask(task.id, { workingDirectory })
+          // Associate task with existing worktree if not already associated
+          if (existingWorktree.taskId !== task.id) {
+            await this.worktreeService.associateTask(
+              existingWorktree.path,
+              task.id
+            )
+          }
 
-        const line = this.outputBuffer.append(
-          task.id,
-          `[Mira] Project copied to: ${workingDirectory}\n` +
-            `[Mira] Files copied: ${copyResult.filesCopied}\n`,
-          'stdout'
-        )
-        this.emit('outputReceived', task.id, line)
+          const line = this.outputBuffer.append(
+            task.id,
+            `[Mira] Reusing existing worktree for branch '${task.branchName}'\n` +
+              `[Mira] Worktree path: ${workingDirectory}\n`,
+            'stdout'
+          )
+          this.emit('outputReceived', task.id, line)
+        } else {
+          // Create new worktree
+          worktree = await this.worktreeService.createWorktree(
+            task.targetDirectory,
+            task.branchName,
+            task.id
+          )
+          workingDirectory = worktree.path
+
+          const line = this.outputBuffer.append(
+            task.id,
+            `[Mira] Created git worktree for branch '${task.branchName}'\n` +
+              `[Mira] Worktree path: ${workingDirectory}\n`,
+            'stdout'
+          )
+          this.emit('outputReceived', task.id, line)
+        }
+
+        // Update task with worktree path
+        await this.updateTask(task.id, {
+          workingDirectory,
+          worktreePath: workingDirectory,
+        })
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error)
         const line = this.outputBuffer.append(
           task.id,
-          `[Mira] Warning: Could not create working directory, running in original location: ${errorMessage}\n`,
+          `[Mira] Warning: Could not create worktree, falling back to copy: ${errorMessage}\n`,
           'stderr'
         )
         this.emit('outputReceived', task.id, line)
+
+        // Fall back to working directory copy
+        workingDirectory = await this.copyToWorkingDirectory(task)
       }
+    }
+    // Fall back to copying project to working directory
+    else if (this.workingDirectoryService) {
+      workingDirectory = await this.copyToWorkingDirectory(task)
     }
 
     // Update step to initializing
@@ -1839,7 +2052,11 @@ export class AgentExecutorService
     // Check if stopped by user
     const wasStoppedByUser = task.status === 'stopped'
     if (wasStoppedByUser) {
+      // Only clean up working directories, not worktrees (worktrees should be preserved)
+      const isUsingWorktree =
+        !!task.worktreePath && task.worktreePath === workingDirectory
       if (
+        !isUsingWorktree &&
         workingDirectory &&
         workingDirectory !== task.targetDirectory &&
         this.workingDirectoryService
@@ -1856,6 +2073,10 @@ export class AgentExecutorService
 
     const newStatus: TaskStatus = success ? 'completed' : 'failed'
 
+    // Check if task is using a worktree (worktrees don't need sync/cleanup)
+    const isUsingWorktree =
+      !!task.worktreePath && task.worktreePath === workingDirectory
+
     // Capture file changes
     await this.updateExecutionStep(
       taskId,
@@ -1871,8 +2092,18 @@ export class AgentExecutorService
       fileChanges = await this.captureFileChanges(effectiveWorkingDir)
     }
 
-    // Sync changes back to original project if using working directory
-    if (
+    // For worktrees: changes are already in the worktree branch, no sync needed
+    if (isUsingWorktree) {
+      const line = this.outputBuffer.append(
+        taskId,
+        `[Mira] Changes committed to worktree branch: ${task.branchName}\n` +
+          `[Mira] Worktree preserved at: ${task.worktreePath}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', taskId, line)
+    }
+    // Sync changes back to original project if using working directory (not worktree)
+    else if (
       success &&
       this.workingDirectoryService &&
       effectiveWorkingDir !== task.targetDirectory
@@ -1922,9 +2153,10 @@ export class AgentExecutorService
       }
     }
 
-    // Clean up working directory on success
+    // Clean up working directory on success (but NOT worktrees - they should be preserved)
     if (
       success &&
+      !isUsingWorktree &&
       this.workingDirectoryService &&
       effectiveWorkingDir !== task.targetDirectory
     ) {
@@ -1970,6 +2202,67 @@ export class AgentExecutorService
 
     // Process next task
     await this.processNextTask()
+  }
+
+  /**
+   * Copy project to an isolated working directory
+   *
+   * Helper method to copy the project when worktrees are not used.
+   *
+   * @param task - The task
+   * @returns The working directory path
+   */
+  private async copyToWorkingDirectory(task: AgentTask): Promise<string> {
+    if (!this.workingDirectoryService) {
+      return task.targetDirectory
+    }
+
+    try {
+      await this.updateExecutionStep(
+        task.id,
+        'copying-project',
+        `Copying project to isolated working directory...`
+      )
+
+      const copyResult =
+        await this.workingDirectoryService.copyToWorkingDirectory(
+          task.targetDirectory,
+          task.id,
+          message => {
+            const line = this.outputBuffer.append(
+              task.id,
+              `[Mira] ${message}\n`,
+              'stdout'
+            )
+            this.emit('outputReceived', task.id, line)
+          }
+        )
+
+      const workingDirectory = copyResult.workingDirectory
+
+      await this.updateTask(task.id, { workingDirectory })
+
+      const line = this.outputBuffer.append(
+        task.id,
+        `[Mira] Project copied to: ${workingDirectory}\n` +
+          `[Mira] Files copied: ${copyResult.filesCopied}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', task.id, line)
+
+      return workingDirectory
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      const line = this.outputBuffer.append(
+        task.id,
+        `[Mira] Warning: Could not create working directory, running in original location: ${errorMessage}\n`,
+        'stderr'
+      )
+      this.emit('outputReceived', task.id, line)
+
+      return task.targetDirectory
+    }
   }
 
   /**

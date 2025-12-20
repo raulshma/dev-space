@@ -44,6 +44,7 @@ import {
   IconFiles,
   IconGitCommit,
   IconArchive,
+  IconRefresh,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -56,8 +57,11 @@ import {
   useTaskOutputSubscription,
   usePauseAgentTask,
   useResumeAgentTask,
+  useRestartAgentTask,
   useStopAgentTask,
   useStartAgentTask,
+  useApprovePlanForTask,
+  useRejectPlanForTask,
 } from 'renderer/hooks/use-agent-tasks'
 import {
   useApprovePlan,
@@ -1554,6 +1558,32 @@ export function TaskExecutionPanel({
     }
   }, [task?.julesSessionId, approvePlan])
 
+  // Claude Code plan approval (for awaiting_approval status)
+  const approvePlanForTask = useApprovePlanForTask()
+  const rejectPlanForTask = useRejectPlanForTask()
+  const [rejectFeedback, setRejectFeedback] = useState('')
+  const [showRejectDialog, setShowRejectDialog] = useState(false)
+
+  const isAwaitingApproval =
+    task?.status === 'awaiting_approval' && !isJulesTask
+
+  const handleApproveClaudeCodePlan = useCallback(() => {
+    if (task?.id) {
+      approvePlanForTask.mutate(task.id)
+    }
+  }, [task?.id, approvePlanForTask])
+
+  const handleRejectClaudeCodePlan = useCallback(() => {
+    if (task?.id && rejectFeedback.trim()) {
+      rejectPlanForTask.mutate({
+        taskId: task.id,
+        feedback: rejectFeedback.trim(),
+      })
+      setRejectFeedback('')
+      setShowRejectDialog(false)
+    }
+  }, [task?.id, rejectFeedback, rejectPlanForTask])
+
   // Fetch initial output (for non-Jules tasks)
   useAgentTaskOutput(taskId)
 
@@ -1564,11 +1594,16 @@ export function TaskExecutionPanel({
   const startTask = useStartAgentTask()
   const pauseTask = usePauseAgentTask()
   const resumeTask = useResumeAgentTask()
+  const restartTask = useRestartAgentTask()
   const stopTask = useStopAgentTask()
 
-  // Subscribe to output when task is running
+  // Subscribe to output when task is running or awaiting approval
   useEffect(() => {
-    if (task?.status === 'running' || task?.status === 'paused') {
+    if (
+      task?.status === 'running' ||
+      task?.status === 'paused' ||
+      task?.status === 'awaiting_approval'
+    ) {
       subscribe()
       return () => unsubscribe()
     }
@@ -1653,6 +1688,14 @@ export function TaskExecutionPanel({
   const canResume = !isJulesTask && task.status === 'paused'
   const canStop =
     !isJulesTask && (task.status === 'running' || task.status === 'paused')
+  // Can restart stopped, failed, or completed tasks (with session resume support)
+  const canRestart =
+    !isJulesTask &&
+    (task.status === 'stopped' ||
+      task.status === 'failed' ||
+      task.status === 'completed')
+  // Check if task has a previous session that can be resumed
+  const hasSession = !!task.parameters?.sessionId
 
   const fileChanges: FileChangeSummary = task.fileChanges || {
     created: [],
@@ -1754,8 +1797,125 @@ export function TaskExecutionPanel({
               Stop
             </Button>
           )}
+          {canRestart && (
+            <Button
+              disabled={restartTask.isPending}
+              onClick={() =>
+                restartTask.mutate({
+                  taskId,
+                  resumeSession: hasSession,
+                  forkSession: false,
+                })
+              }
+              size="sm"
+              title={
+                hasSession
+                  ? 'Restart and resume from previous session'
+                  : 'Restart task from beginning'
+              }
+              variant="outline"
+            >
+              <IconRefresh className="h-4 w-4 mr-1" />
+              {hasSession ? 'Resume Session' : 'Restart'}
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Claude Code Plan Approval Banner */}
+      {isAwaitingApproval && (
+        <div className="border-b border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <IconListCheck className="h-4 w-4 text-yellow-500" />
+              <span className="text-sm font-medium text-yellow-500">
+                Plan awaiting approval
+              </span>
+              {task.planSpec?.content && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  Review the plan in the output below
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowRejectDialog(true)}
+                size="sm"
+                variant="outline"
+              >
+                <IconX className="h-4 w-4 mr-1" />
+                Reject
+              </Button>
+              <Button
+                disabled={approvePlanForTask.isPending}
+                onClick={handleApproveClaudeCodePlan}
+                size="sm"
+                variant="default"
+              >
+                {approvePlanForTask.isPending ? (
+                  <IconLoader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <IconCheck className="h-4 w-4 mr-1" />
+                )}
+                Approve Plan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Plan Dialog */}
+      {showRejectDialog && (
+        <div className="border-b border-border bg-muted/30 px-4 py-3">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Provide feedback for plan revision:
+            </p>
+            <Input
+              autoFocus
+              className="w-full"
+              onChange={e => setRejectFeedback(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey && rejectFeedback.trim()) {
+                  e.preventDefault()
+                  handleRejectClaudeCodePlan()
+                }
+                if (e.key === 'Escape') {
+                  setShowRejectDialog(false)
+                  setRejectFeedback('')
+                }
+              }}
+              placeholder="What changes would you like to see in the plan?"
+              value={rejectFeedback}
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                onClick={() => {
+                  setShowRejectDialog(false)
+                  setRejectFeedback('')
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!rejectFeedback.trim() || rejectPlanForTask.isPending}
+                onClick={handleRejectClaudeCodePlan}
+                size="sm"
+                variant="destructive"
+              >
+                {rejectPlanForTask.isPending ? (
+                  <IconLoader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <IconX className="h-4 w-4 mr-1" />
+                )}
+                Reject with Feedback
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error display */}
       {task.error && (

@@ -216,7 +216,8 @@ async function initializeAgentServices(): Promise<void> {
     agentConfigService,
     gitService,
     julesService,
-    workingDirectoryService
+    workingDirectoryService,
+    worktreeService
   )
 
   agentServiceV2 = new AgentSvcV2()
