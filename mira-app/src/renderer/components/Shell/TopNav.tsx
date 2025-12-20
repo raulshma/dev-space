@@ -13,8 +13,11 @@ import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarLeftExpand,
   IconLayoutSidebarRightExpand,
+  IconPalette,
 } from '@tabler/icons-react'
-import { useProject } from 'renderer/hooks/use-projects'
+import { PREDEFINED_THEMES } from 'shared/themes'
+import { useProject, useUpdateProject } from 'renderer/hooks/use-projects'
+import { useCustomThemes } from 'renderer/hooks/use-custom-themes'
 import {
   useGitTelemetry,
   useGitTelemetryRefresh,
@@ -51,6 +54,7 @@ export const TopNav = memo(function TopNav({
   onToggleZenMode,
 }: TopNavProps) {
   const [showTagMenu, setShowTagMenu] = useState(false)
+  const [showThemeMenu, setShowThemeMenu] = useState(false)
 
   const { data: project } = useProject(projectId)
   const { data: allTags = [] } = useTags()
@@ -65,6 +69,8 @@ export const TopNav = memo(function TopNav({
 
   const addTagToProject = useAddTagToProject()
   const removeTagFromProject = useRemoveTagFromProject()
+  const updateProject = useUpdateProject()
+  const { themes: customThemes } = useCustomThemes()
 
   const availableTags = allTags.filter(
     tag => !project?.tags.some(t => t.id === tag.id)
@@ -93,6 +99,22 @@ export const TopNav = memo(function TopNav({
       }
     },
     [removeTagFromProject, projectId]
+  )
+
+  const handleSelectTheme = useCallback(
+    async (themeId: string) => {
+      if (!projectId) return
+      try {
+        await updateProject.mutateAsync({
+          id: projectId,
+          data: { themeId },
+        })
+        setShowThemeMenu(false)
+      } catch (error) {
+        console.error('Failed to update theme:', error)
+      }
+    },
+    [updateProject, projectId]
   )
 
   return (
@@ -195,6 +217,106 @@ export const TopNav = memo(function TopNav({
             <span className="text-xs text-muted-foreground truncate hidden lg:block">
               {project.path}
             </span>
+
+            {/* Theme Selector */}
+            <div className="relative ml-1">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      className={cn(
+                        'p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded',
+                        showThemeMenu && 'text-primary bg-primary/10'
+                      )}
+                      onClick={() => setShowThemeMenu(prev => !prev)}
+                      type="button"
+                    >
+                      <IconPalette size={14} />
+                    </button>
+                  }
+                />
+                <TooltipContent>Project Theme</TooltipContent>
+              </Tooltip>
+
+              {showThemeMenu && (
+                <>
+                  <button
+                    aria-label="Close theme menu"
+                    className="fixed inset-0 z-10 cursor-default bg-transparent border-none"
+                    onClick={() => setShowThemeMenu(false)}
+                    tabIndex={-1}
+                    type="button"
+                  />
+                  <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded shadow-lg py-1 min-w-[180px]">
+                    <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-muted-foreground/50 flex items-center gap-2">
+                       <div className="h-px flex-1 bg-border" />
+                       Predefined
+                       <div className="h-px flex-1 bg-border" />
+                    </div>
+                    {PREDEFINED_THEMES.map(theme => (
+                      <button
+                        className={cn(
+                          'w-full text-left px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent flex items-center justify-between gap-3',
+                          project.themeId === theme.id &&
+                            'bg-accent/50 font-medium'
+                        )}
+                        key={theme.id}
+                        onClick={() => handleSelectTheme(theme.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full border border-border shrink-0"
+                            style={{
+                              backgroundColor:
+                                theme.colors.primary || 'var(--primary)',
+                            }}
+                          />
+                          <span>{theme.name}</span>
+                        </div>
+                        {project.themeId === theme.id && (
+                          <div className="w-1 h-1 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    ))}
+
+                    {customThemes.length > 0 && (
+                      <>
+                        <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-muted-foreground/50 flex items-center gap-2 mt-1">
+                           <div className="h-px flex-1 bg-border" />
+                           Custom
+                           <div className="h-px flex-1 bg-border" />
+                        </div>
+                        {customThemes.map(theme => (
+                          <button
+                            className={cn(
+                              'w-full text-left px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent flex items-center justify-between gap-3',
+                              project.themeId === theme.id &&
+                                'bg-accent/50 font-medium'
+                            )}
+                            key={theme.id}
+                            onClick={() => handleSelectTheme(theme.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full border border-border shrink-0"
+                                style={{
+                                  backgroundColor:
+                                    (theme.colors as any).primary || 'var(--primary)',
+                                }}
+                              />
+                              <span>{theme.name}</span>
+                            </div>
+                            {project.themeId === theme.id && (
+                              <div className="w-1 h-1 rounded-full bg-primary" />
+                            )}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </>
         ) : (
           <span className="text-sm text-muted-foreground">

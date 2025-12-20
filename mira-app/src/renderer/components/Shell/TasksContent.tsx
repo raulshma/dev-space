@@ -118,9 +118,7 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
 
   return (
     <div className="h-full flex flex-col bg-background">
-      {/* Header */}
       <TasksHeader
-        onBack={handleBack}
         onCreateTask={() => setShowTaskCreation(true)}
         onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}
         onViewModeChange={setViewMode}

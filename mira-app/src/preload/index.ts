@@ -293,6 +293,17 @@ import type {
   AutoModeV2FeatureProgressData,
   AutoModeV2PlanGeneratedData,
   AutoModeV2RateLimitWaitData,
+  // Custom Theme types
+  ThemeListRequest,
+  ThemeListResponse,
+  ThemeGetRequest,
+  ThemeGetResponse,
+  ThemeCreateRequest,
+  ThemeCreateResponse,
+  ThemeUpdateRequest,
+  ThemeUpdateResponse,
+  ThemeDeleteRequest,
+  ThemeDeleteResponse,
 } from 'shared/ipc-types'
 
 /**
@@ -1126,6 +1137,20 @@ const api = {
           listener
         )
     },
+  },
+
+  // Custom Theme operations
+  themes: {
+    list: (request: ThemeListRequest): Promise<ThemeListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.THEME_LIST, request),
+    get: (request: ThemeGetRequest): Promise<ThemeGetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.THEME_GET, request),
+    create: (request: ThemeCreateRequest): Promise<ThemeCreateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.THEME_CREATE, request),
+    update: (request: ThemeUpdateRequest): Promise<ThemeUpdateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.THEME_UPDATE, request),
+    delete: (request: ThemeDeleteRequest): Promise<ThemeDeleteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.THEME_DELETE, request),
   },
 }
 

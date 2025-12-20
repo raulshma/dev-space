@@ -1,30 +1,20 @@
-/**
- * Tasks Header Component
- *
- * Header for the tasks page with navigation and actions
- * Requirements: 1.6 (auto-mode visual indicator)
- */
-
 import { memo } from 'react'
-import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import { ButtonGroup } from 'renderer/components/ui/button-group'
 import {
-  IconArrowLeft,
   IconPlus,
-  IconRocket,
   IconLoader2,
   IconLayoutKanban,
   IconTable,
-  IconFolderOpen,
 } from '@tabler/icons-react'
 import { useTaskList, useCurrentTask } from 'renderer/stores/agent-task-store'
 import { AutoModeToggle } from 'renderer/components/Agent/AutoModeToggle'
+import { SectionNav } from 'renderer/components/Shell/SectionNav'
+import { Button as UIButton } from 'renderer/components/ui/button'
 
 export type TasksViewMode = 'table' | 'kanban'
 
 interface TasksHeaderProps {
-  onBack: () => void
   onCreateTask: () => void
   onGoToWorkspace?: () => void
   viewMode?: TasksViewMode
@@ -34,7 +24,6 @@ interface TasksHeaderProps {
 }
 
 export const TasksHeader = memo(function TasksHeader({
-  onBack,
   onCreateTask,
   onGoToWorkspace,
   viewMode = 'kanban',
@@ -50,94 +39,89 @@ export const TasksHeader = memo(function TasksHeader({
   ).length
   const completedCount = tasks.filter(t => t.status === 'completed').length
 
-  return (
-    <header className="bg-card border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button onClick={onBack} size="sm" variant="ghost">
-            <IconArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          {onGoToWorkspace && (
-            <Button onClick={onGoToWorkspace} size="sm" variant="outline">
-              <IconFolderOpen className="h-4 w-4 mr-2" />
-              Go to Workspace
-            </Button>
-          )}
-          <div className="flex items-center gap-3">
-            <IconRocket className="h-6 w-6 text-primary" />
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">
-                Workspace Tasks
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Manage and monitor agent task execution
-              </p>
-            </div>
-          </div>
-        </div>
+  const actions = (
+    <div className="flex items-center gap-2 shrink-0">
+      {/* Auto-mode toggle - hide label on small screens */}
+      {projectPath && <AutoModeToggle projectPath={projectPath} />}
 
-        <div className="flex items-center gap-4">
-          {/* Auto-mode toggle */}
-          {projectPath && <AutoModeToggle projectPath={projectPath} />}
+      <div className="h-6 w-px bg-border shrink-0 hidden sm:block" />
 
-          {/* Separator */}
-          {projectPath && <div className="h-6 w-px bg-border" />}
-
-          {/* Task stats */}
-          <div className="flex items-center gap-2">
-            {runningCount > 0 && (
-              <Badge className="gap-1" variant="default">
-                <IconLoader2 className="h-3 w-3 animate-spin" />
-                {runningCount} Running
-              </Badge>
-            )}
-            {pendingCount > 0 && (
-              <Badge variant="secondary">{pendingCount} Pending</Badge>
-            )}
-            <Badge variant="outline">{completedCount} Completed</Badge>
-            <Badge variant="outline">{tasks.length} Total</Badge>
-          </div>
-
-          {/* View mode toggle */}
-          {onViewModeChange && (
-            <ButtonGroup>
-              <Button
-                aria-label="Kanban view"
-                onClick={() => onViewModeChange('kanban')}
-                size="sm"
-                variant={viewMode === 'kanban' ? 'default' : 'outline'}
-              >
-                <IconLayoutKanban className="h-4 w-4" />
-              </Button>
-              <Button
-                aria-label="Table view"
-                onClick={() => onViewModeChange('table')}
-                size="sm"
-                variant={viewMode === 'table' ? 'default' : 'outline'}
-              >
-                <IconTable className="h-4 w-4" />
-              </Button>
-            </ButtonGroup>
-          )}
-
-          <Button onClick={onCreateTask}>
-            <IconPlus className="h-4 w-4 mr-2" />
-            New Task
-          </Button>
-        </div>
+      {/* Task stats - hide icons or labels on small screens */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {runningCount > 0 && (
+          <Badge className="gap-1 px-1.5 h-7" variant="default">
+            <IconLoader2 className="h-3 w-3 animate-spin" />
+            <span className="hidden lg:inline">{runningCount} Running</span>
+            <span className="lg:hidden">{runningCount}</span>
+          </Badge>
+        )}
+        {pendingCount > 0 && (
+          <Badge className="px-1.5 h-7" variant="secondary">
+            <span className="hidden lg:inline">{pendingCount} Pending</span>
+            <span className="lg:hidden">{pendingCount}P</span>
+          </Badge>
+        )}
+        <Badge className="px-1.5 h-7 hidden sm:inline-flex" variant="outline">
+          <span className="hidden lg:inline">{completedCount} Completed</span>
+          <span className="lg:hidden">{completedCount}C</span>
+        </Badge>
       </div>
 
-      {/* Current task indicator */}
+      <div className="h-6 w-px bg-border shrink-0 hidden sm:block" />
+
+      {/* View mode toggle */}
+      {onViewModeChange && (
+        <ButtonGroup className="shrink-0 h-8">
+          <UIButton
+            aria-label="Kanban view"
+            className="h-8 px-2"
+            onClick={() => onViewModeChange('kanban')}
+            size="sm"
+            variant={viewMode === 'kanban' ? 'default' : 'outline'}
+          >
+            <IconLayoutKanban className="h-4 w-4" />
+          </UIButton>
+          <UIButton
+            aria-label="Table view"
+            className="h-8 px-2"
+            onClick={() => onViewModeChange('table')}
+            size="sm"
+            variant={viewMode === 'table' ? 'default' : 'outline'}
+          >
+            <IconTable className="h-4 w-4" />
+          </UIButton>
+        </ButtonGroup>
+      )}
+
+      <UIButton className="h-8 px-3 gap-2 shrink-0" onClick={onCreateTask} size="sm">
+        <IconPlus className="h-4 w-4" />
+        <span className="hidden sm:inline">New Task</span>
+      </UIButton>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col">
+      <SectionNav
+        actions={actions}
+        activeView="tasks"
+        onViewChange={view => {
+          if (view === 'workspace') onGoToWorkspace?.()
+        }}
+        subtitle={projectPath}
+        title="Workspace Tasks"
+      />
+      
+      {/* Current task indicator - simplified for section nav usage */}
       {currentTask && (
-        <div className="mt-3 flex items-center gap-2 text-sm">
-          <IconLoader2 className="h-4 w-4 animate-spin text-primary" />
-          <span className="text-muted-foreground">Currently executing:</span>
-          <span className="font-medium truncate max-w-md">
+        <div className="px-4 py-1.5 bg-muted/30 border-b border-border flex items-center gap-2 text-[10px] shrink-0 overflow-hidden">
+          <IconLoader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+          <span className="text-muted-foreground whitespace-nowrap">Executing:</span>
+          <span className="font-medium truncate">
             {currentTask.description}
           </span>
         </div>
       )}
-    </header>
+    </div>
   )
 })

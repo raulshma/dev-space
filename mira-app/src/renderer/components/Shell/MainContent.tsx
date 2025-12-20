@@ -12,6 +12,8 @@ import { Terminal } from 'renderer/components/Terminal/Terminal'
 import { PinnedProcessIndicator } from 'renderer/components/Terminal/PinnedProcessIndicator'
 import { CodeEditorPanel } from 'renderer/components/CodeEditor'
 import { useEditorStore } from 'renderer/stores/editor-store'
+import { useAppStore } from 'renderer/stores/app-store'
+import { SectionNav } from 'renderer/components/Shell/SectionNav'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -28,6 +30,7 @@ export const MainContent = memo(function MainContent({
 }: MainContentProps) {
   const { data: project, isLoading: projectLoading } = useProject(projectId)
   const hasOpenFiles = useEditorStore(state => state.openFiles.length > 0)
+  const setActiveView = useAppStore(state => state.setActiveView)
   const centerPanelGroupRef = useRef<GroupImperativeHandle | null>(null)
   const appliedLayoutRef = useRef<string | null>(null)
 
@@ -138,42 +141,54 @@ export const MainContent = memo(function MainContent({
     )
   }
 
-  // No files open - show terminal only
-  if (!hasOpenFiles) {
-    return (
-      <main className="h-full overflow-hidden bg-background relative">
-        <Terminal
-          isRestoring={isRestoringTerminals}
-          projectId={projectId}
-          projectPath={project.path}
-        />
-        <PinnedProcessIndicator />
-      </main>
-    )
-  }
-
-  // Files open - show editor + terminal
-  return (
-    <main className="h-full overflow-hidden bg-background relative">
-      <ResizablePanelGroup
-        className="h-full"
-        defaultLayout={restoredCenterLayout}
-        onLayoutChange={handleCenterLayoutChange}
-        orientation="vertical"
-        ref={centerPanelGroupRef}
-      >
-        <ResizablePanel defaultSize={60} id="center-editor" minSize={20}>
-          <CodeEditorPanel />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={40} id="center-terminal" minSize={15}>
+  // Main content wrapper with SectionNav
+  const renderWorkspaceContent = () => {
+    if (!hasOpenFiles) {
+      return (
+        <div className="flex-1 min-h-0 relative">
           <Terminal
             isRestoring={isRestoringTerminals}
             projectId={projectId}
             projectPath={project.path}
           />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex-1 min-h-0 relative">
+        <ResizablePanelGroup
+          className="h-full"
+          defaultLayout={restoredCenterLayout}
+          onLayoutChange={handleCenterLayoutChange}
+          orientation="vertical"
+          ref={centerPanelGroupRef}
+        >
+          <ResizablePanel defaultSize={60} id="center-editor" minSize={20}>
+            <CodeEditorPanel />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={40} id="center-terminal" minSize={15}>
+            <Terminal
+              isRestoring={isRestoringTerminals}
+              projectId={projectId}
+              projectPath={project.path}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    )
+  }
+
+  return (
+    <main className="h-full flex flex-col overflow-hidden bg-background">
+      <SectionNav
+        activeView="workspace"
+        onViewChange={view => setActiveView(view)}
+        subtitle={project.path}
+        title={project.name}
+      />
+      {renderWorkspaceContent()}
       <PinnedProcessIndicator />
     </main>
   )

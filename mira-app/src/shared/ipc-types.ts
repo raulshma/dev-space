@@ -15,6 +15,8 @@ import type {
   GitTelemetry,
   AIProvider,
   PinnedProcess,
+  CustomTheme,
+  CreateCustomThemeInput,
 } from './models'
 
 // IPC Channel Constants
@@ -233,6 +235,13 @@ export const IPC_CHANNELS = {
   AUTO_MODE_V2_FEATURE_PROGRESS: 'autoModeV2:featureProgress',
   AUTO_MODE_V2_PLAN_GENERATED: 'autoModeV2:planGenerated',
   AUTO_MODE_V2_RATE_LIMIT_WAIT: 'autoModeV2:rateLimitWait',
+
+  // Custom Theme operations
+  THEME_LIST: 'theme:list',
+  THEME_GET: 'theme:get',
+  THEME_CREATE: 'theme:create',
+  THEME_UPDATE: 'theme:update',
+  THEME_DELETE: 'theme:delete',
 } as const
 
 // Project Request/Response Types
@@ -259,6 +268,46 @@ export interface ProjectCreateRequest {
 
 export interface ProjectCreateResponse {
   project: Project
+}
+
+// Custom Theme Request/Response Types
+export interface ThemeListRequest {}
+
+export interface ThemeListResponse {
+  themes: CustomTheme[]
+}
+
+export interface ThemeGetRequest {
+  id: string
+}
+
+export interface ThemeGetResponse {
+  theme: CustomTheme | null
+}
+
+export interface ThemeCreateRequest {
+  data: CreateCustomThemeInput
+}
+
+export interface ThemeCreateResponse {
+  theme: CustomTheme
+}
+
+export interface ThemeUpdateRequest {
+  id: string
+  data: Partial<CreateCustomThemeInput>
+}
+
+export interface ThemeUpdateResponse {
+  theme: CustomTheme
+}
+
+export interface ThemeDeleteRequest {
+  id: string
+}
+
+export interface ThemeDeleteResponse {
+  success: boolean
 }
 
 export interface ProjectUpdateRequest {

@@ -64,129 +64,134 @@ export const TasksFilters = memo(function TasksFilters({
   }
 
   return (
-    <div className="bg-card border-b border-border px-6 py-3">
-      <div className="flex items-center gap-4">
+    <div className="bg-card border-b border-border px-4 py-3 sm:px-6">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         {/* Search */}
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9"
+            className="pl-9 h-9"
             onChange={e => onFilterChange({ searchQuery: e.target.value })}
             placeholder="Search tasks..."
             value={filters.searchQuery || ''}
           />
         </div>
 
-        {/* Status filter */}
-        <div className="flex items-center gap-2">
-          <IconFilter className="h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-0">
+          {/* Status filter */}
+          <div className="flex items-center gap-2">
+            <Select
+              onValueChange={value =>
+                onFilterChange({ status: value as TasksFilter['status'] })
+              }
+              value={filters.status || 'all'}
+            >
+              <SelectTrigger className="w-[120px] sm:w-[140px] h-9">
+                <div className="flex items-center gap-2">
+                  <IconFilter className="h-4 w-4 text-muted-foreground shrink-0 sm:hidden" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="queued">Queued</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="stopped">Stopped</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Agent type filter */}
           <Select
             onValueChange={value =>
-              onFilterChange({ status: value as TasksFilter['status'] })
+              onFilterChange({ agentType: value as TasksFilter['agentType'] })
             }
-            value={filters.status || 'all'}
+            value={filters.agentType || 'all'}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[120px] sm:w-[150px] h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="queued">Queued</SelectItem>
-              <SelectItem value="running">Running</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="stopped">Stopped</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="autonomous">Autonomous</SelectItem>
+              <SelectItem value="feature">Feature</SelectItem>
             </SelectContent>
           </Select>
-        </div>
 
-        {/* Agent type filter */}
-        <Select
-          onValueChange={value =>
-            onFilterChange({ agentType: value as TasksFilter['agentType'] })
-          }
-          value={filters.agentType || 'all'}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="autonomous">Autonomous</SelectItem>
-            <SelectItem value="feature">Feature</SelectItem>
-          </SelectContent>
-        </Select>
+          {/* Branch filter */}
+          {availableBranches.length > 0 && (
+            <Select
+              onValueChange={value =>
+                onFilterChange({ branch: value as TasksFilter['branch'] })
+              }
+              value={filters.branch || 'all'}
+            >
+              <SelectTrigger className="w-[140px] sm:w-[180px] h-9">
+                <div className="flex items-center gap-2">
+                  <IconGitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Branches</SelectItem>
+                {availableBranches.map(branch => (
+                  <SelectItem key={branch} value={branch}>
+                    <span className="font-mono text-xs truncate max-w-[140px]">
+                      {branch}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-        {/* Branch filter */}
-        {availableBranches.length > 0 && (
+          {/* Sort */}
           <Select
             onValueChange={value =>
-              onFilterChange({ branch: value as TasksFilter['branch'] })
+              onFilterChange({ sortBy: value as TasksFilter['sortBy'] })
             }
-            value={filters.branch || 'all'}
+            value={filters.sortBy || 'createdAt'}
           >
-            <SelectTrigger className="w-[180px]">
-              <div className="flex items-center gap-2">
-                <IconGitBranch className="h-3.5 w-3.5 text-muted-foreground" />
-                <SelectValue />
-              </div>
+            <SelectTrigger className="w-[120px] sm:w-[140px] h-9">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Branches</SelectItem>
-              {availableBranches.map(branch => (
-                <SelectItem key={branch} value={branch}>
-                  <span className="font-mono text-xs truncate max-w-[140px]">
-                    {branch}
-                  </span>
-                </SelectItem>
-              ))}
+              <SelectItem value="createdAt">Created Date</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
             </SelectContent>
           </Select>
-        )}
 
-        {/* Sort */}
-        <Select
-          onValueChange={value =>
-            onFilterChange({ sortBy: value as TasksFilter['sortBy'] })
-          }
-          value={filters.sortBy || 'createdAt'}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="createdAt">Created Date</SelectItem>
-            <SelectItem value="status">Status</SelectItem>
-            <SelectItem value="priority">Priority</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Sort order toggle */}
-        <Button
-          onClick={() =>
-            onFilterChange({
-              sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
-            })
-          }
-          size="icon"
-          variant="outline"
-        >
-          {filters.sortOrder === 'asc' ? (
-            <IconSortAscending className="h-4 w-4" />
-          ) : (
-            <IconSortDescending className="h-4 w-4" />
-          )}
-        </Button>
-
-        {/* Clear filters */}
-        {hasActiveFilters && (
-          <Button onClick={handleClearFilters} size="sm" variant="ghost">
-            <IconX className="h-4 w-4 mr-1" />
-            Clear
+          {/* Sort order toggle */}
+          <Button
+            className="h-9 w-9 shrink-0"
+            onClick={() =>
+              onFilterChange({
+                sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
+              })
+            }
+            size="icon"
+            variant="outline"
+          >
+            {filters.sortOrder === 'asc' ? (
+              <IconSortAscending className="h-4 w-4" />
+            ) : (
+              <IconSortDescending className="h-4 w-4" />
+            )}
           </Button>
-        )}
+
+          {/* Clear filters */}
+          {hasActiveFilters && (
+            <Button className="h-9" onClick={handleClearFilters} size="sm" variant="ghost">
+              <IconX className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Clear</span>
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -10,13 +10,18 @@ import { useShortcuts } from 'renderer/hooks/use-shortcuts'
 import { SETTING_KEYS } from 'renderer/hooks/use-settings'
 import { useRunningProjectsInit } from 'renderer/hooks/use-running-projects'
 import { useRunningTasksInit } from 'renderer/hooks/use-running-tasks'
+import { useTheme } from 'renderer/hooks/use-theme'
 
 export function MainScreen() {
+  const activeProjectId = useAppStore(state => state.activeProjectId)
   const openCommandPalette = useAppStore(state => state.openCommandPalette)
   const openSettingsPanel = useAppStore(state => state.openSettingsPanel)
   const toggleZenMode = useAppStore(state => state.toggleZenMode)
   const toggleSidebar = useAppStore(state => state.toggleSidebar)
   const setActiveProject = useAppStore(state => state.setActiveProject)
+
+  // Apply project theme
+  useTheme(activeProjectId)
 
   // Track if we've restored the last project
   const hasRestoredLastProject = useRef(false)
@@ -103,9 +108,7 @@ export function MainScreen() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AppShell />
-      </QueryClientProvider>
+      <AppShell />
     </ErrorBoundary>
   )
 }

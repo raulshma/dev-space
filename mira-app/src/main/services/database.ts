@@ -14,6 +14,8 @@ import type {
   CreateCommandInput,
   CreateBlueprintInput,
   ProjectFilter,
+  CustomTheme,
+  CreateCustomThemeInput,
 } from 'shared/models'
 import type {
   AIRequestLog,
@@ -41,6 +43,7 @@ interface ProjectRow {
   updated_at: number
   last_opened_at: number | null
   is_missing: number
+  theme_id: string | null
 }
 
 interface TagRow {
@@ -64,6 +67,15 @@ interface BlueprintRow {
   description: string | null
   structure_json: string
   created_at: number
+}
+
+interface CustomThemeRow {
+  id: string
+  name: string
+  description: string | null
+  colors_json: string
+  created_at: number
+  updated_at: number
 }
 
 // AI Request Log row interface
@@ -243,7 +255,8 @@ export class DatabaseService {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         last_opened_at INTEGER,
-        is_missing INTEGER DEFAULT 0
+        is_missing INTEGER DEFAULT 0,
+        theme_id TEXT
       )
     `)
 
@@ -275,6 +288,18 @@ export class DatabaseService {
         state_json TEXT NOT NULL,
         updated_at INTEGER NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Custom Themes table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS custom_themes (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        colors_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       )
     `)
 
@@ -685,10 +710,44 @@ export class DatabaseService {
       }
     }
 
+    // Migration 4: Add theme_id to projects table
+    if (currentVersion < 5) {
+      try {
+        const tableInfo = this.db
+          .prepare('PRAGMA table_info(projects)')
+          .all() as Array<{ name: string }>
+        const columnNames = tableInfo.map(col => col.name)
+
+        if (!columnNames.includes('theme_id')) {
+          this.db.exec('ALTER TABLE projects ADD COLUMN theme_id TEXT')
+        }
+      } catch (error) {
+        console.error('Migration 4 (theme_id) failed:', error)
+      }
+    }
+
+    // Migration 5: Add custom_themes table
+    if (currentVersion < 6) {
+      try {
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS custom_themes (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            colors_json TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        `)
+      } catch (error) {
+        console.error('Migration 5 (custom_themes) failed:', error)
+      }
+    }
+
     // Set schema version
     this.db
       .prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-      .run('schema_version', '4')
+      .run('schema_version', '6')
   }
 
   /**
@@ -779,14 +838,14 @@ export class DatabaseService {
     const now = Date.now()
 
     const stmt = db.prepare(`
-      INSERT INTO projects (id, name, path, created_at, updated_at, is_missing)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, name, path, created_at, updated_at, is_missing, theme_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
 
     // Check if path exists
     const isMissing = !fs.existsSync(data.path)
 
-    stmt.run(id, data.name, data.path, now, now, isMissing ? 1 : 0)
+    stmt.run(id, data.name, data.path, now, now, isMissing ? 1 : 0, null)
 
     const project = this.getProject(id)
     if (!project) {
@@ -819,6 +878,11 @@ export class DatabaseService {
       params.push(data.lastOpenedAt.getTime())
     }
 
+    if (data.themeId !== undefined) {
+      updates.push('theme_id = ?')
+      params.push(data.themeId)
+    }
+
     // Always update the updated_at timestamp
     updates.push('updated_at = ?')
     params.push(Date.now())
@@ -845,9 +909,120 @@ export class DatabaseService {
    */
   deleteProject(id: string): void {
     const db = this.getDb()
+    db.prepare('DELETE FROM projects WHERE id = ?').run(id)
+  }
 
-    const stmt = db.prepare('DELETE FROM projects WHERE id = ?')
-    stmt.run(id)
+  // ============================================================================
+  // CUSTOM THEME CRUD OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get all custom themes
+   */
+  getCustomThemes(): CustomTheme[] {
+    const db = this.getDb()
+    const stmt = db.prepare('SELECT * FROM custom_themes ORDER BY updated_at DESC')
+    const rows = stmt.all() as CustomThemeRow[]
+    return rows.map(row => this.rowToCustomTheme(row))
+  }
+
+  /**
+   * Get a single custom theme by ID
+   */
+  getCustomTheme(id: string): CustomTheme | null {
+    const db = this.getDb()
+    const stmt = db.prepare('SELECT * FROM custom_themes WHERE id = ?')
+    const row = stmt.get(id) as CustomThemeRow | undefined
+    return row ? this.rowToCustomTheme(row) : null
+  }
+
+  /**
+   * Create a new custom theme
+   */
+  createCustomTheme(data: CreateCustomThemeInput): CustomTheme {
+    const db = this.getDb()
+    const id = `custom-${this.generateId()}`
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO custom_themes (id, name, description, colors_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id,
+      data.name,
+      data.description || null,
+      JSON.stringify(data.colors),
+      now,
+      now
+    )
+
+    const theme = this.getCustomTheme(id)
+    if (!theme) throw new Error(`Failed to create custom theme ${id}`)
+    return theme
+  }
+
+  /**
+   * Update a custom theme
+   */
+  updateCustomTheme(id: string, data: Partial<CreateCustomThemeInput>): CustomTheme {
+    const db = this.getDb()
+    const current = this.getCustomTheme(id)
+    if (!current) throw new Error(`Theme ${id} not found`)
+
+    const updates: string[] = []
+    const params: (string | number | null)[] = []
+
+    if (data.name !== undefined) {
+      updates.push('name = ?')
+      params.push(data.name)
+    }
+
+    if (data.description !== undefined) {
+      updates.push('description = ?')
+      params.push(data.description || null)
+    }
+
+    if (data.colors !== undefined) {
+      updates.push('colors_json = ?')
+      params.push(JSON.stringify(data.colors))
+    }
+
+    updates.push('updated_at = ?')
+    params.push(Date.now())
+
+    params.push(id)
+
+    db.prepare(`
+      UPDATE custom_themes
+      SET ${updates.join(', ')}
+      WHERE id = ?
+    `).run(...params)
+
+    return this.getCustomTheme(id)!
+  }
+
+  /**
+   * Delete a custom theme
+   */
+  deleteCustomTheme(id: string): void {
+    const db = this.getDb()
+    db.prepare('DELETE FROM custom_themes WHERE id = ?').run(id)
+  }
+
+  /**
+   * Convert a CustomThemeRow to a CustomTheme object
+   */
+  private rowToCustomTheme(row: CustomThemeRow): CustomTheme {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || undefined,
+      colors: JSON.parse(row.colors_json),
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    }
   }
 
   /**
@@ -883,6 +1058,7 @@ export class DatabaseService {
       updatedAt: new Date(row.updated_at),
       lastOpenedAt: row.last_opened_at ? new Date(row.last_opened_at) : null,
       isMissing,
+      themeId: row.theme_id || undefined,
       tags: tagRows.map(tagRow => ({
         id: tagRow.id,
         name: tagRow.name,

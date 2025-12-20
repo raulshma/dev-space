@@ -9,6 +9,7 @@ export interface Project {
   lastOpenedAt: Date | null
   isMissing: boolean
   tags: Tag[]
+  themeId?: string
 }
 
 export interface Tag {
@@ -233,6 +234,7 @@ export interface UpdateProjectInput {
   name?: string
   path?: string
   lastOpenedAt?: Date
+  themeId?: string
 }
 
 export interface CreateTagInput {
@@ -256,4 +258,19 @@ export interface CreateBlueprintInput {
 export interface ProjectFilter {
   tagFilter?: string[]
   searchQuery?: string
+}
+
+export interface CustomTheme {
+  id: string
+  name: string
+  description?: string
+  colors: Record<string, string>
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface CreateCustomThemeInput {
+  name: string
+  description?: string
+  colors: Record<string, string>
 }

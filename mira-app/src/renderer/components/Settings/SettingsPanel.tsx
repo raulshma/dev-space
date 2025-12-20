@@ -18,6 +18,7 @@ import {
   IconRobot,
   IconSparkles,
   IconListCheck,
+  IconPalette,
 } from '@tabler/icons-react'
 import { Sheet, SheetContent } from 'renderer/components/ui/sheet'
 import {
@@ -35,6 +36,7 @@ import { TaskSettings } from './TaskSettings'
 import { ApiKeyManager } from 'renderer/components/Agent/ApiKeyManager'
 import { ModelSelector } from 'renderer/components/Agent/ModelSelector'
 import { AgentConfigPanel } from 'renderer/components/Agent/AgentConfigPanel'
+import { ThemeBuilder } from './ThemeBuilder'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -89,6 +91,13 @@ export function SettingsPanel({
                   >
                     <IconKeyboard className="h-4 w-4" />
                     Keyboard Shortcuts
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="w-full justify-start gap-3 data-[state=active]:bg-primary/10"
+                    value="themes"
+                  >
+                    <IconPalette className="h-4 w-4" />
+                    Custom Themes
                   </TabsTrigger>
 
                   {/* AI Section */}
@@ -157,6 +166,10 @@ export function SettingsPanel({
 
                 <TabsContent className="m-0 p-6" value="shortcuts">
                   <ShortcutEditor />
+                </TabsContent>
+
+                <TabsContent className="m-0 p-6 h-full" value="themes">
+                  <ThemeBuilder />
                 </TabsContent>
 
                 <TabsContent className="m-0 p-6 h-full" value="ai-settings">

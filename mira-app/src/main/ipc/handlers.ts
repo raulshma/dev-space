@@ -162,6 +162,11 @@ import type {
   AutoModeV2StopFeatureRequest,
   AutoModeV2ApprovePlanRequest,
   AutoModeV2RejectPlanRequest,
+  ThemeListRequest,
+  ThemeGetRequest,
+  ThemeCreateRequest,
+  ThemeUpdateRequest,
+  ThemeDeleteRequest,
 } from 'shared/ipc-types'
 
 /**
@@ -249,6 +254,7 @@ export class IPCHandlers {
     this.registerSettingsHandlers()
     this.registerShortcutHandlers()
     this.registerShellHandlers()
+    this.registerThemeHandlers()
     this.registerScriptsHandlers()
     this.registerDialogHandlers()
     // New AI service handlers
@@ -3178,6 +3184,71 @@ export class IPCHandlers {
         }
       )
     }
+  }
+
+  /**
+   * Custom Theme operation handlers
+   */
+  private registerThemeHandlers(): void {
+    ipcMain.handle(
+      IPC_CHANNELS.THEME_LIST,
+      async (_event, _request: ThemeListRequest) => {
+        try {
+          const themes = this.db.getCustomThemes()
+          return { themes }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.THEME_GET,
+      async (_event, request: ThemeGetRequest) => {
+        try {
+          const theme = this.db.getCustomTheme(request.id)
+          return { theme }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.THEME_CREATE,
+      async (_event, request: ThemeCreateRequest) => {
+        try {
+          const theme = this.db.createCustomTheme(request.data)
+          return { theme }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.THEME_UPDATE,
+      async (_event, request: ThemeUpdateRequest) => {
+        try {
+          const theme = this.db.updateCustomTheme(request.id, request.data)
+          return { theme }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.THEME_DELETE,
+      async (_event, request: ThemeDeleteRequest) => {
+        try {
+          this.db.deleteCustomTheme(request.id)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
   }
 
   /**
