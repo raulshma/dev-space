@@ -129,7 +129,7 @@ export const TopNav = memo(function TopNav({
               </span>
               {gitTelemetry?.isGitRepo && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                  <span className="px-1.5 py-0.5 bg-secondary rounded text-xs">
+                  <span className="px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded text-xs">
                     {gitTelemetry.branch || 'main'}
                   </span>
                   {gitTelemetry.ahead > 0 && (

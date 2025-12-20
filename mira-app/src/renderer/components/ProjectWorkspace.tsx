@@ -116,7 +116,7 @@ const WorkspaceHeader = memo(function WorkspaceHeader({
               </h1>
               {gitTelemetry?.isGitRepo && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="px-2 py-0.5 bg-secondary rounded">
+                  <span className="px-2 py-0.5 bg-secondary text-secondary-foreground rounded">
                     {gitTelemetry.branch || 'main'}
                   </span>
                   {gitTelemetry.ahead > 0 && (
