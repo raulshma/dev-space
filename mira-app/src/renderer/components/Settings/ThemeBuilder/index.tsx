@@ -23,7 +23,7 @@ import { toast } from 'sonner'
 export function ThemeBuilder() {
   const { themes, createTheme, updateTheme, deleteTheme, isLoading } = useCustomThemes()
   const [editingThemeId, setEditingThemeId] = useState<string | null>(null)
-  
+
   // Theme state for the builder
   const [themeName, setThemeName] = useState('')
   const [themeDescription, setThemeDescription] = useState('')
@@ -127,9 +127,9 @@ export function ThemeBuilder() {
                   <option value="" disabled>
                     Select a preset to start from...
                   </option>
-                  {PREDEFINED_THEMES.filter(t => t.id !== 'default').map(theme => (
+                  {PREDEFINED_THEMES.map(theme => (
                     <option key={theme.id} value={theme.id}>
-                      {theme.name} — {theme.description}
+                      {theme.name} — {theme.description || 'Default theme'}
                     </option>
                   ))}
                 </select>
@@ -297,7 +297,7 @@ export function ThemeBuilder() {
 
           <aside className="border-l pl-6 flex flex-col space-y-4">
             <h4 className="text-sm font-medium">Quick Preview</h4>
-            <div 
+            <div
               className="flex-1 rounded-xl p-4 border bg-background space-y-4 overflow-hidden relative"
               style={{
                 '--primary': colors.primary,
