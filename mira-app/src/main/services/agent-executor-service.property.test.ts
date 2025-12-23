@@ -143,6 +143,125 @@ function createMockServices() {
 }
 
 describe('Agent Executor Service Property Tests', () => {
+  describe('Recovery: paused tasks survive reload', () => {
+    it('does not convert paused Claude Code tasks to stopped during initialize()', async () => {
+      const services = createMockServices()
+
+      try {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
+
+        const task = services.db.createAgentTask({
+          description: 'paused task',
+          agentType: 'autonomous',
+          targetDirectory: '/test/path/repo',
+        })
+
+        services.db.updateAgentTask(task.id, {
+          status: 'paused',
+          completedAt: undefined,
+          error: undefined,
+        })
+
+        const executor = new AgentExecutorService(
+          services.db,
+          services.processManager,
+          services.taskQueue,
+          services.outputBuffer,
+          services.configService,
+          services.gitService
+        )
+
+        await executor.initialize()
+
+        const reloaded = services.db.getAgentTask(task.id)
+        expect(reloaded?.status).toBe('paused')
+        expect(reloaded?.completedAt).toBeUndefined()
+        expect(reloaded?.error).toBeUndefined()
+      } finally {
+        services.cleanup()
+      }
+    })
+
+    it('repairs tasks previously marked stopped when they were paused', async () => {
+      const services = createMockServices()
+
+      try {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
+
+        const task = services.db.createAgentTask({
+          description: 'was paused',
+          agentType: 'autonomous',
+          targetDirectory: '/test/path/repo',
+        })
+
+        // Simulate legacy behavior
+        services.db.updateAgentTask(task.id, {
+          status: 'stopped',
+          error: 'Task was interrupted by application shutdown (was paused)',
+          completedAt: new Date(),
+        })
+
+        const executor = new AgentExecutorService(
+          services.db,
+          services.processManager,
+          services.taskQueue,
+          services.outputBuffer,
+          services.configService,
+          services.gitService
+        )
+
+        await executor.initialize()
+
+        const repaired = services.db.getAgentTask(task.id)
+        expect(repaired?.status).toBe('paused')
+        expect(repaired?.error).toBeUndefined()
+        expect(repaired?.completedAt).toBeUndefined()
+      } finally {
+        services.cleanup()
+      }
+    })
+
+    it('resumeTask() after restart queues task when no in-memory execution exists', async () => {
+      const services = createMockServices()
+
+      try {
+        vi.mocked(fs.existsSync).mockReturnValue(true)
+        vi.spyOn(services.gitService, 'isGitRepo').mockResolvedValue(true)
+        vi.spyOn(services.configService, 'isConfigured').mockResolvedValue(true)
+
+        const task = services.db.createAgentTask({
+          description: 'paused resumable',
+          agentType: 'autonomous',
+          targetDirectory: '/test/path/repo',
+          parameters: { sessionId: 'sess-123' },
+        })
+
+        services.db.updateAgentTask(task.id, { status: 'paused' })
+
+        const executor = new AgentExecutorService(
+          services.db,
+          services.processManager,
+          services.taskQueue,
+          services.outputBuffer,
+          services.configService,
+          services.gitService
+        )
+
+        // Prevent actual execution during test
+        vi.spyOn(executor as any, 'processNextTask').mockResolvedValue(undefined)
+
+        await executor.resumeTask(task.id)
+
+        const updated = services.db.getAgentTask(task.id)
+        expect(updated?.status).toBe('queued')
+      } finally {
+        services.cleanup()
+      }
+    })
+  })
+
   /**
    * **Feature: ai-agent-rework, Property 9: Task Creation Adds to Backlog**
    * **Validates: Requirements 6.4**
@@ -353,7 +472,7 @@ describe('Agent Executor Service Property Tests', () => {
         'failed',
         'stopped',
       ],
-      paused: ['running', 'stopped', 'completed'],
+      paused: ['running', 'queued', 'stopped', 'completed'],
       awaiting_approval: ['queued', 'stopped', 'failed'],
       review: ['queued', 'running', 'completed', 'stopped'],
       completed: ['pending', 'archived'],

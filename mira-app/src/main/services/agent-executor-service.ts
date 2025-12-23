@@ -120,7 +120,8 @@ const VALID_STATE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
     'failed',
     'stopped',
   ],
-  paused: ['running', 'stopped', 'completed'],
+  // Paused tasks can be re-queued on resume after app restart (no in-memory process to SIGCONT)
+  paused: ['running', 'queued', 'stopped', 'completed'],
   awaiting_approval: ['queued', 'stopped', 'failed'],
   review: ['queued', 'running', 'completed', 'stopped'],
   completed: ['pending', 'archived'],
@@ -293,8 +294,8 @@ export class AgentExecutorService
    * Initialize the service and recover from previous session
    *
    * Called after database is initialized. Recovers tasks that were
-   * interrupted by a previous shutdown (running/queued/paused tasks
-   * are reset to stopped status).
+    * interrupted by a previous shutdown (running/queued tasks
+    * are reset to stopped status; paused tasks remain paused).
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -314,10 +315,30 @@ export class AgentExecutorService
    * Recover tasks that were interrupted by app shutdown
    *
    * - Jules tasks: Fetch latest status from Google Jules API (they run in the cloud)
-   * - Claude Code tasks: Mark as stopped (can be auto-resumed based on setting)
+   * - Claude Code tasks: Mark running/queued as stopped (can be auto-resumed based on setting)
+   * - Paused Claude Code tasks remain paused across restart
    */
   private async recoverInterruptedTasks(): Promise<void> {
-    const interruptedStatuses: TaskStatus[] = ['running', 'queued', 'paused']
+    // Repair previously-misclassified paused tasks (older versions marked paused tasks as stopped).
+    // If we see a stopped task with an "interrupted" message that says it was paused, restore it.
+    const stoppedTasks = this.db.getAgentTasks({ status: 'stopped' })
+    for (const task of stoppedTasks) {
+      if (
+        task.serviceType !== 'google-jules' &&
+        task.error?.includes('interrupted by application shutdown') &&
+        task.error?.includes('(was paused)')
+      ) {
+        this.db.updateAgentTask(task.id, {
+          status: 'paused',
+          error: null,
+          completedAt: null,
+          exitCode: null,
+        })
+      }
+    }
+
+    // Only running/queued tasks are truly "interrupted" for local Claude Code executions.
+    const interruptedStatuses: TaskStatus[] = ['running', 'queued']
 
     for (const status of interruptedStatuses) {
       const tasks = this.db.getAgentTasks({ status })
@@ -342,6 +363,12 @@ export class AgentExecutorService
         // Persist any buffered output that might exist
         await this.outputBuffer.persist(task.id)
       }
+    }
+
+    // Paused tasks are not marked as interrupted, but we still persist any output buffer.
+    const pausedTasks = this.db.getAgentTasks({ status: 'paused' })
+    for (const task of pausedTasks) {
+      await this.outputBuffer.persist(task.id)
     }
   }
 
@@ -769,6 +796,48 @@ export class AgentExecutorService
         AgentExecutorErrorCode.INVALID_STATE_TRANSITION,
         taskId
       )
+    }
+
+    // If the app restarted, we won't have an in-memory paused process to resume.
+    // In that case, "resume" means re-queueing the task and continuing from the stored session
+    // (or starting fresh if no sessionId exists).
+    const hasInMemoryExecution =
+      this.claudeSdkService.isPaused(taskId) || this.taskProcesses.has(taskId)
+
+    if (!hasInMemoryExecution) {
+      // Validate configuration (same as start/restart)
+      const isConfigured = await this.configService.isConfigured()
+      if (!isConfigured) {
+        throw new AgentExecutorError(
+          'Agent environment is not properly configured',
+          AgentExecutorErrorCode.INVALID_CONFIGURATION,
+          taskId
+        )
+      }
+
+      const hasSession = !!task.parameters?.sessionId
+      const line = this.outputBuffer.append(
+        taskId,
+        `[Mira] Resuming paused task after restart${hasSession ? '' : ' (no previous session found)'}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', taskId, line)
+
+      // Queue the task for execution; it will transition to running when picked up.
+      await this.updateTask(taskId, {
+        status: 'queued',
+        error: null,
+        completedAt: null,
+        exitCode: null,
+      })
+
+      this.taskQueue.enqueue(taskId)
+
+      if (!this.taskQueue.isProcessing()) {
+        await this.processNextTask()
+      }
+
+      return
     }
 
     // Resume Claude SDK execution

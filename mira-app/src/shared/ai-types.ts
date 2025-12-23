@@ -639,12 +639,13 @@ export interface UpdateAgentTaskInput {
   parameters?: AgentParameters
   status?: TaskStatus
   priority?: number
-  processId?: number
-  exitCode?: number
-  error?: string
+  // These fields can be cleared by setting them to null
+  processId?: number | null
+  exitCode?: number | null
+  error?: string | null
   fileChanges?: FileChangeSummary
-  startedAt?: Date
-  completedAt?: Date
+  startedAt?: Date | null
+  completedAt?: Date | null
   /** Working directory where agent runs */
   workingDirectory?: string
   /** Current execution step */

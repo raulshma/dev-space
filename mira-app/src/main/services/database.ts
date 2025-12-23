@@ -1944,12 +1944,12 @@ export class DatabaseService {
 
     if (data.startedAt !== undefined) {
       updates.push('started_at = ?')
-      params.push(data.startedAt.getTime())
+      params.push(data.startedAt ? data.startedAt.getTime() : null)
     }
 
     if (data.completedAt !== undefined) {
       updates.push('completed_at = ?')
-      params.push(data.completedAt.getTime())
+      params.push(data.completedAt ? data.completedAt.getTime() : null)
     }
 
     if (data.julesSessionId !== undefined) {
