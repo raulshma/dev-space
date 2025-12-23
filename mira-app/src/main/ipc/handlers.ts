@@ -124,7 +124,10 @@ import type { AgentService } from 'main/services/agent-service'
 import type { AutoModeService } from 'main/services/auto-mode-service'
 import type { ReviewService } from 'main/services/review-service'
 import { ProviderFactory } from 'main/services/providers'
-import { loadContextFiles, combineSystemPrompts } from 'main/services/context-loader'
+import {
+  loadContextFiles,
+  combineSystemPrompts,
+} from 'main/services/context-loader'
 import type {
   ThemeListRequest,
   ThemeGetRequest,
@@ -300,7 +303,10 @@ When done, wrap your final summary in <summary> tags like this:
 
 This helps parse your summary correctly in the output logs.`
 
-      const systemPrompt = combineSystemPrompts(contextFilesPrompt || undefined, baseSystemPrompt)
+      const systemPrompt = combineSystemPrompts(
+        contextFilesPrompt || undefined,
+        baseSystemPrompt
+      )
 
       // Send initial output to show task is starting
       const startLine: import('shared/ai-types').OutputLine = {
@@ -344,7 +350,9 @@ This helps parse your summary correctly in the output logs.`
           break
         }
 
-        console.log(`[IPCHandlers] Task ${taskId} received message type: ${msg.type}`)
+        console.log(
+          `[IPCHandlers] Task ${taskId} received message type: ${msg.type}`
+        )
 
         if (msg.type === 'assistant' && msg.message?.content) {
           for (const block of msg.message.content) {
@@ -401,9 +409,10 @@ This helps parse your summary correctly in the output logs.`
               }
             } else if (block.type === 'tool_result') {
               // Log tool result
-              const resultContent = typeof block.content === 'string'
-                ? block.content
-                : JSON.stringify(block.content, null, 2)
+              const resultContent =
+                typeof block.content === 'string'
+                  ? block.content
+                  : JSON.stringify(block.content, null, 2)
               const toolResultOutput = `\n[Tool Result]\n${resultContent}\n`
               const outputLine: import('shared/ai-types').OutputLine = {
                 id: outputLineId++,
@@ -432,9 +441,12 @@ This helps parse your summary correctly in the output logs.`
           // User messages (tool results from SDK)
           if (msg.message?.content) {
             const content = Array.isArray(msg.message.content)
-              ? msg.message.content.map((b: { type: string; text?: string; content?: string }) =>
-                  b.type === 'text' ? b.text : b.content
-                ).join('\n')
+              ? msg.message.content
+                  .map(
+                    (b: { type: string; text?: string; content?: string }) =>
+                      b.type === 'text' ? b.text : b.content
+                  )
+                  .join('\n')
               : String(msg.message.content)
 
             if (content) {
@@ -542,7 +554,10 @@ This helps parse your summary correctly in the output logs.`
 
       // Notify completion
       if (this.globalProcessService) {
-        this.globalProcessService.notifyTaskCompleted(taskId, task.targetDirectory)
+        this.globalProcessService.notifyTaskCompleted(
+          taskId,
+          task.targetDirectory
+        )
       }
 
       // Emit final status update
@@ -553,9 +568,11 @@ This helps parse your summary correctly in the output logs.`
         })
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
       console.error(`[IPCHandlers] Task ${taskId} error:`, errorMessage)
-      const isAbort = errorMessage.includes('abort') || abortController.signal.aborted
+      const isAbort =
+        errorMessage.includes('abort') || abortController.signal.aborted
 
       if (!isAbort) {
         // Update task as failed
@@ -2865,6 +2882,56 @@ This helps parse your summary correctly in the output logs.`
       }
     )
 
+    // Resume feature (continue from existing context)
+    ipcMain.handle(
+      IPC_CHANNELS.AUTO_MODE_RESUME_FEATURE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeResumeFeatureRequest
+      ) => {
+        try {
+          if (!this.autoModeService) {
+            return {
+              error: 'Auto mode service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const feature = await this.autoModeService.resumeFeature(
+            request.projectPath,
+            request.featureId
+          )
+          return { feature }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Check if feature has existing context
+    ipcMain.handle(
+      IPC_CHANNELS.AUTO_MODE_CHECK_CONTEXT,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeCheckContextRequest
+      ) => {
+        try {
+          if (!this.autoModeService) {
+            return {
+              error: 'Auto mode service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const hasContext = await this.autoModeService.contextExists(
+            request.projectPath,
+            request.featureId
+          )
+          return { hasContext }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
     // Stop feature
     ipcMain.handle(
       IPC_CHANNELS.AUTO_MODE_STOP_FEATURE,
@@ -3498,7 +3565,10 @@ This helps parse your summary correctly in the output logs.`
 
           // Execute task asynchronously
           this.executeTaskAsync(request.taskId, task).catch((error: Error) => {
-            console.error(`[IPCHandlers] Task ${request.taskId} execution error:`, error)
+            console.error(
+              `[IPCHandlers] Task ${request.taskId} execution error:`,
+              error
+            )
           })
 
           return { success: true }
@@ -3616,7 +3686,10 @@ This helps parse your summary correctly in the output logs.`
 
           // Only paused or stopped tasks can be resumed
           if (task.status !== 'paused' && task.status !== 'stopped') {
-            return { error: 'Task is not paused or stopped', code: 'INVALID_STATE' }
+            return {
+              error: 'Task is not paused or stopped',
+              code: 'INVALID_STATE',
+            }
           }
 
           // Update status to running
@@ -3644,7 +3717,10 @@ This helps parse your summary correctly in the output logs.`
 
           // Re-execute task asynchronously (continues from existing output context)
           this.executeTaskAsync(request.taskId, task).catch((error: Error) => {
-            console.error(`[IPCHandlers] Task ${request.taskId} resume error:`, error)
+            console.error(
+              `[IPCHandlers] Task ${request.taskId} resume error:`,
+              error
+            )
           })
 
           return { success: true }
@@ -3735,7 +3811,10 @@ This helps parse your summary correctly in the output logs.`
 
           // Task must be in awaiting_approval status
           if (task.status !== 'awaiting_approval') {
-            return { error: 'Task is not awaiting approval', code: 'INVALID_STATE' }
+            return {
+              error: 'Task is not awaiting approval',
+              code: 'INVALID_STATE',
+            }
           }
 
           // Update task status to running and continue execution
@@ -3754,7 +3833,10 @@ This helps parse your summary correctly in the output logs.`
 
           // Continue task execution
           this.executeTaskAsync(request.taskId, task).catch((error: Error) => {
-            console.error(`[IPCHandlers] Task ${request.taskId} execution error after approval:`, error)
+            console.error(
+              `[IPCHandlers] Task ${request.taskId} execution error after approval:`,
+              error
+            )
           })
 
           return { task: this.db.getAgentTask(request.taskId) }
@@ -3776,7 +3858,10 @@ This helps parse your summary correctly in the output logs.`
 
           // Task must be in awaiting_approval status
           if (task.status !== 'awaiting_approval') {
-            return { error: 'Task is not awaiting approval', code: 'INVALID_STATE' }
+            return {
+              error: 'Task is not awaiting approval',
+              code: 'INVALID_STATE',
+            }
           }
 
           // Abort any running execution
@@ -3893,7 +3978,11 @@ This helps parse your summary correctly in the output logs.`
             }
           } else if (config.agentService === 'opencode') {
             // OpenCode can work with multiple providers, at least one key needed
-            if (!config.openaiApiKey && !config.anthropicAuthToken && !config.openrouterApiKey) {
+            if (
+              !config.openaiApiKey &&
+              !config.anthropicAuthToken &&
+              !config.openrouterApiKey
+            ) {
               errors.push({
                 field: 'openaiApiKey',
                 message: 'At least one API key is required for OpenCode',
@@ -3925,11 +4014,18 @@ This helps parse your summary correctly in the output logs.`
         // Check if at least one service has credentials configured
         const hasClaudeCode = !!config.anthropicAuthToken
         const hasJules = !!config.googleApiKey
-        const hasOpenCode = !!(config.openaiApiKey || config.anthropicAuthToken || config.openrouterApiKey)
+        const hasOpenCode = !!(
+          config.openaiApiKey ||
+          config.anthropicAuthToken ||
+          config.openrouterApiKey
+        )
         const hasAider = !!(config.openaiApiKey || config.anthropicAuthToken)
         const hasCustom = !!config.customCommand
 
-        return { isConfigured: hasClaudeCode || hasJules || hasOpenCode || hasAider || hasCustom }
+        return {
+          isConfigured:
+            hasClaudeCode || hasJules || hasOpenCode || hasAider || hasCustom,
+        }
       } catch (error) {
         return this.handleError(error)
       }
@@ -3956,7 +4052,11 @@ This helps parse your summary correctly in the output logs.`
           if (config.googleApiKey) {
             services.push('google-jules')
           }
-          if (config.openaiApiKey || config.anthropicAuthToken || config.openrouterApiKey) {
+          if (
+            config.openaiApiKey ||
+            config.anthropicAuthToken ||
+            config.openrouterApiKey
+          ) {
             services.push('opencode')
           }
 
@@ -3996,7 +4096,10 @@ This helps parse your summary correctly in the output logs.`
             await this.globalProcessService.stopTask(request.taskId)
             return { success: true }
           }
-          return { success: false, error: 'Global process service not available' }
+          return {
+            success: false,
+            error: 'Global process service not available',
+          }
         } catch (error) {
           return this.handleError(error)
         }

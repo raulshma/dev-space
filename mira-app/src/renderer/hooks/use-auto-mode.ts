@@ -362,6 +362,58 @@ export function useExecuteFeature() {
 }
 
 /**
+ * Hook to resume a feature from existing context
+ */
+export function useResumeFeature() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      projectPath,
+      featureId,
+    }: {
+      projectPath: string
+      featureId: string
+    }) => {
+      const response = await window.api.autoMode.resumeFeature({
+        projectPath,
+        featureId,
+      })
+      return response.feature
+    },
+    onSuccess: (_, { projectPath }) => {
+      queryClient.invalidateQueries({
+        queryKey: autoModeKeys.queue(projectPath),
+      })
+      queryClient.invalidateQueries({
+        queryKey: autoModeKeys.state(projectPath),
+      })
+    },
+  })
+}
+
+/**
+ * Hook to check if a feature has existing context
+ */
+export function useCheckFeatureContext() {
+  return useMutation({
+    mutationFn: async ({
+      projectPath,
+      featureId,
+    }: {
+      projectPath: string
+      featureId: string
+    }) => {
+      const response = await window.api.autoMode.checkContext({
+        projectPath,
+        featureId,
+      })
+      return response.hasContext
+    },
+  })
+}
+
+/**
  * Hook to stop a feature execution
  */
 export function useStopFeature() {
@@ -450,7 +502,6 @@ export function useRejectPlan() {
   })
 }
 
-
 /**
  * Main hook for Auto Mode interactions
  *
@@ -482,6 +533,8 @@ export function useAutoMode(projectPath: string | null) {
   const enqueueMutation = useEnqueueFeature()
   const dequeueMutation = useDequeueFeature()
   const executeMutation = useExecuteFeature()
+  const resumeMutation = useResumeFeature()
+  const checkContextMutation = useCheckFeatureContext()
   const stopFeatureMutation = useStopFeature()
   const approvePlanMutation = useApprovePlan()
   const rejectPlanMutation = useRejectPlan()
@@ -579,6 +632,28 @@ export function useAutoMode(projectPath: string | null) {
     [projectPath, executeMutation]
   )
 
+  const resumeFeature = useCallback(
+    async (featureId: string) => {
+      if (!projectPath) return null
+      return resumeMutation.mutateAsync({
+        projectPath,
+        featureId,
+      })
+    },
+    [projectPath, resumeMutation]
+  )
+
+  const checkFeatureContext = useCallback(
+    async (featureId: string) => {
+      if (!projectPath) return false
+      return checkContextMutation.mutateAsync({
+        projectPath,
+        featureId,
+      })
+    },
+    [projectPath, checkContextMutation]
+  )
+
   const stopFeature = useCallback(
     async (featureId: string) => {
       if (!projectPath) return false
@@ -644,6 +719,8 @@ export function useAutoMode(projectPath: string | null) {
     isEnqueuing: enqueueMutation.isPending,
     isDequeuing: dequeueMutation.isPending,
     isExecuting: executeMutation.isPending,
+    isResuming: resumeMutation.isPending,
+    isCheckingContext: checkContextMutation.isPending,
     isStoppingFeature: stopFeatureMutation.isPending,
     isApprovingPlan: approvePlanMutation.isPending,
     isRejectingPlan: rejectPlanMutation.isPending,
@@ -655,6 +732,8 @@ export function useAutoMode(projectPath: string | null) {
     enqueueFeature,
     dequeueFeature,
     executeFeature,
+    resumeFeature,
+    checkFeatureContext,
     stopFeature,
     approvePlan,
     rejectPlan,
@@ -682,6 +761,8 @@ export function useAutoModeActions() {
   const enqueueFeature = useEnqueueFeature()
   const dequeueFeature = useDequeueFeature()
   const executeFeature = useExecuteFeature()
+  const resumeFeature = useResumeFeature()
+  const checkFeatureContext = useCheckFeatureContext()
   const stopFeature = useStopFeature()
   const approvePlan = useApprovePlan()
   const rejectPlan = useRejectPlan()
@@ -693,6 +774,8 @@ export function useAutoModeActions() {
     enqueueFeature: enqueueFeature.mutateAsync,
     dequeueFeature: dequeueFeature.mutateAsync,
     executeFeature: executeFeature.mutateAsync,
+    resumeFeature: resumeFeature.mutateAsync,
+    checkFeatureContext: checkFeatureContext.mutateAsync,
     stopFeature: stopFeature.mutateAsync,
     approvePlan: approvePlan.mutateAsync,
     rejectPlan: rejectPlan.mutateAsync,
@@ -702,6 +785,8 @@ export function useAutoModeActions() {
     isEnqueuing: enqueueFeature.isPending,
     isDequeuing: dequeueFeature.isPending,
     isExecuting: executeFeature.isPending,
+    isResuming: resumeFeature.isPending,
+    isCheckingContext: checkFeatureContext.isPending,
     isStoppingFeature: stopFeature.isPending,
     isApprovingPlan: approvePlan.isPending,
     isRejectingPlan: rejectPlan.isPending,

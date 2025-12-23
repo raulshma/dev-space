@@ -293,7 +293,6 @@ export function useStartConversation() {
   })
 }
 
-
 /**
  * Main hook for Agent interactions
  *
@@ -396,7 +395,12 @@ export function useAgent(sessionId: string | null) {
       )
 
       // Store cleanup functions
-      cleanupRefs.current = [unsubStream, unsubToolUse, unsubError, unsubComplete]
+      cleanupRefs.current = [
+        unsubStream,
+        unsubToolUse,
+        unsubError,
+        unsubComplete,
+      ]
 
       try {
         const response = await window.api.agent.sendMessage({

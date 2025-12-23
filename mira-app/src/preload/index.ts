@@ -398,6 +398,10 @@ import type {
   AutoModeDequeueFeatureResponse,
   AutoModeExecuteFeatureRequest,
   AutoModeExecuteFeatureResponse,
+  AutoModeResumeFeatureRequest,
+  AutoModeResumeFeatureResponse,
+  AutoModeCheckContextRequest,
+  AutoModeCheckContextResponse,
   AutoModeStopFeatureRequest,
   AutoModeStopFeatureResponse,
   AutoModeApprovePlanRequest,
@@ -1561,6 +1565,14 @@ const api = {
       request: AutoModeExecuteFeatureRequest
     ): Promise<AutoModeExecuteFeatureResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_EXECUTE_FEATURE, request),
+    resumeFeature: (
+      request: AutoModeResumeFeatureRequest
+    ): Promise<AutoModeResumeFeatureResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_RESUME_FEATURE, request),
+    checkContext: (
+      request: AutoModeCheckContextRequest
+    ): Promise<AutoModeCheckContextResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_CHECK_CONTEXT, request),
     stopFeature: (
       request: AutoModeStopFeatureRequest
     ): Promise<AutoModeStopFeatureResponse> =>

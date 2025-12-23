@@ -266,9 +266,11 @@ export const IPC_CHANNELS = {
   AUTO_MODE_ENQUEUE_FEATURE: 'autoMode:enqueueFeature',
   AUTO_MODE_DEQUEUE_FEATURE: 'autoMode:dequeueFeature',
   AUTO_MODE_EXECUTE_FEATURE: 'autoMode:executeFeature',
+  AUTO_MODE_RESUME_FEATURE: 'autoMode:resumeFeature',
   AUTO_MODE_STOP_FEATURE: 'autoMode:stopFeature',
   AUTO_MODE_APPROVE_PLAN: 'autoMode:approvePlan',
   AUTO_MODE_REJECT_PLAN: 'autoMode:rejectPlan',
+  AUTO_MODE_CHECK_CONTEXT: 'autoMode:checkContext',
   // Auto mode event channels (main → renderer)
   AUTO_MODE_STATE_CHANGED: 'autoMode:stateChanged',
   AUTO_MODE_FEATURE_STARTED: 'autoMode:featureStarted',
@@ -2334,6 +2336,24 @@ export interface AutoModeExecuteFeatureRequest {
 
 export interface AutoModeExecuteFeatureResponse {
   feature: AutoModeFeature | null
+}
+
+export interface AutoModeResumeFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeResumeFeatureResponse {
+  feature: AutoModeFeature | null
+}
+
+export interface AutoModeCheckContextRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeCheckContextResponse {
+  hasContext: boolean
 }
 
 export interface AutoModeStopFeatureRequest {

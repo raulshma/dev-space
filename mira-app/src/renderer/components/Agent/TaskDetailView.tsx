@@ -35,6 +35,7 @@ import {
   IconAlertTriangle,
   IconArchive,
   IconEye,
+  IconRefresh,
 } from '@tabler/icons-react'
 import {
   useTask,
@@ -48,7 +49,9 @@ import {
   usePauseAgentTask,
   useResumeAgentTask,
   useStopAgentTask,
+  useRestartAgentTask,
 } from 'renderer/hooks/use-agent-tasks'
+import { useAutoMode } from 'renderer/hooks/use-auto-mode'
 import { ReviewPanel } from './ReviewPanel'
 import type { TaskStatus, OutputLine, ExecutionStep } from 'shared/ai-types'
 import { EXECUTION_STEPS } from 'shared/ai-types'
@@ -301,6 +304,7 @@ export function TaskDetailView({
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isUserScrolling, setIsUserScrolling] = useState(false)
+  const [hasResumableContext, setHasResumableContext] = useState(false)
   const lastScrollTop = useRef(0)
   const outputLengthRef = useRef(0)
 
@@ -314,6 +318,32 @@ export function TaskDetailView({
   const pauseTask = usePauseAgentTask()
   const resumeTask = useResumeAgentTask()
   const stopTask = useStopAgentTask()
+  const restartTask = useRestartAgentTask()
+
+  // Auto Mode for resume from context functionality
+  const { checkFeatureContext, resumeFeature, isResuming, isCheckingContext } =
+    useAutoMode(task?.targetDirectory ?? null)
+
+  // Check if task has resumable context when it's failed or stopped
+  useEffect(() => {
+    const checkContext = async () => {
+      if (
+        task &&
+        (task.status === 'failed' || task.status === 'stopped') &&
+        task.targetDirectory
+      ) {
+        try {
+          const hasContext = await checkFeatureContext(taskId)
+          setHasResumableContext(hasContext)
+        } catch {
+          setHasResumableContext(false)
+        }
+      } else {
+        setHasResumableContext(false)
+      }
+    }
+    checkContext()
+  }, [task?.status, task?.targetDirectory, taskId, checkFeatureContext])
 
   // Subscribe to output when task is running
   useEffect(() => {
@@ -405,6 +435,27 @@ export function TaskDetailView({
     }
   }, [stopTask, taskId])
 
+  // Resume from saved context (continues from where it left off)
+  const handleResumeFromContext = useCallback(async () => {
+    try {
+      await resumeFeature(taskId)
+    } catch (error) {
+      console.error('Failed to resume from context:', error)
+    }
+  }, [resumeFeature, taskId])
+
+  // Restart task (starts fresh, optionally resuming session)
+  const handleRestart = useCallback(
+    async (resumeSession = false) => {
+      try {
+        await restartTask.mutateAsync({ taskId, resumeSession })
+      } catch (error) {
+        console.error('Failed to restart task:', error)
+      }
+    },
+    [restartTask, taskId]
+  )
+
   if (!task) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -423,6 +474,7 @@ export function TaskDetailView({
   const canPause = task.status === 'running'
   const canResume = task.status === 'paused'
   const canStop = task.status === 'running' || task.status === 'paused'
+  const canRestart = task.status === 'failed' || task.status === 'stopped'
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -507,6 +559,39 @@ export function TaskDetailView({
                   <IconPlayerStop className="mr-2 h-4 w-4" />
                   Stop
                 </Button>
+              )}
+              {canRestart && (
+                <>
+                  {hasResumableContext ? (
+                    <Button
+                      disabled={isResuming || isCheckingContext}
+                      onClick={handleResumeFromContext}
+                      size="sm"
+                      variant="default"
+                    >
+                      {isResuming ? (
+                        <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <IconRefresh className="mr-2 h-4 w-4" />
+                      )}
+                      Resume from Context
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled={restartTask.isPending}
+                      onClick={() => handleRestart(true)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {restartTask.isPending ? (
+                        <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <IconPlayerPlay className="mr-2 h-4 w-4" />
+                      )}
+                      Restart
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
