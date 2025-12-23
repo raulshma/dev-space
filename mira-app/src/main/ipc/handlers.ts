@@ -128,6 +128,7 @@ import {
   loadContextFiles,
   combineSystemPrompts,
 } from 'main/services/context-loader'
+import type { FeatureSuggestionsService } from 'main/services/feature-suggestions-service'
 import type {
   ThemeListRequest,
   ThemeGetRequest,
@@ -173,6 +174,16 @@ import type {
   AgentTaskStartRequest,
   AgentTaskStopRequest,
   AgentTaskGetOutputRequest,
+  // Feature Suggestions types
+  FeatureSuggestionsGenerateRequest,
+  FeatureSuggestionsListRequest,
+  FeatureSuggestionsGetRequest,
+  FeatureSuggestionsUpdateRequest,
+  FeatureSuggestionsDeleteRequest,
+  FeatureSuggestionsApproveRequest,
+  FeatureSuggestionsRejectRequest,
+  FeatureSuggestionsBulkApproveRequest,
+  FeatureSuggestionsGetBatchesRequest,
 } from 'shared/ipc-types'
 import type {
   AgentEnvironmentConfig,
@@ -208,6 +219,8 @@ export class IPCHandlers {
   // New agent services (AI Agent Rework)
   private agentService?: AgentService
   private autoModeService?: AutoModeService
+  // Feature suggestions service
+  private featureSuggestionsService?: FeatureSuggestionsService
   // Task execution tracking
   private taskAbortControllers: Map<string, AbortController> = new Map()
 
@@ -226,7 +239,8 @@ export class IPCHandlers {
     reviewService?: ReviewService,
     // New agent services (AI Agent Rework)
     agentService?: AgentService,
-    autoModeService?: AutoModeService
+    autoModeService?: AutoModeService,
+    featureSuggestionsService?: FeatureSuggestionsService
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -246,6 +260,7 @@ export class IPCHandlers {
     // New agent services (AI Agent Rework)
     this.agentService = agentService
     this.autoModeService = autoModeService
+    this.featureSuggestionsService = featureSuggestionsService
   }
 
   /**
@@ -392,7 +407,12 @@ This helps parse your summary correctly in the output logs.`
       )
 
       // Send initial output to show task is starting
-      const agentTypeLabel = task.agentType === 'bugfix' ? 'Bugfix' : task.agentType === 'autonomous' ? 'Autonomous' : 'Feature'
+      const agentTypeLabel =
+        task.agentType === 'bugfix'
+          ? 'Bugfix'
+          : task.agentType === 'autonomous'
+            ? 'Autonomous'
+            : 'Feature'
       const startLine: import('shared/ai-types').OutputLine = {
         id: 0,
         taskId,
@@ -746,6 +766,8 @@ This helps parse your summary correctly in the output logs.`
     this.registerAgentTaskHandlers()
     // Running Tasks handlers
     this.registerRunningTasksHandlers()
+    // Feature Suggestions handlers
+    this.registerFeatureSuggestionsHandlers()
   }
 
   /**
@@ -4184,6 +4206,225 @@ This helps parse your summary correctly in the output logs.`
             success: false,
             error: 'Global process service not available',
           }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Feature Suggestions handlers
+   */
+  private registerFeatureSuggestionsHandlers(): void {
+    // Generate suggestions
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_GENERATE,
+      async (_event, request: FeatureSuggestionsGenerateRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          // Set up progress event forwarding
+          const window = BrowserWindow.getAllWindows()[0]
+          const progressHandler = (data: {
+            projectId: string
+            status: string
+            progress: number
+            message: string
+            currentStep?: string
+          }) => {
+            if (window && !window.isDestroyed()) {
+              window.webContents.send(
+                IPC_CHANNELS.FEATURE_SUGGESTIONS_PROGRESS,
+                data
+              )
+            }
+          }
+
+          this.featureSuggestionsService.on('progress', progressHandler)
+
+          try {
+            const result =
+              await this.featureSuggestionsService.generateSuggestions({
+                projectId: request.projectId,
+                projectPath: request.projectPath,
+                focusAreas: request.focusAreas,
+                maxSuggestions: request.maxSuggestions,
+                analyzeCode: request.analyzeCode,
+                analyzeDependencies: request.analyzeDependencies,
+                customContext: request.customContext,
+              })
+
+            return result
+          } finally {
+            this.featureSuggestionsService.off('progress', progressHandler)
+          }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List suggestions
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_LIST,
+      async (_event, request: FeatureSuggestionsListRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const suggestions = this.featureSuggestionsService.getSuggestions(
+            request.filter
+          )
+          return { suggestions }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get single suggestion
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_GET,
+      async (_event, request: FeatureSuggestionsGetRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const suggestion = this.featureSuggestionsService.getSuggestion(
+            request.suggestionId
+          )
+          return { suggestion }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Update suggestion
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_UPDATE,
+      async (_event, request: FeatureSuggestionsUpdateRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const suggestion = this.featureSuggestionsService.updateSuggestion(
+            request.suggestionId,
+            request.updates
+          )
+
+          if (!suggestion) {
+            throw new Error(`Suggestion not found: ${request.suggestionId}`)
+          }
+
+          return { suggestion }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Delete suggestion
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_DELETE,
+      async (_event, request: FeatureSuggestionsDeleteRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          this.featureSuggestionsService.deleteSuggestion(request.suggestionId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Approve suggestion (creates task)
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_APPROVE,
+      async (_event, request: FeatureSuggestionsApproveRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const result = this.featureSuggestionsService.approveSuggestion(
+            request.suggestionId,
+            request.taskOverrides
+          )
+
+          return result
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Reject suggestion
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_REJECT,
+      async (_event, request: FeatureSuggestionsRejectRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const suggestion = this.featureSuggestionsService.rejectSuggestion(
+            request.suggestionId,
+            request.feedback
+          )
+
+          return { suggestion }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Bulk approve suggestions
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_BULK_APPROVE,
+      async (_event, request: FeatureSuggestionsBulkApproveRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const results = this.featureSuggestionsService.bulkApprove(
+            request.suggestionIds,
+            request.taskOverrides
+          )
+
+          return { results }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get suggestion batches
+    ipcMain.handle(
+      IPC_CHANNELS.FEATURE_SUGGESTIONS_GET_BATCHES,
+      async (_event, request: FeatureSuggestionsGetBatchesRequest) => {
+        try {
+          if (!this.featureSuggestionsService) {
+            throw new Error('Feature suggestions service not initialized')
+          }
+
+          const batches = this.featureSuggestionsService.getBatches(
+            request.projectId,
+            request.limit
+          )
+
+          return { batches }
         } catch (error) {
           return this.handleError(error)
         }

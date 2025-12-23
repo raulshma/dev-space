@@ -31,6 +31,7 @@ import type { BrowserWindow } from 'electron'
 import type { ReviewService } from 'main/services/review-service'
 import type { AgentService } from 'main/services/agent-service'
 import type { AutoModeService } from 'main/services/auto-mode-service'
+import type { FeatureSuggestionsService } from 'main/services/feature-suggestions-service'
 
 // ============================================================================
 // Service Instances (lazy-loaded)
@@ -53,6 +54,7 @@ let ipcHandlers: IPCHandlers
 let reviewService: ReviewService
 let agentService: AgentService
 let autoModeService: AutoModeService
+let featureSuggestionsService: FeatureSuggestionsService
 
 /**
  * Initialize core services that are required immediately
@@ -232,7 +234,8 @@ async function initializeIPCHandlers(): Promise<void> {
     sessionService,
     reviewService,
     agentService,
-    autoModeService
+    autoModeService,
+    featureSuggestionsService
   )
 
   ipcHandlers.registerHandlers()
@@ -279,6 +282,15 @@ makeAppWithSingleInstanceLock(async () => {
 
   // Initialize AI and Agent services in parallel
   await Promise.all([initializeAIServices(), initializeAgentServices()])
+
+  // Initialize feature suggestions service (needs both db and aiService)
+  if (aiService) {
+    const { FeatureSuggestionsService } = await import(
+      'main/services/feature-suggestions-service'
+    )
+    featureSuggestionsService = new FeatureSuggestionsService(db, aiService)
+    console.log('[Startup] Feature suggestions service initialized')
+  }
 
   // Initialize IPC handlers
   await initializeIPCHandlers()

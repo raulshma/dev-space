@@ -309,12 +309,12 @@ export function KanbanBoard({
               onDragOver={handleDragOver}
               onDragStart={handleDragStart}
               onDrop={handleColumnDrop}
+              onEditTask={onEditTask}
               onPause={handlePause}
               onResume={handleResume}
               onStart={handleStart}
               onStop={handleStop}
               onTaskSelect={handleTaskSelect}
-              onEditTask={onEditTask}
               selectedTaskId={selectedTaskId}
               status={status}
               tasks={tasksByStatus[status]}

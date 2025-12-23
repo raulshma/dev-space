@@ -46,3 +46,4 @@ export {
   CompactBranchInput,
 } from './BranchInput'
 export { ReviewPanel } from './ReviewPanel'
+export { FeatureSuggestionsPanel } from './FeatureSuggestionsPanel'

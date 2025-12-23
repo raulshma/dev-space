@@ -198,12 +198,12 @@ export const KanbanColumn = memo(function KanbanColumn({
               onDelete={onDelete}
               onDragEnd={onDragEnd}
               onDragStart={onDragStart}
+              onEditTask={onEditTask}
               onPause={onPause}
               onResume={onResume}
               onSelect={onTaskSelect}
               onStart={onStart}
               onStop={onStop}
-              onEditTask={onEditTask}
               status={status}
               task={task}
             />

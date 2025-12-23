@@ -18,13 +18,10 @@ import { Textarea } from 'renderer/components/ui/textarea'
 import { Button } from 'renderer/components/ui/button'
 import { Label } from 'renderer/components/ui/label'
 import { Alert, AlertDescription } from 'renderer/components/ui/alert'
-import {
-  IconAlertTriangle,
-  IconLoader2,
-} from '@tabler/icons-react'
+import { IconAlertTriangle, IconLoader2 } from '@tabler/icons-react'
 import { useUpdateAgentTask } from 'renderer/hooks/use-agent-tasks'
 import type { AgentTask } from 'shared/ai-types'
-import { UpdateAgentTaskInput } from 'shared/ai-types'
+import type { UpdateAgentTaskInput } from 'shared/ai-types'
 
 interface TaskEditDialogProps {
   open: boolean
@@ -97,8 +94,8 @@ export function TaskEditDialog({
     }
   }
 
-  const canEdit = task &&
-    (task.status === 'pending' || task.status === 'queued')
+  const canEdit =
+    task && (task.status === 'pending' || task.status === 'queued')
 
   if (!canEdit && task) {
     return (
@@ -107,14 +104,16 @@ export function TaskEditDialog({
           <DialogHeader>
             <DialogTitle>Cannot Edit Task</DialogTitle>
             <DialogDescription>
-              Tasks can only be edited when they are in pending or queued status.
+              Tasks can only be edited when they are in pending or queued
+              status.
             </DialogDescription>
           </DialogHeader>
 
           <Alert variant="destructive">
             <IconAlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              This task is currently in "{task.status}" status and cannot be edited.
+              This task is currently in "{task.status}" status and cannot be
+              edited.
             </AlertDescription>
           </Alert>
 
@@ -134,7 +133,8 @@ export function TaskEditDialog({
         <DialogHeader>
           <DialogTitle>Edit Task</DialogTitle>
           <DialogDescription>
-            Update the description for this task. This task has not been started yet.
+            Update the description for this task. This task has not been started
+            yet.
           </DialogDescription>
         </DialogHeader>
 
@@ -152,11 +152,15 @@ export function TaskEditDialog({
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Status
+                  </Label>
                   <p className="capitalize">{task.status}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Agent Type</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Agent Type
+                  </Label>
                   <p className="capitalize">{task.agentType}</p>
                 </div>
               </div>
@@ -164,7 +168,9 @@ export function TaskEditDialog({
                 <Label className="text-xs text-muted-foreground">
                   Target Directory
                 </Label>
-                <p className="font-mono text-xs truncate">{task.targetDirectory}</p>
+                <p className="font-mono text-xs truncate">
+                  {task.targetDirectory}
+                </p>
               </div>
             </div>
           )}
@@ -183,7 +189,8 @@ export function TaskEditDialog({
               value={description}
             />
             <p className="text-xs text-muted-foreground">
-              Be specific about the feature, bug fix, or task you want completed.
+              Be specific about the feature, bug fix, or task you want
+              completed.
             </p>
           </div>
         </div>
@@ -191,7 +198,7 @@ export function TaskEditDialog({
         <DialogFooter>
           <Button
             disabled={updateTask.isPending}
-            onClick={ handleClose }
+            onClick={handleClose}
             variant="outline"
           >
             Cancel

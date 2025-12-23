@@ -415,6 +415,26 @@ import type {
   AutoModeFeatureProgressData,
   AutoModePlanGeneratedData,
   AutoModeRateLimitWaitData,
+  // Feature Suggestions types
+  FeatureSuggestionsGenerateRequest,
+  FeatureSuggestionsGenerateResponse,
+  FeatureSuggestionsListRequest,
+  FeatureSuggestionsListResponse,
+  FeatureSuggestionsGetRequest,
+  FeatureSuggestionsGetResponse,
+  FeatureSuggestionsUpdateRequest,
+  FeatureSuggestionsUpdateResponse,
+  FeatureSuggestionsDeleteRequest,
+  FeatureSuggestionsDeleteResponse,
+  FeatureSuggestionsApproveRequest,
+  FeatureSuggestionsApproveResponse,
+  FeatureSuggestionsRejectRequest,
+  FeatureSuggestionsRejectResponse,
+  FeatureSuggestionsBulkApproveRequest,
+  FeatureSuggestionsBulkApproveResponse,
+  FeatureSuggestionsGetBatchesRequest,
+  FeatureSuggestionsGetBatchesResponse,
+  FeatureSuggestionsProgressData,
 } from 'shared/ipc-types'
 
 /**
@@ -1684,6 +1704,82 @@ const api = {
       return () =>
         ipcRenderer.removeListener(
           IPC_CHANNELS.AUTO_MODE_RATE_LIMIT_WAIT,
+          listener
+        )
+    },
+  },
+
+  // Feature Suggestions API
+  featureSuggestions: {
+    // Generate suggestions for a project
+    generate: (
+      request: FeatureSuggestionsGenerateRequest
+    ): Promise<FeatureSuggestionsGenerateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_GENERATE, request),
+
+    // List suggestions with optional filtering
+    list: (
+      request: FeatureSuggestionsListRequest
+    ): Promise<FeatureSuggestionsListResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_LIST, request),
+
+    // Get a single suggestion
+    get: (
+      request: FeatureSuggestionsGetRequest
+    ): Promise<FeatureSuggestionsGetResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_GET, request),
+
+    // Update a suggestion
+    update: (
+      request: FeatureSuggestionsUpdateRequest
+    ): Promise<FeatureSuggestionsUpdateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_UPDATE, request),
+
+    // Delete a suggestion
+    delete: (
+      request: FeatureSuggestionsDeleteRequest
+    ): Promise<FeatureSuggestionsDeleteResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_DELETE, request),
+
+    // Approve a suggestion (creates a task)
+    approve: (
+      request: FeatureSuggestionsApproveRequest
+    ): Promise<FeatureSuggestionsApproveResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_APPROVE, request),
+
+    // Reject a suggestion
+    reject: (
+      request: FeatureSuggestionsRejectRequest
+    ): Promise<FeatureSuggestionsRejectResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_REJECT, request),
+
+    // Bulk approve multiple suggestions
+    bulkApprove: (
+      request: FeatureSuggestionsBulkApproveRequest
+    ): Promise<FeatureSuggestionsBulkApproveResponse> =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.FEATURE_SUGGESTIONS_BULK_APPROVE,
+        request
+      ),
+
+    // Get suggestion batches for a project
+    getBatches: (
+      request: FeatureSuggestionsGetBatchesRequest
+    ): Promise<FeatureSuggestionsGetBatchesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_SUGGESTIONS_GET_BATCHES, request),
+
+    // Subscribe to generation progress events
+    onProgress: (
+      callback: (data: FeatureSuggestionsProgressData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: FeatureSuggestionsProgressData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.FEATURE_SUGGESTIONS_PROGRESS, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.FEATURE_SUGGESTIONS_PROGRESS,
           listener
         )
     },

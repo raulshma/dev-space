@@ -316,6 +316,18 @@ export const IPC_CHANNELS = {
   OPENCODE_ERROR: 'opencode:error',
   OPENCODE_SESSION_INIT: 'opencode:sessionInit',
   OPENCODE_COMPLETE: 'opencode:complete',
+
+  // Feature Suggestions operations
+  FEATURE_SUGGESTIONS_GENERATE: 'featureSuggestions:generate',
+  FEATURE_SUGGESTIONS_LIST: 'featureSuggestions:list',
+  FEATURE_SUGGESTIONS_GET: 'featureSuggestions:get',
+  FEATURE_SUGGESTIONS_UPDATE: 'featureSuggestions:update',
+  FEATURE_SUGGESTIONS_DELETE: 'featureSuggestions:delete',
+  FEATURE_SUGGESTIONS_APPROVE: 'featureSuggestions:approve',
+  FEATURE_SUGGESTIONS_REJECT: 'featureSuggestions:reject',
+  FEATURE_SUGGESTIONS_BULK_APPROVE: 'featureSuggestions:bulkApprove',
+  FEATURE_SUGGESTIONS_GET_BATCHES: 'featureSuggestions:getBatches',
+  FEATURE_SUGGESTIONS_PROGRESS: 'featureSuggestions:progress', // event for generation progress
 } as const
 
 // Project Request/Response Types
@@ -2782,4 +2794,120 @@ export interface ReviewGetOpenTerminalsResponse {
 export interface ReviewStatusUpdateData {
   taskId: string
   status: ReviewStatusInfo
+}
+
+// ============================================================================
+// Feature Suggestions Request/Response Types
+// ============================================================================
+
+export interface FeatureSuggestionsGenerateRequest {
+  projectId: string
+  projectPath: string
+  focusAreas?: string[]
+  maxSuggestions?: number
+  analyzeCode?: boolean
+  analyzeDependencies?: boolean
+  customContext?: string
+}
+
+export interface FeatureSuggestionsGenerateResponse {
+  batchId: string
+  suggestions: import('./ai-types').FeatureSuggestion[]
+  analysisContext: string
+  model: string
+}
+
+export interface FeatureSuggestionsListRequest {
+  filter?: import('./ai-types').FeatureSuggestionFilter
+}
+
+export interface FeatureSuggestionsListResponse {
+  suggestions: import('./ai-types').FeatureSuggestion[]
+}
+
+export interface FeatureSuggestionsGetRequest {
+  suggestionId: string
+}
+
+export interface FeatureSuggestionsGetResponse {
+  suggestion: import('./ai-types').FeatureSuggestion | null
+}
+
+export interface FeatureSuggestionsUpdateRequest {
+  suggestionId: string
+  updates: import('./ai-types').UpdateFeatureSuggestionInput
+}
+
+export interface FeatureSuggestionsUpdateResponse {
+  suggestion: import('./ai-types').FeatureSuggestion
+}
+
+export interface FeatureSuggestionsDeleteRequest {
+  suggestionId: string
+}
+
+export interface FeatureSuggestionsDeleteResponse {
+  success: boolean
+}
+
+export interface FeatureSuggestionsApproveRequest {
+  suggestionId: string
+  /** Optional overrides for the created task */
+  taskOverrides?: {
+    description?: string
+    agentType?: import('./ai-types').AgentType
+    planningMode?: import('./ai-types').PlanningMode
+    requirePlanApproval?: boolean
+    branchName?: string
+  }
+}
+
+export interface FeatureSuggestionsApproveResponse {
+  suggestion: import('./ai-types').FeatureSuggestion
+  task: import('./ai-types').AgentTask
+}
+
+export interface FeatureSuggestionsRejectRequest {
+  suggestionId: string
+  feedback?: string
+}
+
+export interface FeatureSuggestionsRejectResponse {
+  suggestion: import('./ai-types').FeatureSuggestion
+}
+
+export interface FeatureSuggestionsBulkApproveRequest {
+  suggestionIds: string[]
+  /** Optional overrides applied to all created tasks */
+  taskOverrides?: {
+    agentType?: import('./ai-types').AgentType
+    planningMode?: import('./ai-types').PlanningMode
+    requirePlanApproval?: boolean
+  }
+}
+
+export interface FeatureSuggestionsBulkApproveResponse {
+  results: Array<{
+    suggestionId: string
+    success: boolean
+    task?: import('./ai-types').AgentTask
+    error?: string
+  }>
+}
+
+export interface FeatureSuggestionsGetBatchesRequest {
+  projectId: string
+  limit?: number
+}
+
+export interface FeatureSuggestionsGetBatchesResponse {
+  batches: import('./ai-types').SuggestionBatch[]
+}
+
+export interface FeatureSuggestionsProgressData {
+  projectId: string
+  status: 'analyzing' | 'generating' | 'complete' | 'error'
+  progress: number
+  message: string
+  currentStep?: string
 }

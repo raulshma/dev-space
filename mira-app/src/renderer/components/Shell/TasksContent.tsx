@@ -15,12 +15,22 @@ import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
 import { TaskDetailsRow } from 'renderer/components/Tasks/TaskDetailsRow'
-import { TaskCreationDialog, TaskEditDialog } from 'renderer/components/Agent'
+import {
+  TaskCreationDialog,
+  TaskEditDialog,
+  FeatureSuggestionsPanel,
+} from 'renderer/components/Agent'
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from 'renderer/components/ui/resizable'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from 'renderer/components/ui/sheet'
 import type { TaskStatus, AgentType, AgentTask } from 'shared/ai-types'
 
 const TASK_DETAILS_SIZE_KEY = 'mira:task-details-row-size'
@@ -58,6 +68,7 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
 
   // Dialog state
   const [showTaskCreation, setShowTaskCreation] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [editingTask, setEditingTask] = useState<AgentTask | null>(null)
 
   // Task details expanded state (full window)
@@ -102,12 +113,9 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
     [openTaskTab]
   )
 
-  const handleEditTask = useCallback(
-    (task: AgentTask) => {
-      setEditingTask(task)
-    },
-    []
-  )
+  const handleEditTask = useCallback((task: AgentTask) => {
+    setEditingTask(task)
+  }, [])
 
   const handleTaskUpdated = useCallback(() => {
     setEditingTask(null)
@@ -130,6 +138,17 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
     setActiveView('workspace')
   }, [setActiveView])
 
+  const handleOpenSuggestions = useCallback(() => {
+    setShowSuggestions(true)
+  }, [])
+
+  const handleSuggestionApproved = useCallback(
+    (taskId: string) => {
+      openTaskTab(taskId)
+    },
+    [openTaskTab]
+  )
+
   const handleToggleTaskDetailsExpand = useCallback(() => {
     setIsTaskDetailsExpanded(prev => {
       const newValue = !prev
@@ -145,6 +164,7 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
       <TasksHeader
         onCreateTask={() => setShowTaskCreation(true)}
         onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}
+        onOpenSuggestions={activeProjectId ? handleOpenSuggestions : undefined}
         onViewModeChange={setViewMode}
         projectPath={project?.path}
         viewMode={viewMode}
@@ -235,6 +255,27 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
         open={!!editingTask}
         task={editingTask}
       />
+
+      {/* Feature Suggestions Sheet */}
+      <Sheet onOpenChange={setShowSuggestions} open={showSuggestions}>
+        <SheetContent className="w-[450px] sm:w-[540px] p-0" side="right">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Feature Suggestions</SheetTitle>
+          </SheetHeader>
+          {activeProjectId && project?.path ? (
+            <FeatureSuggestionsPanel
+              onSuggestionApproved={handleSuggestionApproved}
+              projectId={activeProjectId}
+              projectName={project?.name}
+              projectPath={project.path}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              Loading project...
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 })

@@ -6,11 +6,17 @@ import {
   IconLoader2,
   IconLayoutKanban,
   IconTable,
+  IconSparkles,
 } from '@tabler/icons-react'
 import { useTaskList, useCurrentTask } from 'renderer/stores/agent-task-store'
 import { AutoModeToggle } from 'renderer/components/Agent/AutoModeToggle'
 import { SectionNav } from 'renderer/components/Shell/SectionNav'
 import { Button as UIButton } from 'renderer/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from 'renderer/components/ui/tooltip'
 
 export type TasksViewMode = 'table' | 'kanban'
 
@@ -21,6 +27,8 @@ interface TasksHeaderProps {
   onViewModeChange?: (mode: TasksViewMode) => void
   /** Project path for auto-mode operations */
   projectPath?: string
+  /** Callback to open feature suggestions panel */
+  onOpenSuggestions?: () => void
 }
 
 export const TasksHeader = memo(function TasksHeader({
@@ -29,6 +37,7 @@ export const TasksHeader = memo(function TasksHeader({
   viewMode = 'kanban',
   onViewModeChange,
   projectPath,
+  onOpenSuggestions,
 }: TasksHeaderProps): React.JSX.Element {
   const tasks = useTaskList()
   const currentTask = useCurrentTask()
@@ -92,6 +101,25 @@ export const TasksHeader = memo(function TasksHeader({
           </UIButton>
         </ButtonGroup>
       )}
+
+      {/* Suggest Features button */}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <UIButton
+              className="h-8 px-3 gap-2 shrink-0"
+              disabled={!onOpenSuggestions}
+              onClick={onOpenSuggestions}
+              size="sm"
+              variant="outline"
+            >
+              <IconSparkles className="h-4 w-4 text-amber-500" />
+              <span className="hidden sm:inline">Suggest</span>
+            </UIButton>
+          }
+        />
+        <TooltipContent>AI Feature Suggestions</TooltipContent>
+      </Tooltip>
 
       <UIButton
         className="h-8 px-3 gap-2 shrink-0"

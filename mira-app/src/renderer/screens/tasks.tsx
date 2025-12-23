@@ -31,12 +31,19 @@ import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
 import { TaskDetailsRow } from 'renderer/components/Tasks/TaskDetailsRow'
 import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
+import { FeatureSuggestionsPanel } from 'renderer/components/Agent/FeatureSuggestionsPanel'
 import { InterruptedTasksNotification } from 'renderer/components/Tasks/InterruptedTasksNotification'
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from 'renderer/components/ui/resizable'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from 'renderer/components/ui/sheet'
 import type { TaskStatus, AgentType } from 'shared/ai-types'
 
 const TASK_DETAILS_SIZE_KEY = 'mira:task-details-row-size'
@@ -76,6 +83,7 @@ function TasksScreenContent(): React.JSX.Element {
 
   // Dialog state
   const [showTaskCreation, setShowTaskCreation] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   // Task details expanded state (full window)
   const [isTaskDetailsExpanded, setIsTaskDetailsExpanded] = useState(() => {
@@ -162,6 +170,17 @@ function TasksScreenContent(): React.JSX.Element {
     setShowTaskCreation(true)
   }, [])
 
+  const handleOpenSuggestions = useCallback(() => {
+    setShowSuggestions(true)
+  }, [])
+
+  const handleSuggestionApproved = useCallback(
+    (taskId: string) => {
+      openTaskTab(taskId)
+    },
+    [openTaskTab]
+  )
+
   const handleFilterChange = useCallback((newFilters: Partial<TasksFilter>) => {
     setFilters(prev => ({ ...prev, ...newFilters }))
   }, [])
@@ -201,6 +220,7 @@ function TasksScreenContent(): React.JSX.Element {
       <TasksHeader
         onCreateTask={handleOpenTaskCreation}
         onGoToWorkspace={activeProjectId ? handleGoToWorkspace : undefined}
+        onOpenSuggestions={activeProjectId ? handleOpenSuggestions : undefined}
         onViewModeChange={setViewMode}
         projectPath={project?.path}
         viewMode={viewMode}
@@ -286,6 +306,27 @@ function TasksScreenContent(): React.JSX.Element {
         projectId={activeProjectId ?? undefined}
         projectName={project?.name}
       />
+
+      {/* Feature Suggestions Sheet */}
+      <Sheet onOpenChange={setShowSuggestions} open={showSuggestions}>
+        <SheetContent className="w-[450px] sm:w-[540px] p-0" side="right">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Feature Suggestions</SheetTitle>
+          </SheetHeader>
+          {activeProjectId && project?.path ? (
+            <FeatureSuggestionsPanel
+              onSuggestionApproved={handleSuggestionApproved}
+              projectId={activeProjectId}
+              projectName={project?.name}
+              projectPath={project.path}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              Loading project...
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

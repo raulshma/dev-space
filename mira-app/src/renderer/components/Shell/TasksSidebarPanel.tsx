@@ -49,12 +49,9 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
     [setSelectedTask]
   )
 
-  const handleEditTask = useCallback(
-    (task: AgentTask) => {
-      setEditingTask(task)
-    },
-    []
-  )
+  const handleEditTask = useCallback((task: AgentTask) => {
+    setEditingTask(task)
+  }, [])
 
   const handleTaskUpdated = useCallback(() => {
     setEditingTask(null)

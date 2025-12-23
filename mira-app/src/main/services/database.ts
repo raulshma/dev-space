@@ -226,6 +226,35 @@ interface AISettingsRow {
   updated_at: number
 }
 
+// Feature Suggestion row interface
+interface FeatureSuggestionRow {
+  id: string
+  project_id: string
+  title: string
+  description: string
+  category: string
+  priority: string
+  complexity: number
+  affected_files_json: string | null
+  rationale: string
+  status: string
+  task_id: string | null
+  feedback: string | null
+  created_at: number
+  updated_at: number
+  resolved_at: number | null
+  batch_id: string | null
+}
+
+// Suggestion Batch row interface
+interface SuggestionBatchRow {
+  id: string
+  project_id: string
+  model: string
+  analysis_context: string | null
+  generated_at: number
+}
+
 export class DatabaseService {
   private static sqliteDb: Database.Database | null = null
   private dbPath: string
@@ -669,6 +698,59 @@ export class DatabaseService {
     // Task Terminals index
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_task_terminals_task ON task_terminals(task_id);
+    `)
+
+    // ============================================================================
+    // FEATURE SUGGESTIONS TABLES
+    // ============================================================================
+
+    // Suggestion Batches table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS suggestion_batches (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        model TEXT NOT NULL,
+        analysis_context TEXT,
+        generated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Suggestion Batches index
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_suggestion_batches_project ON suggestion_batches(project_id);
+    `)
+
+    // Feature Suggestions table
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS feature_suggestions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category TEXT NOT NULL,
+        priority TEXT NOT NULL,
+        complexity INTEGER NOT NULL,
+        affected_files_json TEXT,
+        rationale TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        task_id TEXT,
+        feedback TEXT,
+        created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        updated_at INTEGER DEFAULT (strftime('%s', 'now') * 1000),
+        resolved_at INTEGER,
+        batch_id TEXT,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (task_id) REFERENCES agent_tasks(id) ON DELETE SET NULL,
+        FOREIGN KEY (batch_id) REFERENCES suggestion_batches(id) ON DELETE SET NULL
+      )
+    `)
+
+    // Feature Suggestions indexes
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_feature_suggestions_project ON feature_suggestions(project_id);
+      CREATE INDEX IF NOT EXISTS idx_feature_suggestions_status ON feature_suggestions(status);
+      CREATE INDEX IF NOT EXISTS idx_feature_suggestions_batch ON feature_suggestions(batch_id);
     `)
   }
 
@@ -3855,5 +3937,398 @@ export class DatabaseService {
 
     const stmt = db.prepare('DELETE FROM task_terminals WHERE task_id = ?')
     stmt.run(taskId)
+  }
+
+  // ============================================================================
+  // FEATURE SUGGESTION OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new suggestion batch
+   */
+  createSuggestionBatch(
+    projectId: string,
+    model: string,
+    analysisContext?: string
+  ): import('shared/ai-types').SuggestionBatch {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO suggestion_batches (id, project_id, model, analysis_context, generated_at)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(id, projectId, model, analysisContext ?? null, now)
+
+    return {
+      id,
+      projectId,
+      suggestions: [],
+      generatedAt: new Date(now),
+      model,
+      analysisContext,
+    }
+  }
+
+  /**
+   * Get suggestion batches for a project
+   */
+  getSuggestionBatches(
+    projectId: string,
+    limit?: number
+  ): import('shared/ai-types').SuggestionBatch[] {
+    const db = this.getDb()
+
+    let query =
+      'SELECT * FROM suggestion_batches WHERE project_id = ? ORDER BY generated_at DESC'
+    const params: (string | number)[] = [projectId]
+
+    if (limit) {
+      query += ' LIMIT ?'
+      params.push(limit)
+    }
+
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as SuggestionBatchRow[]
+
+    return rows.map(row => {
+      // Get suggestions for this batch using a direct query
+      const suggestionStmt = db.prepare(
+        'SELECT * FROM feature_suggestions WHERE batch_id = ? ORDER BY created_at DESC'
+      )
+      const suggestionRows = suggestionStmt.all(
+        row.id
+      ) as FeatureSuggestionRow[]
+      const suggestions = suggestionRows.map(r =>
+        this.rowToFeatureSuggestion(r)
+      )
+
+      return {
+        id: row.id,
+        projectId: row.project_id,
+        suggestions,
+        generatedAt: new Date(row.generated_at),
+        model: row.model,
+        analysisContext: row.analysis_context ?? undefined,
+      }
+    })
+  }
+
+  /**
+   * Create a new feature suggestion
+   */
+  createFeatureSuggestion(
+    data: import('shared/ai-types').CreateFeatureSuggestionInput,
+    batchId?: string
+  ): import('shared/ai-types').FeatureSuggestion {
+    const db = this.getDb()
+
+    const id = this.generateId()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO feature_suggestions (
+        id, project_id, title, description, category, priority, complexity,
+        affected_files_json, rationale, status, created_at, updated_at, batch_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      id,
+      data.projectId,
+      data.title,
+      data.description,
+      data.category,
+      data.priority,
+      data.complexity,
+      data.affectedFiles ? JSON.stringify(data.affectedFiles) : null,
+      data.rationale,
+      'pending',
+      now,
+      now,
+      batchId ?? null
+    )
+
+    return {
+      id,
+      projectId: data.projectId,
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      priority: data.priority,
+      complexity: data.complexity,
+      affectedFiles: data.affectedFiles,
+      rationale: data.rationale,
+      status: 'pending',
+      createdAt: new Date(now),
+      updatedAt: new Date(now),
+    }
+  }
+
+  /**
+   * Create multiple feature suggestions in a batch
+   */
+  createFeatureSuggestionsBatch(
+    suggestions: import('shared/ai-types').CreateFeatureSuggestionInput[],
+    batchId: string
+  ): import('shared/ai-types').FeatureSuggestion[] {
+    const db = this.getDb()
+    const now = Date.now()
+
+    const stmt = db.prepare(`
+      INSERT INTO feature_suggestions (
+        id, project_id, title, description, category, priority, complexity,
+        affected_files_json, rationale, status, created_at, updated_at, batch_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    const results: import('shared/ai-types').FeatureSuggestion[] = []
+
+    const insertMany = db.transaction(
+      (items: import('shared/ai-types').CreateFeatureSuggestionInput[]) => {
+        for (const data of items) {
+          const id = this.generateId()
+          stmt.run(
+            id,
+            data.projectId,
+            data.title,
+            data.description,
+            data.category,
+            data.priority,
+            data.complexity,
+            data.affectedFiles ? JSON.stringify(data.affectedFiles) : null,
+            data.rationale,
+            'pending',
+            now,
+            now,
+            batchId
+          )
+
+          results.push({
+            id,
+            projectId: data.projectId,
+            title: data.title,
+            description: data.description,
+            category: data.category,
+            priority: data.priority,
+            complexity: data.complexity,
+            affectedFiles: data.affectedFiles,
+            rationale: data.rationale,
+            status: 'pending',
+            createdAt: new Date(now),
+            updatedAt: new Date(now),
+          })
+        }
+      }
+    )
+
+    insertMany(suggestions)
+
+    return results
+  }
+
+  /**
+   * Get a single feature suggestion by ID
+   */
+  getFeatureSuggestion(
+    id: string
+  ): import('shared/ai-types').FeatureSuggestion | null {
+    const db = this.getDb()
+
+    const stmt = db.prepare('SELECT * FROM feature_suggestions WHERE id = ?')
+    const row = stmt.get(id) as FeatureSuggestionRow | undefined
+
+    if (!row) return null
+
+    return this.rowToFeatureSuggestion(row)
+  }
+
+  /**
+   * Get feature suggestions with optional filtering
+   */
+  getFeatureSuggestions(
+    filter?: import('shared/ai-types').FeatureSuggestionFilter
+  ): import('shared/ai-types').FeatureSuggestion[] {
+    const db = this.getDb()
+
+    let query = 'SELECT * FROM feature_suggestions WHERE 1=1'
+    const params: (string | number)[] = []
+
+    if (filter?.projectId) {
+      query += ' AND project_id = ?'
+      params.push(filter.projectId)
+    }
+
+    if (filter?.status) {
+      query += ' AND status = ?'
+      params.push(filter.status)
+    }
+
+    if (filter?.category) {
+      query += ' AND category = ?'
+      params.push(filter.category)
+    }
+
+    if (filter?.priority) {
+      query += ' AND priority = ?'
+      params.push(filter.priority)
+    }
+
+    query += ' ORDER BY created_at DESC'
+
+    if (filter?.limit) {
+      query += ' LIMIT ?'
+      params.push(filter.limit)
+    }
+
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as FeatureSuggestionRow[]
+
+    return rows.map(row => this.rowToFeatureSuggestion(row))
+  }
+
+  /**
+   * Update a feature suggestion
+   */
+  updateFeatureSuggestion(
+    id: string,
+    data: import('shared/ai-types').UpdateFeatureSuggestionInput
+  ): import('shared/ai-types').FeatureSuggestion | null {
+    const db = this.getDb()
+
+    const updates: string[] = []
+    const params: (string | number | null)[] = []
+
+    if (data.title !== undefined) {
+      updates.push('title = ?')
+      params.push(data.title)
+    }
+
+    if (data.description !== undefined) {
+      updates.push('description = ?')
+      params.push(data.description)
+    }
+
+    if (data.category !== undefined) {
+      updates.push('category = ?')
+      params.push(data.category)
+    }
+
+    if (data.priority !== undefined) {
+      updates.push('priority = ?')
+      params.push(data.priority)
+    }
+
+    if (data.complexity !== undefined) {
+      updates.push('complexity = ?')
+      params.push(data.complexity)
+    }
+
+    if (data.affectedFiles !== undefined) {
+      updates.push('affected_files_json = ?')
+      params.push(JSON.stringify(data.affectedFiles))
+    }
+
+    if (data.rationale !== undefined) {
+      updates.push('rationale = ?')
+      params.push(data.rationale)
+    }
+
+    if (data.status !== undefined) {
+      updates.push('status = ?')
+      params.push(data.status)
+
+      // Set resolved_at when status changes to approved/rejected/converted
+      if (['approved', 'rejected', 'converted'].includes(data.status)) {
+        updates.push('resolved_at = ?')
+        params.push(Date.now())
+      }
+    }
+
+    if (data.taskId !== undefined) {
+      updates.push('task_id = ?')
+      params.push(data.taskId)
+    }
+
+    if (data.feedback !== undefined) {
+      updates.push('feedback = ?')
+      params.push(data.feedback)
+    }
+
+    // Always update updated_at
+    updates.push('updated_at = ?')
+    params.push(Date.now())
+
+    if (updates.length === 0) {
+      return this.getFeatureSuggestion(id)
+    }
+
+    params.push(id)
+
+    const stmt = db.prepare(`
+      UPDATE feature_suggestions
+      SET ${updates.join(', ')}
+      WHERE id = ?
+    `)
+
+    stmt.run(...params)
+
+    return this.getFeatureSuggestion(id)
+  }
+
+  /**
+   * Delete a feature suggestion
+   */
+  deleteFeatureSuggestion(id: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare('DELETE FROM feature_suggestions WHERE id = ?')
+    stmt.run(id)
+  }
+
+  /**
+   * Delete all feature suggestions for a project
+   */
+  clearProjectFeatureSuggestions(projectId: string): void {
+    const db = this.getDb()
+
+    const stmt = db.prepare(
+      'DELETE FROM feature_suggestions WHERE project_id = ?'
+    )
+    stmt.run(projectId)
+  }
+
+  /**
+   * Convert a database row to a FeatureSuggestion object
+   */
+  private rowToFeatureSuggestion(
+    row: FeatureSuggestionRow
+  ): import('shared/ai-types').FeatureSuggestion {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      title: row.title,
+      description: row.description,
+      category:
+        row.category as import('shared/ai-types').FeatureSuggestionCategory,
+      priority:
+        row.priority as import('shared/ai-types').FeatureSuggestionPriority,
+      complexity: row.complexity,
+      affectedFiles: row.affected_files_json
+        ? JSON.parse(row.affected_files_json)
+        : undefined,
+      rationale: row.rationale,
+      status: row.status as import('shared/ai-types').FeatureSuggestionStatus,
+      taskId: row.task_id ?? undefined,
+      feedback: row.feedback ?? undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+      resolvedAt: row.resolved_at ? new Date(row.resolved_at) : undefined,
+    }
   }
 }
