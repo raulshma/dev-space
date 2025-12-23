@@ -38,6 +38,7 @@ import type { WorktreeService } from 'main/services/worktree-service'
 import type { DependencyManager } from 'main/services/dependency-manager'
 import type { SessionService } from 'main/services/session-service'
 import type { BrowserWindow } from 'electron'
+import type { ReviewService } from 'main/services/review-service'
 
 // ============================================================================
 // Service Instances (lazy-loaded)
@@ -67,6 +68,7 @@ let worktreeService: WorktreeService
 let dependencyManager: DependencyManager
 let sessionService: SessionService
 let ipcHandlers: IPCHandlers
+let reviewService: ReviewService
 
 /**
  * Initialize core services that are required immediately
@@ -182,6 +184,10 @@ async function initializeAgentServices(): Promise<void> {
     { WorktreeService: WorktreeSvc },
     { DependencyManager: DepMgr },
     { SessionService: SessSvc },
+    { ReviewService: ReviewSvc },
+    { FileCopyService: FileCopySvc },
+    { CleanupService: CleanupSvc },
+    { ScriptsService: ReviewScriptsSvc },
   ] = await Promise.all([
     import('main/services/agent/agent-config-service'),
     import('main/services/agent/process-manager'),
@@ -199,6 +205,10 @@ async function initializeAgentServices(): Promise<void> {
     import('main/services/worktree-service'),
     import('main/services/dependency-manager'),
     import('main/services/session-service'),
+    import('main/services/review-service'),
+    import('main/services/file-copy-service'),
+    import('main/services/cleanup-service'),
+    import('main/services/scripts-service'),
   ])
 
   agentConfigService = new ConfigSvc(db, keychainService)
@@ -229,6 +239,24 @@ async function initializeAgentServices(): Promise<void> {
   worktreeService = new WorktreeSvc(db, gitService)
   dependencyManager = new DepMgr(db)
   sessionService = new SessSvc(db)
+
+  // Review workflow service (approve/discard + feedback restart)
+  // Needs DB + PTY manager and supporting services.
+  const fileCopyService = new FileCopySvc()
+  const cleanupService = new CleanupSvc()
+  const scriptsService = new ReviewScriptsSvc()
+  reviewService = new ReviewSvc(
+    db,
+    fileCopyService,
+    cleanupService,
+    scriptsService,
+    ptyManager
+  )
+
+  // Wire feedback -> agent restart (review iterations)
+  reviewService.setRestartAgentCallback(async (taskId, feedback) => {
+    await agentExecutorService.restartTaskWithFeedback(taskId, feedback)
+  })
 
   const duration = performance.now() - startTime
   console.log(
@@ -296,7 +324,8 @@ async function initializeIPCHandlers(): Promise<void> {
     worktreeService,
     dependencyManager,
     sessionService,
-    opencodeSdkService
+    opencodeSdkService,
+    reviewService
   )
 
   ipcHandlers.registerHandlers()
