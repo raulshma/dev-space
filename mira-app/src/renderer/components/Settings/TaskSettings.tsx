@@ -76,6 +76,9 @@ export function TaskSettings(): React.JSX.Element {
   const [autoResume, setAutoResume] = useState(
     DEFAULT_SETTINGS[SETTING_KEYS.TASKS_AUTO_RESUME] === 'true'
   )
+  const [promptBeforeAutoResume, setPromptBeforeAutoResume] = useState(
+    DEFAULT_SETTINGS[SETTING_KEYS.TASKS_PROMPT_BEFORE_AUTO_RESUME] === 'true'
+  )
   const [defaultPlanningMode, setDefaultPlanningMode] = useState<PlanningMode>(
     DEFAULT_SETTINGS[SETTING_KEYS.TASKS_DEFAULT_PLANNING_MODE] as PlanningMode
   )
@@ -87,6 +90,9 @@ export function TaskSettings(): React.JSX.Element {
   useEffect(() => {
     if (settings) {
       setAutoResume(settings[SETTING_KEYS.TASKS_AUTO_RESUME] === 'true')
+      setPromptBeforeAutoResume(
+        settings[SETTING_KEYS.TASKS_PROMPT_BEFORE_AUTO_RESUME] === 'true'
+      )
       setDefaultPlanningMode(
         (settings[SETTING_KEYS.TASKS_DEFAULT_PLANNING_MODE] ||
           'skip') as PlanningMode
@@ -169,6 +175,28 @@ export function TaskSettings(): React.JSX.Element {
               }}
             />
           </div>
+
+          {/* Prompt before auto-resume */}
+          {autoResume && (
+            <div className="flex items-center justify-between pl-4 border-l-2 border-muted">
+              <div className="space-y-0.5">
+                <Label>Ask Before Resuming</Label>
+                <p className="text-xs text-muted-foreground">
+                  Show a confirmation dialog before resuming tasks
+                </p>
+              </div>
+              <Switch
+                checked={promptBeforeAutoResume}
+                onCheckedChange={checked => {
+                  setPromptBeforeAutoResume(checked)
+                  handleSettingChange(
+                    SETTING_KEYS.TASKS_PROMPT_BEFORE_AUTO_RESUME,
+                    String(checked)
+                  )
+                }}
+              />
+            </div>
+          )}
 
           {/* Info about Jules tasks */}
           <Alert className="border-blue-500/30 bg-blue-500/5">

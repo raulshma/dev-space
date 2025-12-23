@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from 'renderer/components/ui/dropdown-menu'
+import { Badge } from 'renderer/components/ui/badge'
 import {
   IconDotsVertical,
   IconPlayerPlay,
@@ -297,6 +298,19 @@ export const KanbanCard = memo(function KanbanCard({
               isBlocked={isBlocked}
             />
           )}
+          {/* Show resumable badge for stopped/failed/completed tasks with session */}
+          {(task.status === 'stopped' ||
+            task.status === 'failed' ||
+            task.status === 'completed') &&
+            task.parameters?.sessionId && (
+              <Badge
+                className="text-[10px] px-1.5 py-0 h-4 gap-1 bg-blue-500/10 text-blue-500 border-blue-500/30 hover:bg-blue-500/20"
+                variant="outline"
+              >
+                <IconRefresh className="h-2.5 w-2.5" />
+                Resumable
+              </Badge>
+            )}
           {task.status === 'running' && (
             <div className="flex items-center gap-1 text-green-500">
               <IconLoader2 className="h-3 w-3 animate-spin" />

@@ -881,6 +881,10 @@ export interface AgentEnvironmentConfig {
   opencodeServerPort?: number
   /** OpenCode default model (e.g., "anthropic/claude-sonnet-4-5") */
   opencodeDefaultModel?: string
+  /** Whether to automatically resume interrupted tasks on app startup (default: false) */
+  autoResumeInterruptedTasks?: boolean
+  /** Show a prompt before auto-resuming tasks (default: true) */
+  promptBeforeAutoResume?: boolean
 }
 
 /**
@@ -931,4 +935,8 @@ export interface UpdateAgentConfigInput {
   opencodeServerPort?: number
   /** OpenCode default model (e.g., "anthropic/claude-sonnet-4-5") */
   opencodeDefaultModel?: string
+  /** Whether to automatically resume interrupted tasks on app startup */
+  autoResumeInterruptedTasks?: boolean
+  /** Show a prompt before auto-resuming tasks */
+  promptBeforeAutoResume?: boolean
 }

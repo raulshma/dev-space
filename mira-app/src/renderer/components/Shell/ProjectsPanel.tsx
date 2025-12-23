@@ -14,7 +14,9 @@ import {
   IconTrash,
   IconChevronRight,
   IconChevronDown,
+  IconRobot,
 } from '@tabler/icons-react'
+import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
 import {
   useProjects,
   useCreateProject,
@@ -111,6 +113,7 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false)
   const [showAddTagDialog, setShowAddTagDialog] = useState(false)
+  const [showCreateWithAgentDialog, setShowCreateWithAgentDialog] = useState(false)
   const [tagsExpanded, setTagsExpanded] = useState(false)
 
   // Form state for adding project
@@ -126,6 +129,7 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
 
   const activeProjectId = useAppStore(state => state.activeProjectId)
   const setActiveProject = useAppStore(state => state.setActiveProject)
+  const openTasksWithTask = useAppStore(state => state.openTasksWithTask)
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
   const createTag = useCreateTag()
@@ -406,6 +410,40 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
                 </Button>
               </div>
             </div>
+
+            {/* Divider with AI Agent option */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or
+                </span>
+              </div>
+            </div>
+
+            <button
+              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors text-left group"
+              onClick={() => {
+                setShowAddProjectDialog(false)
+                setNewProjectName('')
+                setNewProjectPath('')
+                setShowCreateWithAgentDialog(true)
+              }}
+              type="button"
+            >
+              <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+                <IconRobot size={20} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Create with AI Agent</p>
+                <p className="text-xs text-muted-foreground">
+                  Let an autonomous agent create a new project from scratch
+                </p>
+              </div>
+              <IconChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </button>
           </div>
 
           <DialogFooter>
@@ -506,6 +544,20 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Project with AI Agent Dialog */}
+      <TaskCreationDialog
+        defaultDirectory=""
+        onOpenChange={setShowCreateWithAgentDialog}
+        onTaskCreated={taskId => {
+          console.log('Task created:', taskId)
+          // Close the dialog
+          setShowCreateWithAgentDialog(false)
+          // Navigate to tasks view to see the created task
+          openTasksWithTask(taskId)
+        }}
+        open={showCreateWithAgentDialog}
+      />
     </div>
   )
 })

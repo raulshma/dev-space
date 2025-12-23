@@ -482,7 +482,7 @@ Respond with JSON only:
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Create Agent Task</DialogTitle>
           <DialogDescription>
@@ -490,7 +490,8 @@ Respond with JSON only:
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step indicator */}
+        <div className="flex-1 overflow-y-auto px-1">
+          <div className="space-y-4 py-2">
         <div className="flex items-center justify-center gap-2 py-2">
           {getSteps().map((s, i) => (
             <div className="flex items-center" key={s}>
@@ -608,10 +609,10 @@ Respond with JSON only:
             <div className="space-y-2">
               <Label htmlFor="description">Task Description</Label>
               <Textarea
+                className="min-h-[120px] max-h-[300px] overflow-y-auto font-sans resize-y"
                 id="description"
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Describe what you want the agent to accomplish..."
-                rows={4}
                 value={description}
               />
               <p className="text-xs text-muted-foreground">
@@ -1006,7 +1007,9 @@ Respond with JSON only:
                 <Label className="text-xs text-muted-foreground">
                   Description
                 </Label>
-                <p className="text-sm">{description}</p>
+                <p className="border rounded-md p-2 bg-muted/30 text-sm max-h-[150px] overflow-y-auto whitespace-pre-wrap">
+                  {description}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1021,7 +1024,7 @@ Respond with JSON only:
                     <Label className="text-xs text-muted-foreground">
                       Model
                     </Label>
-                    <p className="text-sm font-mono text-xs">
+                    <p className="font-mono text-xs">
                       {parameters.model}
                     </p>
                   </div>
@@ -1034,7 +1037,7 @@ Respond with JSON only:
                     <Label className="text-xs text-muted-foreground">
                       Target Directory
                     </Label>
-                    <p className="text-sm font-mono text-xs truncate">
+                    <p className="font-mono text-xs truncate">
                       {targetDirectory}
                     </p>
                   </div>
@@ -1059,7 +1062,7 @@ Respond with JSON only:
                       <Label className="text-xs text-muted-foreground">
                         Task File
                       </Label>
-                      <p className="text-sm font-mono text-xs">
+                      <p className="font-mono text-xs">
                         {parameters.taskFile}
                       </p>
                     </div>
@@ -1101,7 +1104,7 @@ Respond with JSON only:
                       <Label className="text-xs text-muted-foreground">
                         Branch / Worktree
                       </Label>
-                      <p className="text-sm font-mono text-xs">{branchName}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{branchName}</p>
                     </div>
                   )}
                 </>
@@ -1113,7 +1116,7 @@ Respond with JSON only:
                     <Label className="text-xs text-muted-foreground">
                       GitHub Source
                     </Label>
-                    <p className="text-sm font-mono text-xs truncate">
+                    <p className="font-mono text-xs truncate">
                       {julesParams.source}
                     </p>
                   </div>
@@ -1156,7 +1159,8 @@ Respond with JSON only:
             </Alert>
           </div>
         )}
-
+          </div>
+        </div>
         <DialogFooter>
           {step !== 'service' && (
             <Button onClick={handlePreviousStep} variant="outline">

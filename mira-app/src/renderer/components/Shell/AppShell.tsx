@@ -31,6 +31,7 @@ import {
   type GroupImperativeHandle,
   type PanelImperativeHandle,
 } from 'renderer/components/ui/resizable'
+import { StartupResumeDialog } from 'renderer/components/Tasks/StartupResumeDialog'
 
 // Lazy load heavy overlay components that aren't needed immediately
 const CommandPalette = lazy(() =>
@@ -324,6 +325,8 @@ export function AppShell(): React.JSX.Element {
         />
       </Suspense>
       <ErrorToast />
+      {/* Startup resume dialog - shows when app opens with interrupted tasks */}
+      <StartupResumeDialog />
     </div>
   )
 }

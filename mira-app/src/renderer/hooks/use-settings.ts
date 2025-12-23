@@ -40,6 +40,7 @@ export const SETTING_KEYS = {
 
   // Tasks
   TASKS_AUTO_RESUME: 'tasks.autoResume',
+  TASKS_PROMPT_BEFORE_AUTO_RESUME: 'tasks.promptBeforeAutoResume',
   TASKS_DEFAULT_PLANNING_MODE: 'tasks.defaultPlanningMode',
   TASKS_DEPENDENCY_BLOCKING_ENABLED: 'tasks.dependencyBlockingEnabled',
 
@@ -76,6 +77,7 @@ export const DEFAULT_SETTINGS: Record<SettingKey, string> = {
   [SETTING_KEYS.AI_MAX_TOKENS]: '4096',
 
   [SETTING_KEYS.TASKS_AUTO_RESUME]: 'false',
+  [SETTING_KEYS.TASKS_PROMPT_BEFORE_AUTO_RESUME]: 'true',
   [SETTING_KEYS.TASKS_DEFAULT_PLANNING_MODE]: 'skip',
   [SETTING_KEYS.TASKS_DEPENDENCY_BLOCKING_ENABLED]: 'true',
 

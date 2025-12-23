@@ -18,18 +18,17 @@ import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import {
   useAgentTasks,
   useTaskStatusSubscription,
+  useRestartAgentTask,
 } from 'renderer/hooks/use-agent-tasks'
 import { useProject } from 'renderer/hooks/use-projects'
 import { ErrorBoundary } from 'renderer/components/ErrorBoundary'
-import {
-  TasksHeader,
-  type TasksViewMode,
-} from 'renderer/components/Tasks/TasksHeader'
+import { TasksHeader, type TasksViewMode } from 'renderer/components/Tasks/TasksHeader'
 import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
 import { TaskDetailsRow } from 'renderer/components/Tasks/TaskDetailsRow'
 import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
+import { InterruptedTasksNotification } from 'renderer/components/Tasks/InterruptedTasksNotification'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -113,6 +112,9 @@ function TasksScreenContent(): React.JSX.Element {
   // Subscribe to real-time task status updates for instant header updates
   useTaskStatusSubscription()
 
+  // Hook for restarting tasks
+  const restartTask = useRestartAgentTask()
+
   const setActiveProject = useAppStore(state => state.setActiveProject)
 
   const handleBack = useCallback(() => {
@@ -169,6 +171,26 @@ function TasksScreenContent(): React.JSX.Element {
     })
   }, [])
 
+  // Interrupted tasks notification handlers
+  const handleResumeAllInterrupted = useCallback(
+    async (taskIds: string[]) => {
+      // Start all interrupted tasks
+      for (const taskId of taskIds) {
+        try {
+          await restartTask.mutateAsync({ taskId, resumeSession: true })
+        } catch (error) {
+          console.error(`Failed to resume task ${taskId}:`, error)
+        }
+      }
+    },
+    [restartTask]
+  )
+
+  const handleReviewInterruptedTasks = useCallback(() => {
+    // Filter to show only stopped tasks
+    setFilters(prev => ({ ...prev, status: 'stopped' }))
+  }, [])
+
   const hasOpenTabs = openTaskTabs.length > 0
 
   return (
@@ -195,6 +217,12 @@ function TasksScreenContent(): React.JSX.Element {
           {!isTaskDetailsExpanded && (
             <TasksFilters filters={filters} onFilterChange={handleFilterChange} />
           )}
+
+          {/* Interrupted tasks notification */}
+          <InterruptedTasksNotification
+            onResumeAll={handleResumeAllInterrupted}
+            onReviewTasks={handleReviewInterruptedTasks}
+          />
 
           <ResizablePanelGroup
             className="flex-1"
