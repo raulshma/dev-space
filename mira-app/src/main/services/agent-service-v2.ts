@@ -34,6 +34,7 @@ import * as path from 'node:path'
 import { app } from 'electron'
 import { ProviderFactory } from './providers/provider-factory'
 import type { ProviderErrorInfo } from './providers/types'
+import { loadContextFiles, combineSystemPrompts } from './agent/context-loader'
 import {
   readImageAsBase64 as readImage,
   buildPromptWithImages as buildPrompt,
@@ -680,12 +681,23 @@ export class AgentServiceV2 extends EventEmitter {
       }))
 
     try {
+      // Load project context files from .mira/context
+      const { formattedPrompt: contextFilesPrompt } = await loadContextFiles({
+        projectPath: session.metadata.workingDirectory,
+      })
+
+      // Combine context prompt with any caller-provided system prompt
+      const combinedSystemPrompt = combineSystemPrompts(
+        contextFilesPrompt || undefined,
+        systemPrompt
+      )
+
       // Execute query with streaming
       const stream = provider.executeQuery({
         prompt,
         model: modelToUse,
         cwd: session.metadata.workingDirectory,
-        systemPrompt,
+        systemPrompt: combinedSystemPrompt,
         allowedTools,
         abortController,
         conversationHistory,

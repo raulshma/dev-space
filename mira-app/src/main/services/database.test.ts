@@ -4,6 +4,22 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 
+async function safeUnlink(filePath: string, retries = 25, delayMs = 20) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+      return
+    } catch (err) {
+      // On Windows, sqlite can keep a short-lived file lock after close.
+      // Retrying avoids flaky EBUSY failures.
+      const code = (err as NodeJS.ErrnoException | undefined)?.code
+      if (code !== 'EBUSY' && code !== 'EPERM') throw err
+      if (attempt === retries) throw err
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+    }
+  }
+}
+
 describe('DatabaseService', () => {
   let dbService: DatabaseService
   let testDbPath: string
@@ -16,17 +32,17 @@ describe('DatabaseService', () => {
     dbService.initialize()
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up
     dbService.close()
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath)
-    }
+
     // Also clean up WAL files
     const walPath = `${testDbPath}-wal`
     const shmPath = `${testDbPath}-shm`
-    if (fs.existsSync(walPath)) fs.unlinkSync(walPath)
-    if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath)
+
+    await safeUnlink(walPath)
+    await safeUnlink(shmPath)
+    await safeUnlink(testDbPath)
   })
 
   describe('initialization', () => {

@@ -60,6 +60,7 @@ import {
 import { useCreateAgentTask } from 'renderer/hooks/use-agent-tasks'
 import { useTaskList } from 'renderer/stores/agent-task-store'
 import { useSetting, SETTING_KEYS } from 'renderer/hooks/use-settings'
+import { useCreateProject } from 'renderer/hooks/use-projects'
 import { PlanningModeSelector } from './PlanningModeSelector'
 import { DependencySelector } from './DependencySelector'
 import { BranchInput } from './BranchInput'
@@ -81,6 +82,8 @@ interface TaskCreationDialogProps {
   projectId?: string
   /** Project name for display purposes */
   projectName?: string
+  /** Default agent type to select */
+  defaultAgentType?: AgentType
 }
 
 type Step = 'service' | 'details' | 'parameters' | 'review'
@@ -106,6 +109,7 @@ export function TaskCreationDialog({
   onTaskCreated,
   projectId,
   projectName,
+  ...props
 }: TaskCreationDialogProps): React.JSX.Element {
   // Get default planning mode from settings
   const { data: defaultPlanningModeSetting } = useSetting(
@@ -118,7 +122,9 @@ export function TaskCreationDialog({
   // Form state
   const [step, setStep] = useState<Step>('service')
   const [description, setDescription] = useState('')
-  const [agentType, setAgentType] = useState<AgentType>('feature')
+  const [agentType, setAgentType] = useState<AgentType>(
+    props.defaultAgentType || 'feature'
+  )
   const [targetDirectory, setTargetDirectory] = useState(defaultDirectory)
   const [parameters, setParameters] = useState<AgentParameters>({
     model: 'claude-sonnet-4-20250514',
@@ -169,6 +175,7 @@ export function TaskCreationDialog({
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const createTask = useCreateAgentTask()
+  const createProject = useCreateProject()
 
   // Get selected service info
   const selectedService = TASK_SERVICE_TYPES.find(s => s.id === serviceType)
@@ -284,7 +291,7 @@ export function TaskCreationDialog({
     setStep('service')
     setServiceType('claude-code')
     setDescription('')
-    setAgentType('feature')
+    setAgentType(props.defaultAgentType || 'feature')
     setTargetDirectory(defaultDirectory)
     setParameters({
       model: 'claude-sonnet-4-20250514',
@@ -446,6 +453,31 @@ Respond with JSON only:
 
   const handleCreateTask = async (): Promise<void> => {
     try {
+      let finalProjectId = projectId
+      let finalProjectName = projectName
+
+      // If no project ID is provided but we have a target directory (e.g. from autonomous mode),
+      // try to create the project first
+      if (!finalProjectId && targetDirectory && serviceType === 'claude-code') {
+        try {
+          // Extract project name from directory path
+          const fullPath = targetDirectory.replace(/\\/g, '/')
+          const name = fullPath.split('/').pop() || 'New Project'
+          
+          const newProject = await createProject.mutateAsync({
+            name,
+            path: targetDirectory,
+          })
+          
+          finalProjectId = newProject.id
+          finalProjectName = newProject.name
+        } catch (error) {
+          console.error('Failed to auto-create project:', error)
+          // We continue without a project ID if creation fails, 
+          // though ideally we might want to stop here
+        }
+      }
+
       const result = await createTask.mutateAsync({
         description: description.trim(),
         agentType,
@@ -463,8 +495,8 @@ Respond with JSON only:
           serviceType === 'claude-code' && branchName.trim()
             ? branchName.trim()
             : undefined,
-        projectId,
-        projectName,
+        projectId: finalProjectId,
+        projectName: finalProjectName,
       })
 
       onTaskCreated?.(result.id)

@@ -64,26 +64,26 @@ const STATUS_CONFIG: Record<
     label: string
     description: string
     icon: React.ReactNode
-    variant: 'default' | 'destructive' | 'secondary'
+    className: string
   }
 > = {
   completed: {
     label: 'Completed Successfully',
     description: 'The task finished without errors',
     icon: <IconCheck className="h-6 w-6" />,
-    variant: 'default',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
   },
   failed: {
     label: 'Failed',
     description: 'The task encountered an error',
     icon: <IconX className="h-6 w-6" />,
-    variant: 'destructive',
+    className: 'bg-destructive/10 text-destructive border-destructive/20',
   },
   stopped: {
     label: 'Stopped',
     description: 'The task was manually stopped',
     icon: <IconPlayerStop className="h-6 w-6" />,
-    variant: 'secondary',
+    className: 'bg-muted/10 text-muted-foreground border-border',
   },
 }
 

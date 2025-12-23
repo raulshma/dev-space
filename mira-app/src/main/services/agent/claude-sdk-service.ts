@@ -53,6 +53,8 @@ export interface ClaudeExecutionConfig {
   settingSources?: Array<'user' | 'project' | 'local'>
   /** Beta features to enable */
   betas?: Array<'context-1m-2025-08-07'>
+  /** Maximum turns for the agent (default: 1000) */
+  maxTurns?: number
 }
 
 /**
@@ -122,12 +124,33 @@ export class ClaudeSdkService extends EventEmitter {
     let totalCost = 0
 
     try {
+      // Default allowed tools for coding agents
+      const defaultTools = [
+        'Read',
+        'Write',
+        'Edit',
+        'Glob',
+        'Grep',
+        'Bash',
+        'WebSearch',
+        'WebFetch',
+      ]
+
       // Build query options
       const options: Options = {
         model: config.model || 'claude-sonnet-4-5',
         cwd: config.workingDirectory,
         permissionMode: config.permissionMode || 'acceptEdits',
         abortController,
+        // Enable sandbox with auto-allow bash to prevent permission hangs
+        sandbox: {
+          enabled: true,
+          autoAllowBashIfSandboxed: true,
+        },
+        // Set max turns for extended execution (default 1000 for autonomous tasks)
+        maxTurns: config.maxTurns ?? 1000,
+        // Use provided allowed tools or fall back to defaults
+        allowedTools: config.allowedTools?.length ? config.allowedTools : defaultTools,
       }
 
       if (config.systemPrompt) {

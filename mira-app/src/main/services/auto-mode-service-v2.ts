@@ -47,6 +47,7 @@ import {
   extractTaskProgress,
   updateTaskStatuses,
 } from './agent/planning-prompts'
+import { loadContextFiles, combineSystemPrompts } from './agent/context-loader'
 
 // ============================================================================
 // Types
@@ -936,6 +937,14 @@ export class AutoModeServiceV2 extends EventEmitter {
       )
       const fullPrompt = planningPrefix + feature.description
 
+      // Load context files from the effective working directory (worktree or project)
+      const { formattedPrompt: contextFilesPrompt } = await loadContextFiles({
+        projectPath: workingDirectory,
+      })
+      const combinedSystemPrompt = combineSystemPrompts(
+        contextFilesPrompt || undefined
+      )
+
       // Get provider
       const model = feature.model ?? DEFAULT_MODEL
       const provider = ProviderFactory.getProviderForModel(model)
@@ -948,6 +957,7 @@ export class AutoModeServiceV2 extends EventEmitter {
         prompt: fullPrompt,
         model,
         cwd: workingDirectory,
+        systemPrompt: combinedSystemPrompt,
         abortController,
       })
 

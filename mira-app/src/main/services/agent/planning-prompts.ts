@@ -102,6 +102,52 @@ When approved, execute tasks SEQUENTIALLY in order. For each task:
 
 This allows real-time progress tracking during implementation.`,
 
+  spec_without_approval: `## Specification Phase (Spec Mode)
+
+IMPORTANT: Do NOT output exploration text, tool usage, or thinking before the spec. Start DIRECTLY with the specification format below. Silently analyze the codebase first, then output ONLY the structured specification.
+
+Generate a specification with an actionable task breakdown, then proceed with implementation.
+
+### Specification Format
+
+1. **Problem**: What problem are we solving? (user perspective)
+
+2. **Solution**: Brief approach (1-2 sentences)
+
+3. **Acceptance Criteria**: 3-5 items in GIVEN-WHEN-THEN format
+   - GIVEN [context], WHEN [action], THEN [outcome]
+
+4. **Files to Modify**:
+   | File | Purpose | Action |
+   |------|---------|--------|
+   | path/to/file | description | create/modify/delete |
+
+5. **Implementation Tasks**:
+   Use this EXACT format for each task (the system will parse these):
+   \`\`\`tasks
+   - [ ] T001: [Description] | File: [path/to/file]
+   - [ ] T002: [Description] | File: [path/to/file]
+   - [ ] T003: [Description] | File: [path/to/file]
+   \`\`\`
+
+   Task ID rules:
+   - Sequential: T001, T002, T003, etc.
+   - Description: Clear action (e.g., "Create user model", "Add API endpoint")
+   - File: Primary file affected (helps with context)
+   - Order by dependencies (foundational tasks first)
+
+6. **Verification**: How to confirm feature works
+
+After generating the spec, output on its own line:
+"[PLAN_GENERATED] Specification complete. Proceeding with implementation."
+
+Then execute tasks SEQUENTIALLY in order. For each task:
+1. BEFORE starting, output: "[TASK_START] T###: Description"
+2. Implement the task
+3. AFTER completing, output: "[TASK_COMPLETE] T###: Brief summary"
+
+This allows real-time progress tracking during implementation.`,
+
   full: `## Full Specification Phase (Full SDD Mode)
 
 IMPORTANT: Do NOT output exploration text, tool usage, or thinking before the spec. Start DIRECTLY with the specification format below. Silently analyze the codebase first, then output ONLY the structured specification.
@@ -173,6 +219,76 @@ After completing all tasks in a phase, output:
 "[PHASE_COMPLETE] Phase N complete"
 
 This allows real-time progress tracking during implementation.`,
+
+  full_without_approval: `## Full Specification Phase (Full SDD Mode)
+
+IMPORTANT: Do NOT output exploration text, tool usage, or thinking before the spec. Start DIRECTLY with the specification format below. Silently analyze the codebase first, then output ONLY the structured specification.
+
+Generate a comprehensive specification with phased task breakdown, then proceed with implementation.
+
+### Specification Format
+
+1. **Problem Statement**: 2-3 sentences from user perspective
+
+2. **User Story**: As a [user], I want [goal], so that [benefit]
+
+3. **Acceptance Criteria**: Multiple scenarios with GIVEN-WHEN-THEN
+   - **Happy Path**: GIVEN [context], WHEN [action], THEN [expected outcome]
+   - **Edge Cases**: GIVEN [edge condition], WHEN [action], THEN [handling]
+   - **Error Handling**: GIVEN [error condition], WHEN [action], THEN [error response]
+
+4. **Technical Context**:
+   | Aspect | Value |
+   |--------|-------|
+   | Affected Files | list of files |
+   | Dependencies | external libs if any |
+   | Constraints | technical limitations |
+   | Patterns to Follow | existing patterns in codebase |
+
+5. **Non-Goals**: What this feature explicitly does NOT include
+
+6. **Implementation Tasks**:
+   Use this EXACT format for each task (the system will parse these):
+   \`\`\`tasks
+   ## Phase 1: Foundation
+   - [ ] T001: [Description] | File: [path/to/file]
+   - [ ] T002: [Description] | File: [path/to/file]
+
+   ## Phase 2: Core Implementation
+   - [ ] T003: [Description] | File: [path/to/file]
+   - [ ] T004: [Description] | File: [path/to/file]
+
+   ## Phase 3: Integration & Testing
+   - [ ] T005: [Description] | File: [path/to/file]
+   - [ ] T006: [Description] | File: [path/to/file]
+   \`\`\`
+
+   Task ID rules:
+   - Sequential across all phases: T001, T002, T003, etc.
+   - Description: Clear action verb + target
+   - File: Primary file affected
+   - Order by dependencies within each phase
+   - Phase structure helps organize complex work
+
+7. **Success Metrics**: How we know it's done (measurable criteria)
+
+8. **Risks & Mitigations**:
+   | Risk | Mitigation |
+   |------|------------|
+   | description | approach |
+
+After generating the spec, output on its own line:
+"[PLAN_GENERATED] Comprehensive specification complete. Proceeding with implementation."
+
+Then execute tasks SEQUENTIALLY by phase. For each task:
+1. BEFORE starting, output: "[TASK_START] T###: Description"
+2. Implement the task
+3. AFTER completing, output: "[TASK_COMPLETE] T###: Brief summary"
+
+After completing all tasks in a phase, output:
+"[PHASE_COMPLETE] Phase N complete"
+
+This allows real-time progress tracking during implementation.`,
 } as const
 
 /**
@@ -203,11 +319,17 @@ export function getPlanningPromptPrefix(
 
   let promptKey: keyof typeof PLANNING_PROMPTS
 
+  // All modes now respect requirePlanApproval setting
+  // When approval is NOT required, agents will generate the spec/plan and immediately proceed
   if (planningMode === 'lite') {
     promptKey = requirePlanApproval ? 'lite_with_approval' : 'lite'
+  } else if (planningMode === 'spec') {
+    promptKey = requirePlanApproval ? 'spec' : 'spec_without_approval'
+  } else if (planningMode === 'full') {
+    promptKey = requirePlanApproval ? 'full' : 'full_without_approval'
   } else {
-    // spec and full modes always require approval
-    promptKey = planningMode
+    // Fallback for unknown modes
+    return ''
   }
 
   const planningPrompt = PLANNING_PROMPTS[promptKey]

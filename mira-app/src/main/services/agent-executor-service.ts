@@ -41,6 +41,7 @@ import {
   ClaudeSdkService,
   type ClaudeExecutionConfig,
 } from './agent/claude-sdk-service'
+import { createAutoModeOptions, MAX_TURNS } from './agent/sdk-options'
 import type { TaskQueue } from './agent/task-queue'
 import type { OutputBuffer, OutputCallback } from './agent/output-buffer'
 import type { AgentConfigService } from './agent/agent-config-service'
@@ -55,6 +56,7 @@ import type {
   FileChangeSummary,
   OutputLine,
   ExecutionStep,
+  PlanTask,
 } from 'shared/ai-types'
 import {
   getPlanningPromptPrefix,
@@ -62,7 +64,9 @@ import {
   needsPlanApproval,
   extractTaskProgress,
   updateTaskStatuses,
+  parseTasksFromSpec,
 } from './agent/planning-prompts'
+import { loadContextFiles, combineSystemPrompts } from './agent/context-loader'
 import type { WorkingDirectoryService } from './agent/working-directory-service'
 import type { WorktreeService, Worktree } from './worktree-service'
 import type {
@@ -182,6 +186,20 @@ export interface AgentExecutorEvents {
   taskAwaitingApproval: (task: AgentTask) => void
   planApproved: (task: AgentTask) => void
   planRejected: (task: AgentTask, feedback: string) => void
+  planAutoApproved: (task: AgentTask) => void
+  subTaskStarted: (
+    task: AgentTask,
+    subTask: PlanTask,
+    index: number,
+    total: number
+  ) => void
+  subTaskCompleted: (
+    task: AgentTask,
+    subTask: PlanTask,
+    index: number,
+    total: number
+  ) => void
+  phaseCompleted: (task: AgentTask, phaseNumber: number) => void
   outputReceived: (taskId: string, line: OutputLine) => void
 }
 
@@ -1099,14 +1117,26 @@ export class AgentExecutorService
       })
       this.claudeSdkService.resume(taskId)
     } else {
-      // SDK execution has completed, need to restart with session resume
-      // Update task to queued state and re-queue for execution
+      // SDK execution has completed, need to restart with continuation context
+      // Store approved plan content so execution knows to proceed with implementation
+      
+      // Check if we have parsed tasks for multi-task execution
+      const parsedTasks = task.planSpec?.tasks || []
+      const useMultiTaskExecution = parsedTasks.length > 0
+      
       await this.updateTask(taskId, {
         status: 'queued',
         planSpec: updatedPlanSpec,
+        parameters: {
+          ...task.parameters,
+          continuationMode: 'post-approval',
+          approvedPlanContent: task.planSpec?.content,
+          // Enable multi-task mode if we have parsed tasks
+          useMultiTaskExecution,
+        },
       })
 
-      // Add to queue to continue execution with session resume
+      // Add to queue to continue execution with continuation context
       this.taskQueue.enqueue(taskId)
 
       // If no task is currently running, start processing
@@ -1197,14 +1227,20 @@ export class AgentExecutorService
       })
       this.claudeSdkService.resume(taskId)
     } else {
-      // SDK execution has completed, need to restart with session resume
-      // Update task to queued state and re-queue for execution
+      // SDK execution has completed, need to restart with revision context
+      // Store rejected plan and feedback so execution knows to revise the plan
       await this.updateTask(taskId, {
         status: 'queued',
         planSpec: updatedPlanSpec,
+        parameters: {
+          ...task.parameters,
+          continuationMode: 'plan-revision',
+          previousPlanContent: task.planSpec?.content,
+          rejectionFeedback: feedback,
+        },
       })
 
-      // Add to queue to continue execution with session resume
+      // Add to queue to continue execution with revision context
       this.taskQueue.enqueue(taskId)
 
       // If no task is currently running, start processing
@@ -1978,6 +2014,15 @@ export class AgentExecutorService
       workingDirectory = await this.copyToWorkingDirectory(task)
     }
 
+    // Load project context files from .mira/context
+    // Do this as early as possible so multi-task and continuation flows both receive it.
+    const { formattedPrompt: contextFilesPrompt } = await loadContextFiles({
+      projectPath: workingDirectory,
+    })
+    const combinedSystemPrompt = combineSystemPrompts(
+      contextFilesPrompt || undefined
+    )
+
     // Update step to initializing
     await this.updateExecutionStep(
       task.id,
@@ -1986,7 +2031,110 @@ export class AgentExecutorService
     )
 
     // Build task description with planning prompt prefix
-    const prompt = this.buildTaskDescription(task)
+    // Check if this is a continuation after plan approval
+    let prompt: string
+    let useMultiTask = false
+    
+    if (task.parameters.continuationMode === 'post-approval') {
+      // Check if multi-task execution is enabled and we have parsed tasks
+      const parsedTasks = task.planSpec?.tasks || []
+      useMultiTask = task.parameters.useMultiTaskExecution === true && parsedTasks.length > 0
+      
+      if (useMultiTask) {
+        // Multi-task execution will be handled separately after SDK setup
+        // Log that we're using multi-task mode
+        const line = this.outputBuffer.append(
+          task.id,
+          `[Mira] Continuing with multi-task execution (${parsedTasks.length} sub-tasks)...\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, line)
+        
+        // Execute multi-task plan
+        await this.executeMultiTaskPlan(
+          task,
+          parsedTasks,
+          task.parameters.approvedPlanContent || task.planSpec?.content || '',
+          workingDirectory,
+          config,
+          undefined,
+          combinedSystemPrompt
+        )
+        
+        // Handle completion after multi-task execution
+        await this.handleClaudeSdkCompletion(
+          task.id,
+          true, // success
+          undefined, // no error
+          workingDirectory,
+          undefined // no cost tracking for multi-task yet
+        )
+        return
+      }
+      
+      // Single-agent execution (fallback or when no tasks parsed)
+      const approvedPlan =
+        task.parameters.approvedPlanContent ||
+        task.planSpec?.content ||
+        task.description
+      prompt = `The plan/specification has been approved. Now implement it.
+
+## Approved Plan
+
+${approvedPlan}
+
+## Instructions
+
+Implement all the changes described in the plan above. Execute tasks sequentially.
+For each task:
+1. BEFORE starting, output: "[TASK_START] T###: Description"
+2. Implement the task
+3. AFTER completing, output: "[TASK_COMPLETE] T###: Brief summary"
+
+After completing all tasks in a phase, output:
+"[PHASE_COMPLETE] Phase N complete"
+
+This allows real-time progress tracking during implementation.`
+
+      // Log that we're in continuation mode
+      const line = this.outputBuffer.append(
+        task.id,
+        '[Mira] Continuing with implementation after plan approval...\n',
+        'stdout'
+      )
+      this.emit('outputReceived', task.id, line)
+    } else if (task.parameters.continuationMode === 'plan-revision') {
+      // Plan was rejected, need to revise based on feedback
+      const previousPlan = task.parameters.previousPlanContent || ''
+      const feedback = task.parameters.rejectionFeedback || 'Please revise the plan.'
+
+      prompt = `The user has requested revisions to the plan/specification.
+
+## Previous Plan
+${previousPlan}
+
+## User Feedback
+${feedback}
+
+## Instructions
+Please regenerate the specification incorporating the user's feedback.
+Keep the same format with the \`\`\`tasks block for task definitions.
+After generating the revised spec, output on its own line:
+"[SPEC_GENERATED] Please review the revised specification above. Reply with 'approved' to proceed or provide feedback for revisions."
+
+DO NOT proceed with implementation until you receive explicit approval.`
+
+      // Log that we're in revision mode
+      const line = this.outputBuffer.append(
+        task.id,
+        '[Mira] Revising plan based on user feedback...\n',
+        'stdout'
+      )
+      this.emit('outputReceived', task.id, line)
+    } else {
+      // Normal flow: build prompt with planning phase if applicable
+      prompt = this.buildTaskDescription(task)
+    }
 
     // Build execution config for Claude SDK
     const executionConfig: ClaudeExecutionConfig = {
@@ -1995,17 +2143,22 @@ export class AgentExecutorService
       model: task.parameters.model || 'claude-sonnet-4-5',
       permissionMode: 'acceptEdits',
       apiKey: config.anthropicAuthToken,
+      systemPrompt: combinedSystemPrompt,
       customEnvVars: {
         ...config.customEnvVars,
         ...task.parameters.customEnv,
       },
       // Resume from previous session if available (for interrupted tasks)
+      // Note: We use session resume even for continuation mode to maintain context
       resumeSessionId: task.parameters.sessionId,
       // Apply tool restrictions if specified in task parameters
       allowedTools: task.parameters.allowedTools,
       disallowedTools: task.parameters.disallowedTools,
       // Apply budget limit if specified
       maxBudgetUsd: task.parameters.maxBudgetUsd,
+      // Set max turns based on agent type (autonomous needs more, feature needs fewer)
+      // Set max turns based on agent type (autonomous needs more, feature needs fewer)
+      maxTurns: task.agentType === 'autonomous' ? 1000 : 500,
     }
 
     // Update step to running
@@ -2034,16 +2187,19 @@ export class AgentExecutorService
         accumulatedOutput += data
 
         // Check for plan generation if approval is required and not yet detected
+        // Also detect plans for progress tracking even when approval is not required
         if (
           !planDetected &&
-          task.requirePlanApproval &&
           task.planningMode !== 'skip' &&
           hasPlanGenerated(accumulatedOutput)
         ) {
           planDetected = true
 
-          // Check if this plan needs approval (has SPEC_GENERATED marker)
-          if (needsPlanApproval(accumulatedOutput)) {
+          // Only pause and request approval if:
+          // 1. requirePlanApproval is explicitly true
+          // 2. The output contains SPEC_GENERATED marker (not PLAN_GENERATED)
+          // Note: _without_approval prompts use PLAN_GENERATED which doesn't trigger this
+          if (task.requirePlanApproval && needsPlanApproval(accumulatedOutput)) {
             // Pause the SDK execution
             this.claudeSdkService.pause(task.id)
 
@@ -2051,7 +2207,33 @@ export class AgentExecutorService
             this.setAwaitingApproval(task.id, accumulatedOutput).catch(err => {
               console.error('Failed to set awaiting approval:', err)
             })
+          } else if (!task.requirePlanApproval && hasPlanGenerated(accumulatedOutput)) {
+            // Plan was auto-approved - emit event for UI notification
+            const currentTask = this.db.getAgentTask(task.id)
+            if (currentTask) {
+              this.emit('planAutoApproved', currentTask)
+              
+              // Parse tasks from the auto-approved plan for progress tracking
+              const planContent = accumulatedOutput
+              const tasks = parseTasksFromSpec(planContent)
+              if (tasks.length > 0) {
+                this.updateTask(task.id, {
+                  planSpec: {
+                    status: 'approved',
+                    content: planContent,
+                    version: 1,
+                    generatedAt: new Date(),
+                    approvedAt: new Date(),
+                    tasks,
+                  },
+                }).catch(err => {
+                  console.error('Failed to update plan spec for auto-approval:', err)
+                })
+              }
+            }
           }
+          // If requirePlanApproval is false, let the agent continue automatically
+          // The _without_approval prompts tell it to proceed with implementation
         }
 
         // Track task progress if we have a plan with tasks
@@ -2093,12 +2275,20 @@ export class AgentExecutorService
       this.claudeSdkService.off('output', handleOutput)
 
       // Store session ID for potential future resume
+      // Clear continuation mode parameters as they were consumed
       if (result.sessionId) {
+        const { continuationMode, approvedPlanContent, previousPlanContent, rejectionFeedback, ...cleanParams } = task.parameters
         await this.updateTask(task.id, {
           parameters: {
-            ...task.parameters,
+            ...cleanParams,
             sessionId: result.sessionId,
           },
+        })
+      } else if (task.parameters.continuationMode) {
+        // Even if no new session ID, clear the continuation mode
+        const { continuationMode, approvedPlanContent, previousPlanContent, rejectionFeedback, ...cleanParams } = task.parameters
+        await this.updateTask(task.id, {
+          parameters: cleanParams,
         })
       }
 
@@ -2375,6 +2565,314 @@ export class AgentExecutorService
 
     // Prepend planning prompt to description
     return planningPrefix + task.description
+  }
+
+  /**
+   * Build a focused prompt for executing a single sub-task
+   *
+  * Each sub-task gets a focused prompt with context about the overall plan
+   * Each sub-task gets a focused prompt with context about the overall plan
+   * and progress on other tasks.
+   *
+   * @param subTask - The sub-task to execute
+   * @param allTasks - All tasks in the plan
+   * @param taskIndex - Current task index (0-based)
+   * @param approvedPlan - The approved plan content
+   * @param userFeedback - Optional user feedback from approval
+   * @returns The focused prompt for this sub-task
+   */
+  private buildSubTaskPrompt(
+    subTask: PlanTask,
+    allTasks: PlanTask[],
+    taskIndex: number,
+    approvedPlan: string,
+    userFeedback?: string
+  ): string {
+    const completedTasks = allTasks.slice(0, taskIndex)
+    const remainingTasks = allTasks.slice(taskIndex + 1)
+
+    let prompt = `## Sub-Task Execution
+
+You are implementing a specific task as part of a larger plan.
+
+### Current Task
+**ID:** ${subTask.id}
+**Description:** ${subTask.description}
+${subTask.filePath ? `**Target File:** ${subTask.filePath}` : ''}
+${subTask.phase ? `**Phase:** ${subTask.phase}` : ''}
+
+### Overall Plan Context
+The following is the approved plan for reference:
+
+${approvedPlan}
+
+`
+
+    if (userFeedback) {
+      prompt += `### User Feedback
+The user provided this feedback when approving the plan:
+${userFeedback}
+
+`
+    }
+
+    if (completedTasks.length > 0) {
+      prompt += `### Completed Tasks
+The following tasks have already been completed:
+${completedTasks.map(t => `- [x] ${t.id}: ${t.description}`).join('\n')}
+
+`
+    }
+
+    if (remainingTasks.length > 0) {
+      prompt += `### Remaining Tasks
+The following tasks will be executed after this one:
+${remainingTasks.map(t => `- [ ] ${t.id}: ${t.description}`).join('\n')}
+
+`
+    }
+
+    prompt += `### Instructions
+
+Focus ONLY on completing the current task: **${subTask.description}**
+
+1. Implement the specific changes required for this task
+2. Do not implement tasks that are marked as remaining
+3. Ensure your changes are complete and working
+4. Report when the task is complete
+
+Begin implementing the current task now.`
+
+    return prompt
+  }
+
+  /**
+   * Execute a multi-task plan using dedicated agent calls per sub-task
+   *
+  * Each parsed task from the specification gets its own focused agent call.
+   *
+   * @param task - The main task
+   * @param parsedTasks - Array of sub-tasks parsed from the plan
+   * @param approvedPlan - The approved plan content
+   * @param workingDirectory - Working directory for execution
+   * @param config - Agent configuration
+   * @param userFeedback - Optional user feedback from approval
+   */
+  private async executeMultiTaskPlan(
+    task: AgentTask,
+    parsedTasks: PlanTask[],
+    approvedPlan: string,
+    workingDirectory: string,
+    config: { anthropicAuthToken?: string; customEnvVars?: Record<string, string> },
+    userFeedback?: string,
+    systemPrompt?: string
+  ): Promise<void> {
+    const line = this.outputBuffer.append(
+      task.id,
+      `[Mira] Starting multi-task execution: ${parsedTasks.length} sub-tasks\n`,
+      'stdout'
+    )
+    this.emit('outputReceived', task.id, line)
+
+    let lastPhase: string | undefined
+
+    for (let taskIndex = 0; taskIndex < parsedTasks.length; taskIndex++) {
+      const subTask = parsedTasks[taskIndex]
+
+      // Check if task was stopped
+      const currentTask = this.db.getAgentTask(task.id)
+      if (!currentTask || currentTask.status === 'stopped') {
+        const stopLine = this.outputBuffer.append(
+          task.id,
+          `[Mira] Multi-task execution stopped by user\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, stopLine)
+        return
+      }
+
+      // Emit sub-task started event
+      this.emit('subTaskStarted', task, subTask, taskIndex, parsedTasks.length)
+
+      const startLine = this.outputBuffer.append(
+        task.id,
+        `\n[Mira] Starting sub-task ${taskIndex + 1}/${parsedTasks.length}: ${subTask.id}\n` +
+          `[Mira] Description: ${subTask.description}\n`,
+        'stdout'
+      )
+      this.emit('outputReceived', task.id, startLine)
+
+      // Update sub-task status to in_progress
+      const updatedTasks = [...parsedTasks]
+      updatedTasks[taskIndex] = { ...subTask, status: 'in_progress' }
+      await this.updateTask(task.id, {
+        planSpec: {
+          ...task.planSpec!,
+          tasks: updatedTasks,
+        },
+      })
+
+      // Build focused prompt for this sub-task
+      const subTaskPrompt = this.buildSubTaskPrompt(
+        subTask,
+        parsedTasks,
+        taskIndex,
+        approvedPlan,
+        userFeedback
+      )
+
+      // Build execution config for sub-task
+      const subTaskConfig: ClaudeExecutionConfig = {
+        prompt: subTaskPrompt,
+        workingDirectory,
+        model: task.parameters.model || 'claude-sonnet-4-5',
+        permissionMode: 'acceptEdits',
+        apiKey: config.anthropicAuthToken,
+        customEnvVars: config.customEnvVars,
+        systemPrompt,
+        // Apply tool restrictions if specified in task parameters
+        allowedTools: task.parameters.allowedTools,
+        disallowedTools: task.parameters.disallowedTools,
+        // Apply budget limit if specified
+        maxBudgetUsd: task.parameters.maxBudgetUsd,
+        // Limit turns per sub-task so individual calls stay focused
+        maxTurns: Math.min(task.agentType === 'autonomous' ? 1000 : 500, 100),
+        // Resume from same session to maintain context
+        resumeSessionId: task.parameters.sessionId,
+      }
+
+      // Execute sub-task
+      try {
+        const handleSubTaskOutput = (data: string, stream: 'stdout' | 'stderr') => {
+          const outputLine = this.outputBuffer.append(task.id, data, stream)
+          this.emit('outputReceived', task.id, outputLine)
+        }
+
+        this.claudeSdkService.on('output', handleSubTaskOutput)
+
+        const result = await this.claudeSdkService.execute(task.id, subTaskConfig)
+
+        this.claudeSdkService.off('output', handleSubTaskOutput)
+
+        if (!result.success) {
+          // Sub-task failed - mark as failed but continue with others
+          updatedTasks[taskIndex] = { ...subTask, status: 'failed' }
+          await this.updateTask(task.id, {
+            planSpec: {
+              ...task.planSpec!,
+              tasks: updatedTasks,
+            },
+          })
+
+          const failLine = this.outputBuffer.append(
+            task.id,
+            `[Mira] Sub-task ${subTask.id} failed: ${result.error}\n`,
+            'stderr'
+          )
+          this.emit('outputReceived', task.id, failLine)
+
+          // Continue with next sub-task (don't fail the entire plan)
+          continue
+        }
+
+        // Update session ID if returned
+        if (result.sessionId && result.sessionId !== task.parameters.sessionId) {
+          await this.updateTask(task.id, {
+            parameters: {
+              ...task.parameters,
+              sessionId: result.sessionId,
+            },
+          })
+        }
+
+        // Mark sub-task as completed
+        updatedTasks[taskIndex] = { ...subTask, status: 'completed' }
+        await this.updateTask(task.id, {
+          planSpec: {
+            ...task.planSpec!,
+            tasks: updatedTasks,
+          },
+        })
+
+        // Emit sub-task completed event
+        this.emit('subTaskCompleted', task, subTask, taskIndex, parsedTasks.length)
+
+        const completeLine = this.outputBuffer.append(
+          task.id,
+          `[Mira] Sub-task ${subTask.id} completed\n`,
+          'stdout'
+        )
+        this.emit('outputReceived', task.id, completeLine)
+
+        // Check for phase completion
+        if (subTask.phase && subTask.phase !== lastPhase) {
+          // Phase changed - check if previous phase is complete
+          if (lastPhase) {
+            const prevPhaseTasks = parsedTasks.filter(t => t.phase === lastPhase)
+            const allComplete = prevPhaseTasks.every(
+              t => updatedTasks.find(ut => ut.id === t.id)?.status === 'completed'
+            )
+            if (allComplete) {
+              const phaseMatch = lastPhase.match(/Phase\s*(\d+)/i)
+              if (phaseMatch) {
+                const phaseNumber = parseInt(phaseMatch[1], 10)
+                this.emit('phaseCompleted', task, phaseNumber)
+
+                const phaseLine = this.outputBuffer.append(
+                  task.id,
+                  `[Mira] Phase ${phaseNumber} completed\n`,
+                  'stdout'
+                )
+                this.emit('outputReceived', task.id, phaseLine)
+              }
+            }
+          }
+          lastPhase = subTask.phase
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        updatedTasks[taskIndex] = { ...subTask, status: 'failed' }
+        await this.updateTask(task.id, {
+          planSpec: {
+            ...task.planSpec!,
+            tasks: updatedTasks,
+          },
+        })
+
+        const errorLine = this.outputBuffer.append(
+          task.id,
+          `[Mira] Sub-task ${subTask.id} error: ${errorMsg}\n`,
+          'stderr'
+        )
+        this.emit('outputReceived', task.id, errorLine)
+      }
+    }
+
+    // Final phase completion check
+    if (lastPhase) {
+      const lastPhaseTasks = parsedTasks.filter(t => t.phase === lastPhase)
+      const updatedTasks = task.planSpec?.tasks || parsedTasks
+      const allComplete = lastPhaseTasks.every(
+        t => updatedTasks.find(ut => ut.id === t.id)?.status === 'completed'
+      )
+      if (allComplete) {
+        const phaseMatch = lastPhase.match(/Phase\s*(\d+)/i)
+        if (phaseMatch) {
+          const phaseNumber = parseInt(phaseMatch[1], 10)
+          this.emit('phaseCompleted', task, phaseNumber)
+        }
+      }
+    }
+
+    const completedCount = (task.planSpec?.tasks || parsedTasks).filter(
+      t => t.status === 'completed'
+    ).length
+    const finalLine = this.outputBuffer.append(
+      task.id,
+      `[Mira] Multi-task execution completed: ${completedCount}/${parsedTasks.length} sub-tasks successful\n`,
+      'stdout'
+    )
+    this.emit('outputReceived', task.id, finalLine)
   }
 
   /**

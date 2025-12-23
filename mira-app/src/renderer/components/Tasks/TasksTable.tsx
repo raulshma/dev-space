@@ -15,6 +15,7 @@ import {
 } from 'renderer/components/ui/table'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
+import { cn } from 'renderer/lib/utils'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
 import {
   DropdownMenu,
@@ -70,58 +71,58 @@ const STATUS_CONFIG: Record<
   TaskStatus,
   {
     label: string
-    variant: 'default' | 'secondary' | 'destructive' | 'outline'
+    className: string
     icon: React.ReactNode
   }
 > = {
   pending: {
     label: 'Pending',
-    variant: 'outline',
+    className: 'bg-muted/10 text-muted-foreground border-border',
     icon: <IconClock className="h-3 w-3" />,
   },
   queued: {
     label: 'Queued',
-    variant: 'secondary',
+    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     icon: <IconClock className="h-3 w-3" />,
   },
   running: {
     label: 'Running',
-    variant: 'default',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
     icon: <IconLoader2 className="h-3 w-3 animate-spin" />,
   },
   paused: {
     label: 'Paused',
-    variant: 'secondary',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconPlayerPause className="h-3 w-3" />,
   },
   awaiting_approval: {
     label: 'Awaiting Approval',
-    variant: 'secondary',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-3 w-3" />,
   },
   completed: {
     label: 'Completed',
-    variant: 'secondary',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
     icon: <IconCheck className="h-3 w-3" />,
   },
   failed: {
     label: 'Failed',
-    variant: 'destructive',
+    className: 'bg-destructive/10 text-destructive border-destructive/20',
     icon: <IconX className="h-3 w-3" />,
   },
   stopped: {
     label: 'Stopped',
-    variant: 'outline',
+    className: 'bg-muted/10 text-muted-foreground border-border',
     icon: <IconPlayerStop className="h-3 w-3" />,
   },
   archived: {
     label: 'Archived',
-    variant: 'outline',
+    className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
     icon: <IconArchive className="h-3 w-3" />,
   },
   review: {
     label: 'Review',
-    variant: 'secondary',
+    className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
     icon: <IconCheck className="h-3 w-3" />,
   },
 }
@@ -325,7 +326,7 @@ export function TasksTable({
                   onClick={() => onTaskSelect(task.id)}
                 >
                   <TableCell>
-                    <Badge className="gap-1" variant={statusConfig.variant}>
+                    <Badge className={cn('gap-1', statusConfig.className)} variant="outline">
                       {statusConfig.icon}
                       {statusConfig.label}
                     </Badge>

@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import { ScrollArea } from 'renderer/components/ui/scroll-area'
+import { cn } from 'renderer/lib/utils'
 import {
   Tabs,
   TabsList,
@@ -94,102 +95,102 @@ interface TaskExecutionPanelProps {
 
 const STATUS_CONFIG: Record<
   TaskStatus,
-  { label: string; color: string; icon: React.ReactNode }
+  { label: string; className: string; icon: React.ReactNode }
 > = {
   pending: {
     label: 'Pending',
-    color: 'text-muted-foreground',
+    className: 'bg-muted/10 text-muted-foreground border-border',
     icon: <IconClock className="h-4 w-4" />,
   },
   queued: {
     label: 'Queued',
-    color: 'text-blue-500',
+    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     icon: <IconClock className="h-4 w-4" />,
   },
   running: {
     label: 'Running',
-    color: 'text-green-500',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
     icon: <IconLoader2 className="h-4 w-4 animate-spin" />,
   },
   paused: {
     label: 'Paused',
-    color: 'text-yellow-500',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconPlayerPause className="h-4 w-4" />,
   },
   awaiting_approval: {
     label: 'Awaiting Approval',
-    color: 'text-yellow-500',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-4 w-4" />,
   },
   completed: {
     label: 'Completed',
-    color: 'text-green-500',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
     icon: <IconCheck className="h-4 w-4" />,
   },
   failed: {
     label: 'Failed',
-    color: 'text-destructive',
+    className: 'bg-destructive/10 text-destructive border-destructive/20',
     icon: <IconX className="h-4 w-4" />,
   },
   stopped: {
     label: 'Stopped',
-    color: 'text-muted-foreground',
+    className: 'bg-muted/10 text-muted-foreground border-border',
     icon: <IconPlayerStop className="h-4 w-4" />,
   },
   archived: {
     label: 'Archived',
-    color: 'text-slate-500',
+    className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
     icon: <IconArchive className="h-4 w-4" />,
   },
   review: {
     label: 'Review',
-    color: 'text-amber-500',
+    className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
     icon: <IconEye className="h-4 w-4" />,
   },
 }
 
 const JULES_STATE_CONFIG: Record<
   JulesTaskState,
-  { label: string; color: string; icon: React.ReactNode }
+  { label: string; className: string; icon: React.ReactNode }
 > = {
   initializing: {
     label: 'Initializing',
-    color: 'text-muted-foreground',
+    className: 'bg-muted/10 text-muted-foreground border-border',
     icon: <IconLoader2 className="h-4 w-4 animate-spin" />,
   },
   planning: {
     label: 'Planning',
-    color: 'text-blue-500',
+    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     icon: <IconLoader2 className="h-4 w-4 animate-spin" />,
   },
   'awaiting-plan-approval': {
     label: 'Awaiting Approval',
-    color: 'text-yellow-500',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconListCheck className="h-4 w-4" />,
   },
   executing: {
     label: 'Executing',
-    color: 'text-green-500',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
     icon: <IconLoader2 className="h-4 w-4 animate-spin" />,
   },
   'awaiting-reply': {
     label: 'Awaiting Reply',
-    color: 'text-yellow-500',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-4 w-4" />,
   },
   completed: {
     label: 'Completed',
-    color: 'text-green-500',
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
     icon: <IconCheck className="h-4 w-4" />,
   },
   failed: {
     label: 'Failed',
-    color: 'text-destructive',
+    className: 'bg-destructive/10 text-destructive border-destructive/20',
     icon: <IconX className="h-4 w-4" />,
   },
   unknown: {
     label: 'Unknown',
-    color: 'text-muted-foreground',
+    className: 'bg-muted/10 text-muted-foreground border-border',
     icon: <IconAlertTriangle className="h-4 w-4" />,
   },
 }
@@ -1709,7 +1710,7 @@ export function TaskExecutionPanel({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Badge className="gap-1 text-amber-500">
+            <Badge className="gap-1 bg-amber-500/10 text-amber-500 border-amber-500/20" variant="outline">
               <IconEye className="h-4 w-4" />
               Review
             </Badge>
@@ -1798,7 +1799,7 @@ export function TaskExecutionPanel({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Badge className={`gap-1 ${statusConfig.color}`}>
+          <Badge className={cn('gap-1', statusConfig.className)} variant="outline">
             {statusConfig.icon}
             {statusConfig.label}
           </Badge>

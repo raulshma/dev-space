@@ -548,6 +548,7 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
       {/* Create Project with AI Agent Dialog */}
       <TaskCreationDialog
         defaultDirectory=""
+        defaultAgentType="autonomous"
         onOpenChange={setShowCreateWithAgentDialog}
         onTaskCreated={taskId => {
           console.log('Task created:', taskId)

@@ -227,7 +227,7 @@ interface AISettingsRow {
 }
 
 export class DatabaseService {
-  private db: Database.Database | null = null
+  private static sqliteDb: Database.Database | null = null
   private dbPath: string
 
   constructor(dbPath?: string) {
@@ -239,17 +239,22 @@ export class DatabaseService {
    * Initialize the database connection and schema
    */
   initialize(): void {
-    // Ensure the directory exists
+    if (DatabaseService.sqliteDb) {
+      console.log('[Database] Already initialized')
+      return
+    }
+
+    console.log(`[Database] Initializing at ${this.dbPath}...`)
     const dbDir = path.dirname(this.dbPath)
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true })
     }
 
     // Open database connection
-    this.db = new Database(this.dbPath)
+    DatabaseService.sqliteDb = new Database(this.dbPath)
 
     // Enable WAL mode for non-blocking operations
-    this.db.pragma('journal_mode = WAL')
+    DatabaseService.sqliteDb.pragma('journal_mode = WAL')
 
     // Create schema
     this.createSchema()
@@ -259,16 +264,18 @@ export class DatabaseService {
 
     // Seed default commands if none exist
     this.seedDefaultCommands()
+
+    console.log('[Database] Initialization complete')
   }
 
   /**
    * Create database schema with all tables
    */
   private createSchema(): void {
-    if (!this.db) throw new Error('Database not initialized')
+    const db = this.getDb()
 
     // Projects table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -282,7 +289,7 @@ export class DatabaseService {
     `)
 
     // Tags table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS tags (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
@@ -292,7 +299,7 @@ export class DatabaseService {
     `)
 
     // Project-Tag junction table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS project_tags (
         project_id TEXT NOT NULL,
         tag_id TEXT NOT NULL,
@@ -303,7 +310,7 @@ export class DatabaseService {
     `)
 
     // Sessions table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS sessions (
         project_id TEXT PRIMARY KEY,
         state_json TEXT NOT NULL,
@@ -313,7 +320,7 @@ export class DatabaseService {
     `)
 
     // Custom Themes table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS custom_themes (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -325,7 +332,7 @@ export class DatabaseService {
     `)
 
     // Commands library table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS commands (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -336,7 +343,7 @@ export class DatabaseService {
     `)
 
     // Blueprints table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS blueprints (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -347,7 +354,7 @@ export class DatabaseService {
     `)
 
     // Settings table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -355,7 +362,7 @@ export class DatabaseService {
     `)
 
     // Keyboard shortcuts table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS shortcuts (
         action TEXT PRIMARY KEY,
         binding TEXT NOT NULL
@@ -363,7 +370,7 @@ export class DatabaseService {
     `)
 
     // Create indexes for better query performance
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_projects_path ON projects(path);
       CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at);
       CREATE INDEX IF NOT EXISTS idx_project_tags_project_id ON project_tags(project_id);
@@ -371,7 +378,7 @@ export class DatabaseService {
     `)
 
     // AI Request Logs table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS ai_request_logs (
         id TEXT PRIMARY KEY,
         timestamp INTEGER NOT NULL,
@@ -387,14 +394,14 @@ export class DatabaseService {
     `)
 
     // AI Request Logs indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_ai_logs_timestamp ON ai_request_logs(timestamp);
       CREATE INDEX IF NOT EXISTS idx_ai_logs_model ON ai_request_logs(model_id);
       CREATE INDEX IF NOT EXISTS idx_ai_logs_status ON ai_request_logs(status);
     `)
 
     // Agent Tasks table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS agent_tasks (
         id TEXT PRIMARY KEY,
         description TEXT NOT NULL,
@@ -418,39 +425,39 @@ export class DatabaseService {
 
     // Migration: Add new columns if they don't exist
     try {
-      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN service_type TEXT`)
+      db.exec(`ALTER TABLE agent_tasks ADD COLUMN service_type TEXT`)
     } catch {
       // Column already exists
     }
     try {
-      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_session_id TEXT`)
+      db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_session_id TEXT`)
     } catch {
       // Column already exists
     }
     try {
-      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_params_json TEXT`)
+      db.exec(`ALTER TABLE agent_tasks ADD COLUMN jules_params_json TEXT`)
     } catch {
       // Column already exists
     }
     try {
-      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN working_directory TEXT`)
+      db.exec(`ALTER TABLE agent_tasks ADD COLUMN working_directory TEXT`)
     } catch {
       // Column already exists
     }
     try {
-      this.db.exec(`ALTER TABLE agent_tasks ADD COLUMN execution_step TEXT`)
+      db.exec(`ALTER TABLE agent_tasks ADD COLUMN execution_step TEXT`)
     } catch {
       // Column already exists
     }
 
     // Agent Tasks indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_agent_tasks_status ON agent_tasks(status);
       CREATE INDEX IF NOT EXISTS idx_agent_tasks_priority ON agent_tasks(priority);
     `)
 
     // Agent Task Output table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS agent_task_output (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         task_id TEXT NOT NULL,
@@ -462,12 +469,12 @@ export class DatabaseService {
     `)
 
     // Agent Task Output index
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_task_output_task ON agent_task_output(task_id);
     `)
 
     // Model Cache table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS model_cache (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -486,7 +493,7 @@ export class DatabaseService {
     `)
 
     // AI Settings table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS ai_settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
@@ -495,7 +502,7 @@ export class DatabaseService {
     `)
 
     // Jules Activities table - stores activities synced from Jules API
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS jules_activities (
         id TEXT PRIMARY KEY,
         task_id TEXT NOT NULL,
@@ -510,14 +517,14 @@ export class DatabaseService {
     `)
 
     // Jules Activities indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_jules_activities_task ON jules_activities(task_id);
       CREATE INDEX IF NOT EXISTS idx_jules_activities_session ON jules_activities(session_id);
       CREATE INDEX IF NOT EXISTS idx_jules_activities_create_time ON jules_activities(create_time);
     `)
 
     // Jules Sync State table - tracks pagination state for incremental fetching
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS jules_sync_state (
         task_id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -533,7 +540,7 @@ export class DatabaseService {
     // ============================================================================
 
     // Auto-mode state per project
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS auto_mode_state (
         project_path TEXT PRIMARY KEY,
         enabled INTEGER NOT NULL DEFAULT 0,
@@ -544,7 +551,7 @@ export class DatabaseService {
     `)
 
     // Task dependencies
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS task_dependencies (
         task_id TEXT NOT NULL,
         depends_on_task_id TEXT NOT NULL,
@@ -556,13 +563,13 @@ export class DatabaseService {
     `)
 
     // Task dependencies indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
     `)
 
     // Agent sessions
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS agent_sessions (
         id TEXT PRIMARY KEY,
         project_path TEXT NOT NULL,
@@ -575,13 +582,13 @@ export class DatabaseService {
     `)
 
     // Agent sessions indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_agent_sessions_project ON agent_sessions(project_path);
       CREATE INDEX IF NOT EXISTS idx_agent_sessions_updated ON agent_sessions(updated_at);
     `)
 
     // Session messages
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS session_messages (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -593,13 +600,13 @@ export class DatabaseService {
     `)
 
     // Session messages indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_session_messages_session ON session_messages(session_id);
       CREATE INDEX IF NOT EXISTS idx_session_messages_timestamp ON session_messages(timestamp);
     `)
 
     // Last selected session per project
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS project_session_state (
         project_path TEXT PRIMARY KEY,
         last_session_id TEXT,
@@ -608,7 +615,7 @@ export class DatabaseService {
     `)
 
     // Worktree tracking
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS worktrees (
         path TEXT PRIMARY KEY,
         project_path TEXT NOT NULL,
@@ -620,7 +627,7 @@ export class DatabaseService {
     `)
 
     // Worktrees indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_worktrees_project ON worktrees(project_path);
       CREATE INDEX IF NOT EXISTS idx_worktrees_task ON worktrees(task_id);
     `)
@@ -630,7 +637,7 @@ export class DatabaseService {
     // ============================================================================
 
     // Task Feedback History table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS task_feedback (
         id TEXT PRIMARY KEY,
         task_id TEXT NOT NULL,
@@ -642,13 +649,13 @@ export class DatabaseService {
     `)
 
     // Task Feedback indexes
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_task_feedback_task ON task_feedback(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_feedback_iteration ON task_feedback(task_id, iteration);
     `)
 
     // Task Terminal Sessions table
-    this.db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS task_terminals (
         id TEXT PRIMARY KEY,
         task_id TEXT NOT NULL,
@@ -660,7 +667,7 @@ export class DatabaseService {
     `)
 
     // Task Terminals index
-    this.db.exec(`
+    db.exec(`
       CREATE INDEX IF NOT EXISTS idx_task_terminals_task ON task_terminals(task_id);
     `)
   }
@@ -669,10 +676,10 @@ export class DatabaseService {
    * Apply database migrations (placeholder for future schema changes)
    */
   migrate(): void {
-    if (!this.db) throw new Error('Database not initialized')
+    const db = this.getDb()
 
     // Get current schema version
-    const versionRow = this.db
+    const versionRow = db
       .prepare('SELECT value FROM settings WHERE key = ?')
       .get('schema_version') as { value: string } | undefined
     const currentVersion = versionRow
@@ -683,27 +690,27 @@ export class DatabaseService {
     if (currentVersion < 2) {
       try {
         // Check if columns already exist
-        const tableInfo = this.db
+        const tableInfo = db
           .prepare('PRAGMA table_info(model_cache)')
           .all() as Array<{ name: string }>
         const columnNames = tableInfo.map(col => col.name)
 
         // Add missing columns
         if (!columnNames.includes('description')) {
-          this.db.exec('ALTER TABLE model_cache ADD COLUMN description TEXT')
+          db.exec('ALTER TABLE model_cache ADD COLUMN description TEXT')
         }
         if (!columnNames.includes('is_free')) {
-          this.db.exec(
+          db.exec(
             'ALTER TABLE model_cache ADD COLUMN is_free INTEGER DEFAULT 0'
           )
         }
         if (!columnNames.includes('max_completion_tokens')) {
-          this.db.exec(
+          db.exec(
             'ALTER TABLE model_cache ADD COLUMN max_completion_tokens INTEGER'
           )
         }
         if (!columnNames.includes('supported_methods_json')) {
-          this.db.exec(
+          db.exec(
             'ALTER TABLE model_cache ADD COLUMN supported_methods_json TEXT'
           )
         }
@@ -715,16 +722,16 @@ export class DatabaseService {
     // Migration 2: Add created and architecture_json to model_cache table
     if (currentVersion < 3) {
       try {
-        const tableInfo = this.db
+        const tableInfo = db
           .prepare('PRAGMA table_info(model_cache)')
           .all() as Array<{ name: string }>
         const columnNames = tableInfo.map(col => col.name)
 
         if (!columnNames.includes('created')) {
-          this.db.exec('ALTER TABLE model_cache ADD COLUMN created INTEGER')
+          db.exec('ALTER TABLE model_cache ADD COLUMN created INTEGER')
         }
         if (!columnNames.includes('architecture_json')) {
-          this.db.exec(
+          db.exec(
             'ALTER TABLE model_cache ADD COLUMN architecture_json TEXT'
           )
         }
@@ -736,34 +743,34 @@ export class DatabaseService {
     // Migration 3: Add agent enhancement columns to agent_tasks table
     if (currentVersion < 4) {
       try {
-        const tableInfo = this.db
+        const tableInfo = db
           .prepare('PRAGMA table_info(agent_tasks)')
           .all() as Array<{ name: string }>
         const columnNames = tableInfo.map(col => col.name)
 
         // Add planning_mode column
         if (!columnNames.includes('planning_mode')) {
-          this.db.exec(
+          db.exec(
             "ALTER TABLE agent_tasks ADD COLUMN planning_mode TEXT DEFAULT 'skip'"
           )
         }
         // Add plan_spec column (JSON blob)
         if (!columnNames.includes('plan_spec')) {
-          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN plan_spec TEXT')
+          db.exec('ALTER TABLE agent_tasks ADD COLUMN plan_spec TEXT')
         }
         // Add require_plan_approval column
         if (!columnNames.includes('require_plan_approval')) {
-          this.db.exec(
+          db.exec(
             'ALTER TABLE agent_tasks ADD COLUMN require_plan_approval INTEGER DEFAULT 0'
           )
         }
         // Add branch_name column
         if (!columnNames.includes('branch_name')) {
-          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN branch_name TEXT')
+          db.exec('ALTER TABLE agent_tasks ADD COLUMN branch_name TEXT')
         }
         // Add worktree_path column
         if (!columnNames.includes('worktree_path')) {
-          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN worktree_path TEXT')
+          db.exec('ALTER TABLE agent_tasks ADD COLUMN worktree_path TEXT')
         }
       } catch (error) {
         console.error('Migration 3 (agent enhancements) failed:', error)
@@ -773,13 +780,13 @@ export class DatabaseService {
     // Migration 4: Add theme_id to projects table
     if (currentVersion < 5) {
       try {
-        const tableInfo = this.db
+        const tableInfo = db
           .prepare('PRAGMA table_info(projects)')
           .all() as Array<{ name: string }>
         const columnNames = tableInfo.map(col => col.name)
 
         if (!columnNames.includes('theme_id')) {
-          this.db.exec('ALTER TABLE projects ADD COLUMN theme_id TEXT')
+          db.exec('ALTER TABLE projects ADD COLUMN theme_id TEXT')
         }
       } catch (error) {
         console.error('Migration 4 (theme_id) failed:', error)
@@ -789,7 +796,7 @@ export class DatabaseService {
     // Migration 5: Add custom_themes table
     if (currentVersion < 6) {
       try {
-        this.db.exec(`
+        db.exec(`
           CREATE TABLE IF NOT EXISTS custom_themes (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -807,22 +814,22 @@ export class DatabaseService {
     // Migration 6: Add project_id and project_name to agent_tasks
     if (currentVersion < 7) {
       try {
-        const tableInfo = this.db
+        const tableInfo = db
           .prepare('PRAGMA table_info(agent_tasks)')
           .all() as Array<{ name: string }>
         const columnNames = tableInfo.map(col => col.name)
 
         // Add project_id column
         if (!columnNames.includes('project_id')) {
-          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN project_id TEXT')
+          db.exec('ALTER TABLE agent_tasks ADD COLUMN project_id TEXT')
         }
         // Add project_name column
         if (!columnNames.includes('project_name')) {
-          this.db.exec('ALTER TABLE agent_tasks ADD COLUMN project_name TEXT')
+          db.exec('ALTER TABLE agent_tasks ADD COLUMN project_name TEXT')
         }
 
         // Create index for project_id filtering
-        this.db.exec(`
+        db.exec(`
           CREATE INDEX IF NOT EXISTS idx_agent_tasks_project ON agent_tasks(project_id);
         `)
       } catch (error) {
@@ -834,7 +841,7 @@ export class DatabaseService {
     if (currentVersion < 8) {
       try {
         // Create task_feedback table
-        this.db.exec(`
+        db.exec(`
           CREATE TABLE IF NOT EXISTS task_feedback (
             id TEXT PRIMARY KEY,
             task_id TEXT NOT NULL,
@@ -846,13 +853,13 @@ export class DatabaseService {
         `)
 
         // Create task_feedback indexes
-        this.db.exec(`
+        db.exec(`
           CREATE INDEX IF NOT EXISTS idx_task_feedback_task ON task_feedback(task_id);
           CREATE INDEX IF NOT EXISTS idx_task_feedback_iteration ON task_feedback(task_id, iteration);
         `)
 
         // Create task_terminals table
-        this.db.exec(`
+        db.exec(`
           CREATE TABLE IF NOT EXISTS task_terminals (
             id TEXT PRIMARY KEY,
             task_id TEXT NOT NULL,
@@ -864,7 +871,7 @@ export class DatabaseService {
         `)
 
         // Create task_terminals index
-        this.db.exec(`
+        db.exec(`
           CREATE INDEX IF NOT EXISTS idx_task_terminals_task ON task_terminals(task_id);
         `)
       } catch (error) {
@@ -873,29 +880,44 @@ export class DatabaseService {
     }
 
     // Set schema version
-    this.db
-      .prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-      .run('schema_version', '8')
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+      'schema_version',
+      '8'
+    )
   }
 
   /**
    * Close the database connection
    */
   close(): void {
-    if (this.db) {
-      this.db.close()
-      this.db = null
+    if (DatabaseService.sqliteDb) {
+      console.log('[Database] Closing connection...')
+      DatabaseService.sqliteDb.close()
+      DatabaseService.sqliteDb = null
+      console.log('[Database] Connection closed')
     }
+  }
+
+  /**
+   * Check if the database is initialized
+   */
+  isInitialized(): boolean {
+    return DatabaseService.sqliteDb !== null
   }
 
   /**
    * Get the database instance (for internal use)
    */
   private getDb(): Database.Database {
-    if (!this.db) {
+    if (!DatabaseService.sqliteDb) {
+      console.warn('Database not initialized on access. Attempting auto-initialization...')
+      this.initialize()
+    }
+
+    if (!DatabaseService.sqliteDb) {
       throw new Error('Database not initialized. Call initialize() first.')
     }
-    return this.db
+    return DatabaseService.sqliteDb
   }
 
   // ============================================================================

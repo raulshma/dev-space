@@ -374,6 +374,16 @@ export interface AgentParameters {
   disallowedTools?: string[]
   /** Maximum budget in USD for the task */
   maxBudgetUsd?: number
+  /** Continuation mode for post-approval or post-rejection execution */
+  continuationMode?: 'post-approval' | 'plan-revision'
+  /** Approved plan content for continuation after approval */
+  approvedPlanContent?: string
+  /** Previous plan content for revision after rejection */
+  previousPlanContent?: string
+  /** Rejection feedback for plan revision */
+  rejectionFeedback?: string
+  /** Whether to use multi-task execution (dedicated agent call per sub-task) */
+  useMultiTaskExecution?: boolean
 }
 
 /**
