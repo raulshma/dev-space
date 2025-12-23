@@ -29,6 +29,7 @@ import {
   IconClock,
   IconRocket,
   IconGitBranch,
+  IconBug,
   IconLoader2,
   IconCheck,
   IconX,
@@ -485,6 +486,8 @@ export function TaskDetailView({
             <div className="flex items-center gap-3">
               {task.agentType === 'autonomous' ? (
                 <IconRocket className="h-5 w-5 text-muted-foreground" />
+              ) : task.agentType === 'bugfix' ? (
+                <IconBug className="h-5 w-5 text-muted-foreground" />
               ) : (
                 <IconGitBranch className="h-5 w-5 text-muted-foreground" />
               )}

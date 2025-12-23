@@ -33,6 +33,7 @@ import {
   IconClock,
   IconRocket,
   IconGitBranch,
+  IconBug,
   IconLoader2,
   IconCheck,
   IconAlertTriangle,
@@ -1703,6 +1704,8 @@ export function TaskExecutionPanel({
           <div className="flex items-center gap-3 min-w-0">
             {task.agentType === 'autonomous' ? (
               <IconRocket className="h-5 w-5 text-muted-foreground shrink-0" />
+            ) : task.agentType === 'bugfix' ? (
+              <IconBug className="h-5 w-5 text-muted-foreground shrink-0" />
             ) : (
               <IconGitBranch className="h-5 w-5 text-muted-foreground shrink-0" />
             )}
@@ -1795,6 +1798,8 @@ export function TaskExecutionPanel({
         <div className="flex items-center gap-3 min-w-0">
           {task.agentType === 'autonomous' ? (
             <IconRocket className="h-5 w-5 text-muted-foreground shrink-0" />
+          ) : task.agentType === 'bugfix' ? (
+            <IconBug className="h-5 w-5 text-muted-foreground shrink-0" />
           ) : (
             <IconGitBranch className="h-5 w-5 text-muted-foreground shrink-0" />
           )}

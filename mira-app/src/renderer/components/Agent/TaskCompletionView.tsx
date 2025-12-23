@@ -41,6 +41,7 @@ import {
   IconFileX,
   IconGitBranch,
   IconRocket,
+  IconBug,
   IconChevronDown,
   IconChevronRight,
   IconCopy,
@@ -389,6 +390,8 @@ export function TaskCompletionView({
           <div className="flex items-center gap-2">
             {task.agentType === 'autonomous' ? (
               <IconRocket className="h-4 w-4 text-muted-foreground" />
+            ) : task.agentType === 'bugfix' ? (
+              <IconBug className="h-4 w-4 text-muted-foreground" />
             ) : (
               <IconGitBranch className="h-4 w-4 text-muted-foreground" />
             )}

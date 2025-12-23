@@ -270,9 +270,91 @@ export class IPCHandlers {
         projectPath: task.targetDirectory,
       })
 
-      // Build system prompt - buildFeaturePrompt pattern
+      // Build system prompt based on agent type
       const taskTitle = task.description.split('\n')[0].substring(0, 100)
-      const baseSystemPrompt = `## Feature Implementation Task
+      let baseSystemPrompt: string
+
+      if (task.agentType === 'bugfix') {
+        baseSystemPrompt = `## Bug Fix Task
+
+**Task ID:** ${taskId}
+**Title:** ${taskTitle}
+**Bug Description:** ${task.description}
+
+## Instructions
+
+Fix this bug by:
+1. First, analyze the bug description to understand the issue
+2. Explore the codebase to locate the source of the bug
+3. Identify the root cause of the problem
+4. Implement the fix with minimal changes
+5. Ensure the fix doesn't introduce regressions
+6. Verify the fix addresses the described issue
+
+## Guidelines
+- Focus on fixing the specific bug described
+- Make minimal, targeted changes
+- Preserve existing functionality
+- Follow existing code patterns and conventions
+- Add comments if the fix is non-obvious
+
+When done, wrap your final summary in <summary> tags like this:
+
+<summary>
+## Summary: Bug Fix - [Brief Description]
+
+### Root Cause
+- [Explanation of what caused the bug]
+
+### Fix Applied
+- [Description of the fix]
+
+### Files Modified
+- [List of files]
+
+### Testing Notes
+- [How to verify the fix]
+</summary>
+
+This helps parse your summary correctly in the output logs.`
+      } else if (task.agentType === 'autonomous') {
+        baseSystemPrompt = `## Autonomous Project Task
+
+**Task ID:** ${taskId}
+**Title:** ${taskTitle}
+**Description:** ${task.description}
+
+## Instructions
+
+Build this project from scratch by:
+1. Plan the project structure and architecture
+2. Set up the necessary files and configurations
+3. Implement the core functionality
+4. Add any required dependencies
+5. Ensure the project is runnable
+
+When done, wrap your final summary in <summary> tags like this:
+
+<summary>
+## Summary: [Project Title]
+
+### What Was Built
+- [Description of the project]
+
+### Project Structure
+- [Key files and directories]
+
+### How to Run
+- [Instructions to run the project]
+
+### Notes
+- [Any important notes]
+</summary>
+
+This helps parse your summary correctly in the output logs.`
+      } else {
+        // Default: feature agent
+        baseSystemPrompt = `## Feature Implementation Task
 
 **Task ID:** ${taskId}
 **Title:** ${taskTitle}
@@ -302,6 +384,7 @@ When done, wrap your final summary in <summary> tags like this:
 </summary>
 
 This helps parse your summary correctly in the output logs.`
+      }
 
       const systemPrompt = combineSystemPrompts(
         contextFilesPrompt || undefined,
@@ -309,11 +392,12 @@ This helps parse your summary correctly in the output logs.`
       )
 
       // Send initial output to show task is starting
+      const agentTypeLabel = task.agentType === 'bugfix' ? 'Bugfix' : task.agentType === 'autonomous' ? 'Autonomous' : 'Feature'
       const startLine: import('shared/ai-types').OutputLine = {
         id: 0,
         taskId,
         timestamp: new Date(),
-        content: `Starting task: ${task.description}\nWorking directory: ${task.targetDirectory}\nModel: ${model}\n\n`,
+        content: `Starting ${agentTypeLabel} task: ${task.description}\nWorking directory: ${task.targetDirectory}\nModel: ${model}\n\n`,
         stream: 'stdout',
       }
       this.db.createTaskOutput({

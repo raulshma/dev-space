@@ -10,7 +10,7 @@ import { useAgentTaskStore } from 'renderer/stores/agent-task-store'
 import { useAgentTasks } from 'renderer/hooks/use-agent-tasks'
 import { useProject } from 'renderer/hooks/use-projects'
 import { TaskBacklogList } from 'renderer/components/Agent/TaskBacklogList'
-import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
+import { TaskCreationDialog, TaskEditDialog } from 'renderer/components/Agent'
 import { Button } from 'renderer/components/ui/button'
 import { useAppStore } from 'renderer/stores/app-store'
 import type { AgentTask } from 'shared/ai-types'
@@ -23,6 +23,7 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
   projectId,
 }: TasksSidebarPanelProps) {
   const [showTaskCreation, setShowTaskCreation] = useState(false)
+  const [editingTask, setEditingTask] = useState<AgentTask | null>(null)
   const { setSelectedTask, openTaskTab } = useAgentTaskStore()
   const setActiveView = useAppStore(state => state.setActiveView)
 
@@ -50,11 +51,14 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
 
   const handleEditTask = useCallback(
     (task: AgentTask) => {
-      setSelectedTask(task.id)
-      setActiveView('tasks')
+      setEditingTask(task)
     },
-    [setSelectedTask, setActiveView]
+    []
   )
+
+  const handleTaskUpdated = useCallback(() => {
+    setEditingTask(null)
+  }, [])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -101,6 +105,14 @@ export const TasksSidebarPanel = memo(function TasksSidebarPanel({
         open={showTaskCreation}
         projectId={projectId ?? undefined}
         projectName={project?.name}
+      />
+
+      {/* Task edit dialog */}
+      <TaskEditDialog
+        onOpenChange={open => !open && setEditingTask(null)}
+        onTaskUpdated={handleTaskUpdated}
+        open={!!editingTask}
+        task={editingTask}
       />
     </div>
   )

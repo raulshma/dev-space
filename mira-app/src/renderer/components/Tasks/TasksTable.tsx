@@ -40,8 +40,10 @@ import {
   IconPlayerPause,
   IconPlayerStop,
   IconTrash,
+  IconEdit,
   IconRocket,
   IconGitBranch,
+  IconBug,
   IconClock,
   IconCheck,
   IconX,
@@ -65,6 +67,7 @@ interface TasksTableProps {
   filters: TasksFilter
   selectedTaskId: string | null
   onTaskSelect: (taskId: string | null) => void
+  onEditTask?: (task: AgentTask) => void
 }
 
 const STATUS_CONFIG: Record<
@@ -154,6 +157,7 @@ export function TasksTable({
   filters,
   selectedTaskId,
   onTaskSelect,
+  onEditTask,
 }: TasksTableProps): React.JSX.Element {
   const tasks = useTaskList()
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<AgentTask | null>(
@@ -284,6 +288,8 @@ export function TasksTable({
   const canResume = (task: AgentTask): boolean => task.status === 'paused'
   const canStop = (task: AgentTask): boolean =>
     task.status === 'running' || task.status === 'paused'
+  const canEdit = (task: AgentTask): boolean =>
+    task.status === 'pending' || task.status === 'queued'
   const canDelete = (task: AgentTask): boolean =>
     task.status !== 'running' && task.status !== 'paused'
 
@@ -340,6 +346,8 @@ export function TasksTable({
                     <div className="flex items-center gap-1">
                       {task.agentType === 'autonomous' ? (
                         <IconRocket className="h-4 w-4 text-muted-foreground" />
+                      ) : task.agentType === 'bugfix' ? (
+                        <IconBug className="h-4 w-4 text-muted-foreground" />
                       ) : (
                         <IconGitBranch className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -426,6 +434,17 @@ export function TasksTable({
                           <IconDotsVertical className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {canEdit(task) && (
+                            <DropdownMenuItem
+                              onClick={e => {
+                                e.stopPropagation()
+                                onEditTask?.(task)
+                              }}
+                            >
+                              <IconEdit className="mr-2 h-4 w-4" />
+                              Edit Task
+                            </DropdownMenuItem>
+                          )}
                           {canStart(task) && (
                             <DropdownMenuItem
                               onClick={e => {

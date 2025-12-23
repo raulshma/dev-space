@@ -35,6 +35,7 @@ interface KanbanColumnProps {
   onStop: (taskId: string) => void
   onDelete: (task: AgentTask) => void
   onArchive: (task: AgentTask) => void
+  onEditTask?: (task: AgentTask) => void
   onDragStart: (taskId: string, status: TaskStatus) => void
   onDragEnd: () => void
   onDragOver: (e: React.DragEvent, status: TaskStatus) => void
@@ -116,6 +117,7 @@ export const KanbanColumn = memo(function KanbanColumn({
   onStop,
   onDelete,
   onArchive,
+  onEditTask,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -201,6 +203,7 @@ export const KanbanColumn = memo(function KanbanColumn({
               onSelect={onTaskSelect}
               onStart={onStart}
               onStop={onStop}
+              onEditTask={onEditTask}
               status={status}
               task={task}
             />

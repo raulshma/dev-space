@@ -56,6 +56,7 @@ import {
   IconExternalLink,
   IconSearch,
   IconCheck,
+  IconBug,
 } from '@tabler/icons-react'
 import { useCreateAgentTask } from 'renderer/hooks/use-agent-tasks'
 import { useTaskList } from 'renderer/stores/agent-task-store'
@@ -354,21 +355,21 @@ export function TaskCreationDialog({
           return false
         }
 
-        // For feature agent, validate it's a git repository
-        if (agentType === 'feature') {
+        // For feature and bugfix agents, validate it's a git repository
+        if (agentType === 'feature' || agentType === 'bugfix') {
           try {
             const telemetry = await window.api.git.getTelemetry({
               projectPath: targetDirectory,
             })
             if (!telemetry.telemetry) {
               setValidationError(
-                'Target directory is not a valid git repository. Feature agents require a git repository.'
+                `Target directory is not a valid git repository. ${agentType === 'feature' ? 'Feature' : 'Bugfix'} agents require a git repository.`
               )
               return false
             }
           } catch {
             setValidationError(
-              'Target directory is not a valid git repository. Feature agents require a git repository.'
+              `Target directory is not a valid git repository. ${agentType === 'feature' ? 'Feature' : 'Bugfix'} agents require a git repository.`
             )
             return false
           }
@@ -672,6 +673,14 @@ Respond with JSON only:
                             </TabsTrigger>
                           )}
                           {selectedService.supportsAgentTypes.includes(
+                            'bugfix'
+                          ) && (
+                            <TabsTrigger className="flex-1" value="bugfix">
+                              <IconBug className="mr-2 h-4 w-4" />
+                              Bugfix Agent
+                            </TabsTrigger>
+                          )}
+                          {selectedService.supportsAgentTypes.includes(
                             'autonomous'
                           ) && (
                             <TabsTrigger className="flex-1" value="autonomous">
@@ -684,6 +693,12 @@ Respond with JSON only:
                           <p className="text-xs text-muted-foreground">
                             Implements features in an existing repository.
                             Requires a valid git repository.
+                          </p>
+                        </TabsContent>
+                        <TabsContent className="mt-2" value="bugfix">
+                          <p className="text-xs text-muted-foreground">
+                            Fixes bugs in an existing repository. Provide bug
+                            details and optional reproduction steps.
                           </p>
                         </TabsContent>
                         <TabsContent className="mt-2" value="autonomous">
@@ -712,7 +727,7 @@ Respond with JSON only:
                         <IconFolder className="h-4 w-4" />
                       </Button>
                     </div>
-                    {agentType === 'feature' && (
+                    {(agentType === 'feature' || agentType === 'bugfix') && (
                       <p className="text-xs text-muted-foreground">
                         Must be a valid git repository
                       </p>

@@ -25,6 +25,7 @@ import {
   IconEye,
   IconRocket,
   IconGitBranch,
+  IconBug,
 } from '@tabler/icons-react'
 import { useRestartAgentTask } from 'renderer/hooks/use-agent-tasks'
 import { useSetting, SETTING_KEYS } from 'renderer/hooks/use-settings'
@@ -143,6 +144,8 @@ export function StartupResumeDialog({
                   <div className="shrink-0 mt-0.5">
                     {task.agentType === 'autonomous' ? (
                       <IconRocket className="h-4 w-4 text-muted-foreground" />
+                    ) : task.agentType === 'bugfix' ? (
+                      <IconBug className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <IconGitBranch className="h-4 w-4 text-muted-foreground" />
                     )}

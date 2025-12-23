@@ -27,9 +27,11 @@ import {
   IconPlayerPause,
   IconPlayerStop,
   IconTrash,
+  IconEdit,
   IconArchive,
   IconRocket,
   IconGitBranch,
+  IconBug,
   IconClock,
   IconLoader2,
   IconAlertTriangle,
@@ -55,6 +57,7 @@ interface KanbanCardProps {
   onStop: (taskId: string) => void
   onDelete: (task: AgentTask) => void
   onArchive: (task: AgentTask) => void
+  onEditTask?: (task: AgentTask) => void
   onDragStart: (taskId: string, status: TaskStatus) => void
   onDragEnd: () => void
 }
@@ -99,6 +102,7 @@ export const KanbanCard = memo(function KanbanCard({
   onStop,
   onDelete,
   onArchive,
+  onEditTask,
   onDragStart,
   onDragEnd,
 }: KanbanCardProps): React.JSX.Element {
@@ -164,6 +168,8 @@ export const KanbanCard = memo(function KanbanCard({
             />
             {task.agentType === 'autonomous' ? (
               <IconRocket className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : task.agentType === 'bugfix' ? (
+              <IconBug className="h-4 w-4 text-muted-foreground shrink-0" />
             ) : (
               <IconGitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
             )}
@@ -179,6 +185,17 @@ export const KanbanCard = memo(function KanbanCard({
               <IconDotsVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {canStart && onEditTask && (
+                <DropdownMenuItem
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation()
+                    onEditTask(task)
+                  }}
+                >
+                  <IconEdit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
               {canStart && (
                 <DropdownMenuItem
                   onClick={(e: React.MouseEvent) => {

@@ -293,7 +293,7 @@ export interface CreateAIRequestLogInput {
 /**
  * Type of coding agent
  */
-export type AgentType = 'autonomous' | 'feature'
+export type AgentType = 'autonomous' | 'feature' | 'bugfix'
 
 /**
  * Service/CLI type for task execution
@@ -322,7 +322,7 @@ export const TASK_SERVICE_TYPES: TaskServiceInfo[] = [
     description:
       'Claude Agent SDK for autonomous and feature development tasks',
     docsUrl: 'https://docs.anthropic.com/claude-code',
-    supportsAgentTypes: ['autonomous', 'feature'],
+    supportsAgentTypes: ['autonomous', 'feature', 'bugfix'],
   },
   {
     id: 'google-jules',
@@ -338,7 +338,7 @@ export const TASK_SERVICE_TYPES: TaskServiceInfo[] = [
     description:
       'Open-source AI coding agent with multi-provider support (Anthropic, OpenAI, Google, OpenRouter)',
     docsUrl: 'https://opencode.ai/docs',
-    supportsAgentTypes: ['autonomous', 'feature'],
+    supportsAgentTypes: ['autonomous', 'feature', 'bugfix'],
   },
 ]
 

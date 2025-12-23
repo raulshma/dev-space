@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from 'renderer/components/ui/alert-dialog'
-import { IconRocket } from '@tabler/icons-react'
+import { IconRocket, IconEdit } from '@tabler/icons-react'
 import { useTaskList } from 'renderer/stores/agent-task-store'
 import {
   useStartAgentTask,
@@ -36,6 +36,7 @@ interface KanbanBoardProps {
   filters: TasksFilter
   selectedTaskId: string | null
   onTaskSelect: (taskId: string | null) => void
+  onEditTask?: (task: AgentTask) => void
 }
 
 // Define the column order for the kanban board (archived is hidden by default)
@@ -58,6 +59,7 @@ export function KanbanBoard({
   filters,
   selectedTaskId,
   onTaskSelect,
+  onEditTask,
 }: KanbanBoardProps): React.JSX.Element {
   const tasks = useTaskList()
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<AgentTask | null>(
@@ -312,6 +314,7 @@ export function KanbanBoard({
               onStart={handleStart}
               onStop={handleStop}
               onTaskSelect={handleTaskSelect}
+              onEditTask={onEditTask}
               selectedTaskId={selectedTaskId}
               status={status}
               tasks={tasksByStatus[status]}

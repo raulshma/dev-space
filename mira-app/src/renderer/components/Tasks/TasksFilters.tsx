@@ -120,6 +120,7 @@ export const TasksFilters = memo(function TasksFilters({
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="autonomous">Autonomous</SelectItem>
               <SelectItem value="feature">Feature</SelectItem>
+              <SelectItem value="bugfix">Bugfix</SelectItem>
             </SelectContent>
           </Select>
 

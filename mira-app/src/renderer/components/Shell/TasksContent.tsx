@@ -15,13 +15,13 @@ import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
 import { TaskDetailsRow } from 'renderer/components/Tasks/TaskDetailsRow'
-import { TaskCreationDialog } from 'renderer/components/Agent/TaskCreationDialog'
+import { TaskCreationDialog, TaskEditDialog } from 'renderer/components/Agent'
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from 'renderer/components/ui/resizable'
-import type { TaskStatus, AgentType } from 'shared/ai-types'
+import type { TaskStatus, AgentType, AgentTask } from 'shared/ai-types'
 
 const TASK_DETAILS_SIZE_KEY = 'mira:task-details-row-size'
 const DEFAULT_DETAILS_SIZE = 50
@@ -58,6 +58,7 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
 
   // Dialog state
   const [showTaskCreation, setShowTaskCreation] = useState(false)
+  const [editingTask, setEditingTask] = useState<AgentTask | null>(null)
 
   // Task details expanded state (full window)
   const [isTaskDetailsExpanded, setIsTaskDetailsExpanded] = useState(() => {
@@ -100,6 +101,17 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
     },
     [openTaskTab]
   )
+
+  const handleEditTask = useCallback(
+    (task: AgentTask) => {
+      setEditingTask(task)
+    },
+    []
+  )
+
+  const handleTaskUpdated = useCallback(() => {
+    setEditingTask(null)
+  }, [])
 
   const handleFilterChange = useCallback((newFilters: Partial<TasksFilter>) => {
     setFilters(prev => ({ ...prev, ...newFilters }))
@@ -169,12 +181,14 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
                   {viewMode === 'kanban' ? (
                     <KanbanBoard
                       filters={filters}
+                      onEditTask={handleEditTask}
                       onTaskSelect={handleTaskSelect}
                       selectedTaskId={null}
                     />
                   ) : (
                     <TasksTable
                       filters={filters}
+                      onEditTask={handleEditTask}
                       onTaskSelect={handleTaskSelect}
                       selectedTaskId={null}
                     />
@@ -212,6 +226,14 @@ export const TasksContent = memo(function TasksContent(): React.JSX.Element {
         open={showTaskCreation}
         projectId={activeProjectId ?? undefined}
         projectName={project?.name}
+      />
+
+      {/* Task edit dialog */}
+      <TaskEditDialog
+        onOpenChange={open => !open && setEditingTask(null)}
+        onTaskUpdated={handleTaskUpdated}
+        open={!!editingTask}
+        task={editingTask}
       />
     </div>
   )

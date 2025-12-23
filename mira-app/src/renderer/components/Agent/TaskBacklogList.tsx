@@ -41,6 +41,7 @@ import {
   IconGripVertical,
   IconRocket,
   IconGitBranch,
+  IconBug,
   IconClock,
   IconCheck,
   IconX,
@@ -335,6 +336,8 @@ export function TaskBacklogList({
                   <div className="mt-1">
                     {task.agentType === 'autonomous' ? (
                       <IconRocket className="h-4 w-4 text-muted-foreground" />
+                    ) : task.agentType === 'bugfix' ? (
+                      <IconBug className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <IconGitBranch className="h-4 w-4 text-muted-foreground" />
                     )}
