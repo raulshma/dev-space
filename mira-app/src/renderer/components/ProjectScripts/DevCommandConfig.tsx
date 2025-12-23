@@ -146,11 +146,18 @@ export function DevCommandConfig({
   const status = runningProject?.status
   const isTransitioning = status === 'starting' || status === 'stopping'
 
-  // Common dev scripts to suggest
-  const devScripts =
-    scriptsData?.scripts.filter(s =>
-      ['dev', 'start', 'serve', 'develop'].includes(s.name.toLowerCase())
-    ) ?? []
+  // All scripts from package.json - prioritize common dev scripts at the top
+  const commonDevScriptNames = ['dev', 'start', 'serve', 'develop', 'run']
+  const allScripts = scriptsData?.scripts ?? []
+  
+  // Sort scripts: common dev scripts first, then alphabetically
+  const sortedScripts = [...allScripts].sort((a, b) => {
+    const aIsCommon = commonDevScriptNames.includes(a.name.toLowerCase())
+    const bIsCommon = commonDevScriptNames.includes(b.name.toLowerCase())
+    if (aIsCommon && !bIsCommon) return -1
+    if (!aIsCommon && bIsCommon) return 1
+    return a.name.localeCompare(b.name)
+  })
 
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b border-border">
@@ -196,7 +203,7 @@ export function DevCommandConfig({
           <div className="space-y-3">
             <div className="text-sm font-medium">Dev Command</div>
 
-            {devScripts.length > 0 && (
+            {sortedScripts.length > 0 && (
               <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground">
                   Select from scripts
@@ -206,12 +213,21 @@ export function DevCommandConfig({
                   value={selectedScript}
                 >
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
+                    <SelectValue>
+                      {selectedScript || 'Choose a script...'}
+                    </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
-                    {devScripts.map(script => (
+                  <SelectContent className="max-h-60">
+                    {sortedScripts.map(script => (
                       <SelectItem key={script.name} value={script.name}>
-                        {script.name}
+                        <span className="flex items-center gap-2">
+                          {script.name}
+                          {commonDevScriptNames.includes(script.name.toLowerCase()) && (
+                            <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
+                              dev
+                            </span>
+                          )}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
