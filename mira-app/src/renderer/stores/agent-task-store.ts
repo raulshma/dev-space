@@ -704,20 +704,21 @@ export const useAgentTaskStore = create<AgentTaskState>((set, get) => ({
     setReviewError(null)
     try {
       const response = await window.api.review.approveChanges({ taskId })
-      
+
       // Handle IPC error response (handleError returns { error: string, code: string })
       if ('error' in response && response.error) {
-        const errorMessage = typeof response.error === 'string' 
-          ? response.error 
-          : 'Failed to approve changes'
+        const errorMessage =
+          typeof response.error === 'string'
+            ? response.error
+            : 'Failed to approve changes'
         throw new Error(errorMessage)
       }
-      
+
       // Handle missing result
       if (!response.result) {
         throw new Error('No result returned from approval')
       }
-      
+
       if (response.result.success) {
         updateTask(taskId, { status: 'completed' })
         clearReviewState(taskId)

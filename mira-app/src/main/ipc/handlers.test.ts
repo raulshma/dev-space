@@ -16,13 +16,15 @@ import { GitService } from '../services/git-service'
 import { KeychainService } from '../services/keychain-service'
 import { IPCHandlers } from './handlers'
 import type { AIService } from '../services/ai-service'
-import type { AgentExecutorService } from '../services/agent-executor-service'
-import type { AgentConfigService } from '../services/agent/agent-config-service'
-import type { JulesService } from '../services/agent/jules-service'
 import type { RequestLogger } from '../services/ai/request-logger'
 import type { RunningProjectsService } from '../services/running-projects-service'
-import type { AgentServiceV2 } from '../services/agent-service-v2'
-import type { AutoModeServiceV2 } from '../services/auto-mode-service-v2'
+import type { GlobalProcessService } from '../services/global-process-service'
+import type { WorktreeService } from '../services/worktree-service'
+import type { DependencyManager } from '../services/dependency-manager'
+import type { SessionService } from '../services/session-service'
+import type { ReviewService } from '../services/review-service'
+import type { AgentService } from '../services/agent-service'
+import type { AutoModeService } from '../services/auto-mode-service'
 
 describe('IPCHandlers', () => {
   let db: DatabaseService
@@ -143,62 +145,6 @@ describe('IPCHandlers', () => {
       expect(handlers).toBeDefined()
     })
 
-    it('should accept optional agent executor service', () => {
-      const mockAgentExecutor = {
-        createTask: vi.fn(),
-        getTask: vi.fn(),
-        getTasks: vi.fn().mockReturnValue([]),
-        updateTask: vi.fn(),
-        deleteTask: vi.fn(),
-        startTask: vi.fn(),
-        pauseTask: vi.fn(),
-        resumeTask: vi.fn(),
-        stopTask: vi.fn(),
-        getTaskOutput: vi.fn().mockReturnValue([]),
-        subscribeToOutput: vi.fn().mockReturnValue(() => {}),
-        getBacklogSize: vi.fn().mockReturnValue(0),
-        reorderBacklog: vi.fn(),
-      } as unknown as AgentExecutorService
-
-      const handlers = new IPCHandlers(
-        db,
-        ptyManager,
-        gitService,
-        keychainService,
-        undefined, // aiService
-        mockAgentExecutor
-      )
-
-      expect(handlers).toBeDefined()
-    })
-
-    it('should accept optional agent config service', () => {
-      const mockAgentConfig = {
-        getConfig: vi.fn().mockResolvedValue({
-          anthropicAuthToken: 'test-token',
-          apiTimeoutMs: 30000,
-          pythonPath: 'python',
-          customEnvVars: {},
-        }),
-        setConfig: vi.fn(),
-        validateConfig: vi.fn().mockReturnValue({ isValid: true, errors: [] }),
-        isConfigured: vi.fn().mockResolvedValue(true),
-        clearConfig: vi.fn(),
-      } as unknown as AgentConfigService
-
-      const handlers = new IPCHandlers(
-        db,
-        ptyManager,
-        gitService,
-        keychainService,
-        undefined, // aiService
-        undefined, // agentExecutorService
-        mockAgentConfig
-      )
-
-      expect(handlers).toBeDefined()
-    })
-
     it('should accept optional request logger', () => {
       const mockRequestLogger = {
         logRequest: vi.fn().mockReturnValue('log-id'),
@@ -216,10 +162,73 @@ describe('IPCHandlers', () => {
         gitService,
         keychainService,
         undefined, // aiService
-        undefined, // agentExecutorService
-        undefined, // agentConfigService
-        undefined, // julesService
         mockRequestLogger
+      )
+
+      expect(handlers).toBeDefined()
+    })
+
+    it('should accept optional agent service', () => {
+      const mockAgentService = {
+        createSession: vi.fn(),
+        listSessions: vi.fn().mockReturnValue([]),
+        deleteSession: vi.fn(),
+        archiveSession: vi.fn(),
+        sendMessage: vi.fn(),
+        stopExecution: vi.fn(),
+        clearSession: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+      } as unknown as AgentService
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        undefined, // aiService
+        undefined, // requestLogger
+        undefined, // runningProjectsService
+        undefined, // globalProcessService
+        undefined, // worktreeService
+        undefined, // dependencyManager
+        undefined, // sessionService
+        undefined, // reviewService
+        mockAgentService
+      )
+
+      expect(handlers).toBeDefined()
+    })
+
+    it('should accept optional auto mode service', () => {
+      const mockAutoModeService = {
+        startAutoLoop: vi.fn(),
+        stopAutoLoop: vi.fn(),
+        isRunning: vi.fn().mockReturnValue(false),
+        getState: vi.fn().mockReturnValue(null),
+        executeFeature: vi.fn(),
+        stopFeature: vi.fn(),
+        approvePlan: vi.fn(),
+        rejectPlan: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+      } as unknown as AutoModeService
+
+      const handlers = new IPCHandlers(
+        db,
+        ptyManager,
+        gitService,
+        keychainService,
+        undefined, // aiService
+        undefined, // requestLogger
+        undefined, // runningProjectsService
+        undefined, // globalProcessService
+        undefined, // worktreeService
+        undefined, // dependencyManager
+        undefined, // sessionService
+        undefined, // reviewService
+        undefined, // agentService
+        mockAutoModeService
       )
 
       expect(handlers).toBeDefined()
@@ -240,35 +249,6 @@ describe('IPCHandlers', () => {
         addMessageToConversation: vi.fn(),
       } as unknown as AIService
 
-      const mockAgentExecutor = {
-        createTask: vi.fn(),
-        getTask: vi.fn(),
-        getTasks: vi.fn().mockReturnValue([]),
-        updateTask: vi.fn(),
-        deleteTask: vi.fn(),
-        startTask: vi.fn(),
-        pauseTask: vi.fn(),
-        resumeTask: vi.fn(),
-        stopTask: vi.fn(),
-        getTaskOutput: vi.fn().mockReturnValue([]),
-        subscribeToOutput: vi.fn().mockReturnValue(() => {}),
-        getBacklogSize: vi.fn().mockReturnValue(0),
-        reorderBacklog: vi.fn(),
-      } as unknown as AgentExecutorService
-
-      const mockAgentConfig = {
-        getConfig: vi.fn().mockResolvedValue({
-          anthropicAuthToken: 'test-token',
-          apiTimeoutMs: 30000,
-          pythonPath: 'python',
-          customEnvVars: {},
-        }),
-        setConfig: vi.fn(),
-        validateConfig: vi.fn().mockReturnValue({ isValid: true, errors: [] }),
-        isConfigured: vi.fn().mockResolvedValue(true),
-        clearConfig: vi.fn(),
-      } as unknown as AgentConfigService
-
       const mockRequestLogger = {
         logRequest: vi.fn().mockReturnValue('log-id'),
         updateResponse: vi.fn(),
@@ -279,20 +259,37 @@ describe('IPCHandlers', () => {
         stopPeriodicCleanup: vi.fn(),
       } as unknown as RequestLogger
 
-      const mockJulesService = {
-        listSources: vi.fn().mockResolvedValue([]),
-        createSession: vi.fn(),
-        getSession: vi.fn(),
-        listSessions: vi.fn().mockResolvedValue([]),
-        approvePlan: vi.fn(),
-        sendMessage: vi.fn(),
-        listActivities: vi.fn().mockResolvedValue([]),
-        activitiesToOutputLines: vi.fn().mockReturnValue([]),
-      } as unknown as JulesService
-
       const mockRunningProjectsService = {} as unknown as RunningProjectsService
-      const mockAgentServiceV2 = {} as unknown as AgentServiceV2
-      const mockAutoModeServiceV2 = {} as unknown as AutoModeServiceV2
+      const mockGlobalProcessService = {} as unknown as GlobalProcessService
+      const mockWorktreeService = {} as unknown as WorktreeService
+      const mockDependencyManager = {} as unknown as DependencyManager
+      const mockSessionService = {} as unknown as SessionService
+      const mockReviewService = {} as unknown as ReviewService
+
+      const mockAgentService = {
+        createSession: vi.fn(),
+        listSessions: vi.fn().mockReturnValue([]),
+        deleteSession: vi.fn(),
+        archiveSession: vi.fn(),
+        sendMessage: vi.fn(),
+        stopExecution: vi.fn(),
+        clearSession: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+      } as unknown as AgentService
+
+      const mockAutoModeService = {
+        startAutoLoop: vi.fn(),
+        stopAutoLoop: vi.fn(),
+        isRunning: vi.fn().mockReturnValue(false),
+        getState: vi.fn().mockReturnValue(null),
+        executeFeature: vi.fn(),
+        stopFeature: vi.fn(),
+        approvePlan: vi.fn(),
+        rejectPlan: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+      } as unknown as AutoModeService
 
       const handlers = new IPCHandlers(
         db,
@@ -300,13 +297,15 @@ describe('IPCHandlers', () => {
         gitService,
         keychainService,
         mockAIService,
-        mockAgentExecutor,
-        mockAgentConfig,
-        mockJulesService,
         mockRequestLogger,
         mockRunningProjectsService,
-        mockAgentServiceV2,
-        mockAutoModeServiceV2
+        mockGlobalProcessService,
+        mockWorktreeService,
+        mockDependencyManager,
+        mockSessionService,
+        mockReviewService,
+        mockAgentService,
+        mockAutoModeService
       )
 
       expect(handlers).toBeDefined()

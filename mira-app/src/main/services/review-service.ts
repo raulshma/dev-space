@@ -777,7 +777,7 @@ export class ReviewService extends EventEmitter implements IReviewService {
       // Fallback to target directory (project root)
       workingDir = task.targetDirectory
     }
-    
+
     if (!workingDir || !existsSync(workingDir)) {
       return []
     }

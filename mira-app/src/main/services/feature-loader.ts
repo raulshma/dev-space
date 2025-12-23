@@ -2,10 +2,10 @@
  * Feature Loader Service
  *
  * Handles loading, saving, and listing features from the project's
- * `.devspace/features/{id}/feature.json` storage format.
+ * `.mira/features/{id}/feature.json` storage format.
  *
  * Implements Requirements:
- * - 9.1: Store features in `.devspace/features/{id}/feature.json` format
+ * - 9.1: Store features in `.mira/features/{id}/feature.json` format
  * - 9.2: Support loading, saving, and listing features for a project
  * - 9.4: Support feature metadata including title, description, status,
  *        branch name, model, and image paths
@@ -167,8 +167,8 @@ export type UpdateFeatureOptions = Partial<Omit<Feature, 'id' | 'createdAt'>>
 // Constants
 // ============================================================================
 
-/** Base directory name for devspace data */
-const DEVSPACE_DIR = '.devspace'
+/** Base directory name for mira data */
+const MIRA_DIR = '.mira'
 
 /** Features subdirectory name */
 const FEATURES_DIR = 'features'
@@ -187,17 +187,17 @@ const IMAGES_DIR = 'images'
 // ============================================================================
 
 /**
- * Get the devspace directory for a project
+ * Get the mira directory for a project
  */
-export function getDevspaceDir(projectPath: string): string {
-  return path.join(projectPath, DEVSPACE_DIR)
+export function getMiraDir(projectPath: string): string {
+  return path.join(projectPath, MIRA_DIR)
 }
 
 /**
  * Get the features directory for a project
  */
 export function getFeaturesDir(projectPath: string): string {
-  return path.join(getDevspaceDir(projectPath), FEATURES_DIR)
+  return path.join(getMiraDir(projectPath), FEATURES_DIR)
 }
 
 /**
@@ -238,12 +238,12 @@ export function getFeatureImagesDir(
 }
 
 /**
- * Ensure the devspace directory structure exists
+ * Ensure the mira directory structure exists
  */
-export async function ensureDevspaceDir(projectPath: string): Promise<string> {
-  const devspaceDir = getDevspaceDir(projectPath)
-  await fsPromises.mkdir(devspaceDir, { recursive: true })
-  return devspaceDir
+export async function ensureMiraDir(projectPath: string): Promise<string> {
+  const miraDir = getMiraDir(projectPath)
+  await fsPromises.mkdir(miraDir, { recursive: true })
+  return miraDir
 }
 
 // ============================================================================
@@ -376,8 +376,8 @@ export class FeatureLoader {
    * @returns The saved feature
    */
   async saveFeature(projectPath: string, feature: Feature): Promise<Feature> {
-    // Ensure devspace directory exists
-    await ensureDevspaceDir(projectPath)
+    // Ensure mira directory exists
+    await ensureMiraDir(projectPath)
 
     // Ensure feature directory exists
     const featureDir = this.getFeatureDir(projectPath, feature.id)

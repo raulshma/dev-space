@@ -6,7 +6,11 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Alert, AlertDescription, AlertTitle } from 'renderer/components/ui/alert'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from 'renderer/components/ui/alert'
 import { Button } from 'renderer/components/ui/button'
 import { Badge } from 'renderer/components/ui/badge'
 import {
@@ -86,16 +90,16 @@ export function InterruptedTasksNotification({
             {interruptedTasks.length > 1 ? 's' : ''} that{' '}
             {interruptedTasks.length > 1 ? 'were' : 'was'} interrupted when the
             app was closed. {interruptedTasks.length > 1 ? 'They' : 'It'} can be
-            resumed from where{' '}
-            {interruptedTasks.length > 1 ? 'they' : 'it'} left off.
+            resumed from where {interruptedTasks.length > 1 ? 'they' : 'it'}{' '}
+            left off.
           </AlertDescription>
 
           {/* Show first few interrupted task names */}
           <div className="flex flex-wrap gap-2 mb-3">
             {interruptedTasks.slice(0, 3).map(task => (
               <Badge
-                key={task.id}
                 className="gap-1 bg-blue-500/20 text-blue-500 border-blue-500/30"
+                key={task.id}
                 variant="outline"
               >
                 <IconRefresh className="h-3 w-3" />
@@ -114,10 +118,10 @@ export function InterruptedTasksNotification({
           {/* Action buttons */}
           <div className="flex items-center gap-2">
             <Button
+              className="gap-1"
               onClick={handleResumeAll}
               size="sm"
               variant="default"
-              className="gap-1"
             >
               <IconPlayerPlay className="h-3.5 w-3.5" />
               Resume All ({interruptedTasks.length})
@@ -126,10 +130,10 @@ export function InterruptedTasksNotification({
               Review Tasks
             </Button>
             <Button
+              className="gap-1"
               onClick={handleDismiss}
               size="sm"
               variant="ghost"
-              className="gap-1"
             >
               <IconX className="h-3.5 w-3.5" />
               Dismiss

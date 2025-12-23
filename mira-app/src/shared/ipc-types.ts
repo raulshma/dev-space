@@ -240,6 +240,44 @@ export const IPC_CHANNELS = {
   AUTO_MODE_V2_PLAN_GENERATED: 'autoModeV2:planGenerated',
   AUTO_MODE_V2_RATE_LIMIT_WAIT: 'autoModeV2:rateLimitWait',
 
+  // New Agent Service operations (AI Agent Rework)
+  AGENT_CREATE_SESSION: 'agent:createSession',
+  AGENT_LIST_SESSIONS: 'agent:listSessions',
+  AGENT_DELETE_SESSION: 'agent:deleteSession',
+  AGENT_ARCHIVE_SESSION: 'agent:archiveSession',
+  AGENT_START_CONVERSATION: 'agent:startConversation',
+  AGENT_SEND_MESSAGE: 'agent:sendMessage',
+  AGENT_STOP_EXECUTION: 'agent:stopExecution',
+  AGENT_CLEAR_SESSION: 'agent:clearSession',
+  AGENT_GET_MESSAGES: 'agent:getMessages',
+  AGENT_IS_EXECUTING: 'agent:isExecuting',
+  // Agent event channels (main → renderer)
+  AGENT_STREAM: 'agent:stream',
+  AGENT_TOOL_USE: 'agent:toolUse',
+  AGENT_ERROR: 'agent:error',
+  AGENT_COMPLETE: 'agent:complete',
+
+  // New Auto Mode Service operations (AI Agent Rework)
+  AUTO_MODE_START: 'autoMode:start',
+  AUTO_MODE_STOP: 'autoMode:stop',
+  AUTO_MODE_GET_STATE: 'autoMode:getState',
+  AUTO_MODE_UPDATE_CONFIG: 'autoMode:updateConfig',
+  AUTO_MODE_GET_QUEUE: 'autoMode:getQueue',
+  AUTO_MODE_ENQUEUE_FEATURE: 'autoMode:enqueueFeature',
+  AUTO_MODE_DEQUEUE_FEATURE: 'autoMode:dequeueFeature',
+  AUTO_MODE_EXECUTE_FEATURE: 'autoMode:executeFeature',
+  AUTO_MODE_STOP_FEATURE: 'autoMode:stopFeature',
+  AUTO_MODE_APPROVE_PLAN: 'autoMode:approvePlan',
+  AUTO_MODE_REJECT_PLAN: 'autoMode:rejectPlan',
+  // Auto mode event channels (main → renderer)
+  AUTO_MODE_STATE_CHANGED: 'autoMode:stateChanged',
+  AUTO_MODE_FEATURE_STARTED: 'autoMode:featureStarted',
+  AUTO_MODE_FEATURE_COMPLETED: 'autoMode:featureCompleted',
+  AUTO_MODE_FEATURE_FAILED: 'autoMode:featureFailed',
+  AUTO_MODE_FEATURE_PROGRESS: 'autoMode:featureProgress',
+  AUTO_MODE_PLAN_GENERATED: 'autoMode:planGenerated',
+  AUTO_MODE_RATE_LIMIT_WAIT: 'autoMode:rateLimitWait',
+
   // Custom Theme operations
   THEME_LIST: 'theme:list',
   THEME_GET: 'theme:get',
@@ -2014,6 +2052,378 @@ export interface AutoModeV2PlanGeneratedData {
 }
 
 export interface AutoModeV2RateLimitWaitData {
+  projectPath: string
+  resetTime: string
+  waitSeconds: number
+}
+
+// ============================================================================
+// New Agent Service Request/Response Types (AI Agent Rework)
+// ============================================================================
+
+export interface AgentCreateSessionRequest {
+  name: string
+  projectPath?: string
+  workingDirectory?: string
+}
+
+export interface AgentCreateSessionResponse {
+  session: {
+    id: string
+    name: string
+    projectPath?: string
+    workingDirectory: string
+    createdAt: string
+    updatedAt: string
+    archived?: boolean
+    model?: string
+    sdkSessionId?: string
+  }
+}
+
+export interface AgentListSessionsRequest {
+  includeArchived?: boolean
+}
+
+export interface AgentListSessionsResponse {
+  sessions: Array<{
+    id: string
+    name: string
+    projectPath?: string
+    workingDirectory: string
+    createdAt: string
+    updatedAt: string
+    archived?: boolean
+    model?: string
+    sdkSessionId?: string
+  }>
+}
+
+export interface AgentDeleteSessionRequest {
+  sessionId: string
+}
+
+export interface AgentDeleteSessionResponse {
+  success: boolean
+}
+
+export interface AgentArchiveSessionRequest {
+  sessionId: string
+}
+
+export interface AgentArchiveSessionResponse {
+  success: boolean
+}
+
+export interface AgentStartConversationRequest {
+  sessionId: string
+  workingDirectory: string
+}
+
+export interface AgentStartConversationResponse {
+  sessionId: string
+  messages: AgentMessage[]
+  sdkSessionId?: string
+}
+
+export interface AgentMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  images?: Array<{
+    data: string
+    mimeType: string
+    filename: string
+  }>
+  timestamp: string
+  isError?: boolean
+  toolUses?: Array<{
+    name: string
+    input: unknown
+    id: string
+  }>
+}
+
+export interface AgentSendMessageRequest {
+  sessionId: string
+  message: string
+  imagePaths?: string[]
+  model?: string
+  systemPrompt?: string
+  allowedTools?: string[]
+}
+
+export interface AgentSendMessageResponse {
+  message: AgentMessage
+  sdkSessionId?: string
+}
+
+export interface AgentStopExecutionRequest {
+  sessionId: string
+}
+
+export interface AgentStopExecutionResponse {
+  success: boolean
+}
+
+export interface AgentClearSessionRequest {
+  sessionId: string
+}
+
+export interface AgentClearSessionResponse {
+  success: boolean
+}
+
+export interface AgentGetMessagesRequest {
+  sessionId: string
+}
+
+export interface AgentGetMessagesResponse {
+  messages: AgentMessage[]
+}
+
+export interface AgentIsExecutingRequest {
+  sessionId: string
+}
+
+export interface AgentIsExecutingResponse {
+  isExecuting: boolean
+}
+
+// Agent event data types
+export interface AgentStreamData {
+  sessionId: string
+  text: string
+}
+
+export interface AgentToolUseData {
+  sessionId: string
+  toolName: string
+  input: unknown
+}
+
+export interface AgentErrorData {
+  sessionId: string
+  error: {
+    type: 'abort' | 'rate_limit' | 'network' | 'auth' | 'unknown'
+    message: string
+    isAbort: boolean
+    retryable: boolean
+    resetTime?: string
+  }
+}
+
+export interface AgentCompleteData {
+  sessionId: string
+  result: string
+}
+
+// ============================================================================
+// New Auto Mode Service Request/Response Types (AI Agent Rework)
+// ============================================================================
+
+export interface AutoModeStartRequest {
+  projectPath: string
+  config?: {
+    maxConcurrency?: number
+    defaultPlanningMode?: 'skip' | 'lite' | 'spec' | 'full'
+    defaultRequirePlanApproval?: boolean
+    rateLimitBufferSeconds?: number
+  }
+}
+
+export interface AutoModeStartResponse {
+  success: boolean
+}
+
+export interface AutoModeStopRequest {
+  projectPath: string
+}
+
+export interface AutoModeStopResponse {
+  stoppedCount: number
+}
+
+export interface AutoModeGetStateRequest {
+  projectPath: string
+}
+
+export interface AutoModeGetStateResponse {
+  state: {
+    isRunning: boolean
+    runningCount: number
+    maxConcurrency: number
+    runningFeatureIds: string[]
+    lastStartedFeatureId: string | null
+    isWaitingForRateLimit: boolean
+    rateLimitResetTime?: string
+  } | null
+}
+
+export interface AutoModeUpdateConfigRequest {
+  projectPath: string
+  config: {
+    maxConcurrency?: number
+    defaultPlanningMode?: 'skip' | 'lite' | 'spec' | 'full'
+    defaultRequirePlanApproval?: boolean
+    rateLimitBufferSeconds?: number
+  }
+}
+
+export interface AutoModeUpdateConfigResponse {
+  success: boolean
+}
+
+export interface AutoModeGetQueueRequest {
+  projectPath: string
+}
+
+export interface AutoModeFeature {
+  id: string
+  title: string
+  description: string
+  status:
+    | 'backlog'
+    | 'pending'
+    | 'in_progress'
+    | 'waiting_approval'
+    | 'completed'
+    | 'failed'
+  branchName?: string
+  model?: string
+  imagePaths?: string[]
+  planningMode?: 'skip' | 'lite' | 'spec' | 'full'
+  requirePlanApproval?: boolean
+  planSpec?: {
+    status: 'pending' | 'generating' | 'generated' | 'approved' | 'rejected'
+    content?: string
+    version: number
+    generatedAt?: string
+    approvedAt?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AutoModeGetQueueResponse {
+  features: AutoModeFeature[]
+}
+
+export interface AutoModeEnqueueFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeEnqueueFeatureResponse {
+  feature: AutoModeFeature | null
+}
+
+export interface AutoModeDequeueFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeDequeueFeatureResponse {
+  feature: AutoModeFeature | null
+}
+
+export interface AutoModeExecuteFeatureRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeExecuteFeatureResponse {
+  feature: AutoModeFeature | null
+}
+
+export interface AutoModeStopFeatureRequest {
+  featureId: string
+}
+
+export interface AutoModeStopFeatureResponse {
+  success: boolean
+}
+
+export interface AutoModeApprovePlanRequest {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeApprovePlanResponse {
+  feature: AutoModeFeature | null
+}
+
+export interface AutoModeRejectPlanRequest {
+  projectPath: string
+  featureId: string
+  feedback: string
+}
+
+export interface AutoModeRejectPlanResponse {
+  feature: AutoModeFeature | null
+}
+
+// Auto mode event data types
+export interface AutoModeStateChangedData {
+  projectPath: string
+  state: {
+    isRunning: boolean
+    runningCount: number
+    maxConcurrency: number
+    runningFeatureIds: string[]
+    lastStartedFeatureId: string | null
+    isWaitingForRateLimit: boolean
+    rateLimitResetTime?: string
+  }
+}
+
+export interface AutoModeFeatureStartedData {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeFeatureCompletedData {
+  projectPath: string
+  featureId: string
+}
+
+export interface AutoModeFeatureFailedData {
+  projectPath: string
+  featureId: string
+  error: string
+}
+
+export interface AutoModeFeatureProgressData {
+  projectPath: string
+  featureId: string
+  status:
+    | 'backlog'
+    | 'pending'
+    | 'in_progress'
+    | 'waiting_approval'
+    | 'completed'
+    | 'failed'
+  message: string
+  textDelta?: string
+  toolUse?: {
+    name: string
+    input: unknown
+  }
+}
+
+export interface AutoModePlanGeneratedData {
+  projectPath: string
+  featureId: string
+  plan: {
+    status: 'pending' | 'generating' | 'generated' | 'approved' | 'rejected'
+    content?: string
+    version: number
+    generatedAt?: string
+    approvedAt?: string
+  }
+}
+
+export interface AutoModeRateLimitWaitData {
   projectPath: string
   resetTime: string
   waitSeconds: number

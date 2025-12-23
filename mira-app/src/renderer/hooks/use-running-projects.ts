@@ -76,7 +76,12 @@ export function useRunningProjectsManager() {
     useRunningProjectsStore()
 
   const startProject = useCallback(
-    async (projectId: string, devCommand?: string, projectPath?: string, projectName?: string) => {
+    async (
+      projectId: string,
+      devCommand?: string,
+      projectPath?: string,
+      projectName?: string
+    ) => {
       setLoading(true)
       setError(null)
       try {

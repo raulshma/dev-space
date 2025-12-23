@@ -463,17 +463,17 @@ Respond with JSON only:
           // Extract project name from directory path
           const fullPath = targetDirectory.replace(/\\/g, '/')
           const name = fullPath.split('/').pop() || 'New Project'
-          
+
           const newProject = await createProject.mutateAsync({
             name,
             path: targetDirectory,
           })
-          
+
           finalProjectId = newProject.id
           finalProjectName = newProject.name
         } catch (error) {
           console.error('Failed to auto-create project:', error)
-          // We continue without a project ID if creation fails, 
+          // We continue without a project ID if creation fails,
           // though ideally we might want to stop here
         }
       }
@@ -524,673 +524,685 @@ Respond with JSON only:
 
         <div className="flex-1 overflow-y-auto px-1">
           <div className="space-y-4 py-2">
-        <div className="flex items-center justify-center gap-2 py-2">
-          {getSteps().map((s, i) => (
-            <div className="flex items-center" key={s}>
-              <Badge
-                className="capitalize"
-                variant={step === s ? 'default' : 'outline'}
-              >
-                {i + 1}. {s}
-              </Badge>
-              {i < getSteps().length - 1 && (
-                <IconChevronRight className="mx-1 h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Validation error */}
-        {validationError && (
-          <Alert variant="destructive">
-            <IconAlertTriangle className="h-4 w-4" />
-            <AlertDescription>{validationError}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Step 0: Service Selection */}
-        {step === 'service' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Select Service</Label>
-              <p className="text-xs text-muted-foreground">
-                Choose the AI service to execute your task
-              </p>
+            <div className="flex items-center justify-center gap-2 py-2">
+              {getSteps().map((s, i) => (
+                <div className="flex items-center" key={s}>
+                  <Badge
+                    className="capitalize"
+                    variant={step === s ? 'default' : 'outline'}
+                  >
+                    {i + 1}. {s}
+                  </Badge>
+                  {i < getSteps().length - 1 && (
+                    <IconChevronRight className="mx-1 h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              ))}
             </div>
 
-            {isLoadingServices ? (
-              <div className="flex items-center justify-center py-8">
-                <IconLoader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Loading services...
-                </span>
-              </div>
-            ) : availableServiceTypes.length === 0 ? (
-              <Alert>
+            {/* Validation error */}
+            {validationError && (
+              <Alert variant="destructive">
                 <IconAlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  No services are configured. Please configure at least one
-                  service (Claude Code or Google Jules) in Settings before
-                  creating a task.
-                </AlertDescription>
+                <AlertDescription>{validationError}</AlertDescription>
               </Alert>
-            ) : (
-              <div className="space-y-3">
-                {availableServiceTypes.map(service => (
-                  <Card
-                    className={`cursor-pointer transition-all hover:border-primary/50 ${
-                      serviceType === service.id
-                        ? 'border-primary bg-primary/5'
-                        : ''
-                    }`}
-                    key={service.id}
-                    onClick={() => handleServiceSelect(service.id)}
-                  >
-                    <CardContent className="flex items-center gap-4 p-4">
-                      <div
-                        className={`rounded-lg p-2 ${
-                          serviceType === service.id
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        {getServiceIcon(service.id)}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium">{service.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {service.description}
-                        </p>
-                        <div className="mt-1 flex gap-1">
-                          {service.supportsAgentTypes.map(type => (
-                            <Badge
-                              className="text-xs capitalize"
-                              key={type}
-                              variant="secondary"
-                            >
-                              {type}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      {service.docsUrl && (
-                        <Button
-                          onClick={e => {
-                            e.stopPropagation()
-                            window.api.shell.openExternal({
-                              url: service.docsUrl as string,
-                            })
-                          }}
-                          size="icon-sm"
-                          variant="ghost"
-                        >
-                          <IconExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
             )}
-          </div>
-        )}
 
-        {/* Step 1: Details */}
-        {step === 'details' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="description">Task Description</Label>
-              <Textarea
-                className="min-h-[120px] max-h-[300px] overflow-y-auto font-sans resize-y"
-                id="description"
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Describe what you want the agent to accomplish..."
-                value={description}
-              />
-              <p className="text-xs text-muted-foreground">
-                Be specific about the feature, bug fix, or task you want
-                completed
-              </p>
-            </div>
-
-            {/* Agent Type - only show if service supports multiple types */}
-            {selectedService &&
-              selectedService.supportsAgentTypes.length > 1 && (
+            {/* Step 0: Service Selection */}
+            {step === 'service' && (
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Agent Type</Label>
-                  <Tabs
-                    onValueChange={v => setAgentType(v as AgentType)}
-                    value={agentType}
-                  >
-                    <TabsList className="w-full">
-                      {selectedService.supportsAgentTypes.includes(
-                        'feature'
-                      ) && (
-                        <TabsTrigger className="flex-1" value="feature">
-                          <IconGitBranch className="mr-2 h-4 w-4" />
-                          Feature Agent
-                        </TabsTrigger>
-                      )}
-                      {selectedService.supportsAgentTypes.includes(
-                        'autonomous'
-                      ) && (
-                        <TabsTrigger className="flex-1" value="autonomous">
-                          <IconRocket className="mr-2 h-4 w-4" />
-                          Autonomous Agent
-                        </TabsTrigger>
-                      )}
-                    </TabsList>
-                    <TabsContent className="mt-2" value="feature">
-                      <p className="text-xs text-muted-foreground">
-                        Implements features in an existing repository. Requires
-                        a valid git repository.
-                      </p>
-                    </TabsContent>
-                    <TabsContent className="mt-2" value="autonomous">
-                      <p className="text-xs text-muted-foreground">
-                        Creates new projects from scratch. Can work in any
-                        directory.
-                      </p>
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              )}
-
-            {/* Claude Code: Target Directory */}
-            {serviceType === 'claude-code' && (
-              <div className="space-y-2">
-                <Label htmlFor="directory">Target Directory</Label>
-                <div className="flex gap-2">
-                  <Input
-                    className="flex-1"
-                    id="directory"
-                    onChange={e => setTargetDirectory(e.target.value)}
-                    placeholder="/path/to/project"
-                    value={targetDirectory}
-                  />
-                  <Button onClick={handleSelectDirectory} variant="outline">
-                    <IconFolder className="h-4 w-4" />
-                  </Button>
-                </div>
-                {agentType === 'feature' && (
+                  <Label>Select Service</Label>
                   <p className="text-xs text-muted-foreground">
-                    Must be a valid git repository
+                    Choose the AI service to execute your task
                   </p>
+                </div>
+
+                {isLoadingServices ? (
+                  <div className="flex items-center justify-center py-8">
+                    <IconLoader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      Loading services...
+                    </span>
+                  </div>
+                ) : availableServiceTypes.length === 0 ? (
+                  <Alert>
+                    <IconAlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      No services are configured. Please configure at least one
+                      service (Claude Code or Google Jules) in Settings before
+                      creating a task.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="space-y-3">
+                    {availableServiceTypes.map(service => (
+                      <Card
+                        className={`cursor-pointer transition-all hover:border-primary/50 ${
+                          serviceType === service.id
+                            ? 'border-primary bg-primary/5'
+                            : ''
+                        }`}
+                        key={service.id}
+                        onClick={() => handleServiceSelect(service.id)}
+                      >
+                        <CardContent className="flex items-center gap-4 p-4">
+                          <div
+                            className={`rounded-lg p-2 ${
+                              serviceType === service.id
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted'
+                            }`}
+                          >
+                            {getServiceIcon(service.id)}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium">{service.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {service.description}
+                            </p>
+                            <div className="mt-1 flex gap-1">
+                              {service.supportsAgentTypes.map(type => (
+                                <Badge
+                                  className="text-xs capitalize"
+                                  key={type}
+                                  variant="secondary"
+                                >
+                                  {type}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          {service.docsUrl && (
+                            <Button
+                              onClick={e => {
+                                e.stopPropagation()
+                                window.api.shell.openExternal({
+                                  url: service.docsUrl as string,
+                                })
+                              }}
+                              size="icon-sm"
+                              variant="ghost"
+                            >
+                              <IconExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Google Jules: Source Selection */}
-            {serviceType === 'google-jules' && (
+            {/* Step 1: Details */}
+            {step === 'details' && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="jules-source">GitHub Repository</Label>
-                  <div className="relative">
-                    <div className="relative">
-                      <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Label htmlFor="description">Task Description</Label>
+                  <Textarea
+                    className="min-h-[120px] max-h-[300px] overflow-y-auto font-sans resize-y"
+                    id="description"
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder="Describe what you want the agent to accomplish..."
+                    value={description}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Be specific about the feature, bug fix, or task you want
+                    completed
+                  </p>
+                </div>
+
+                {/* Agent Type - only show if service supports multiple types */}
+                {selectedService &&
+                  selectedService.supportsAgentTypes.length > 1 && (
+                    <div className="space-y-2">
+                      <Label>Agent Type</Label>
+                      <Tabs
+                        onValueChange={v => setAgentType(v as AgentType)}
+                        value={agentType}
+                      >
+                        <TabsList className="w-full">
+                          {selectedService.supportsAgentTypes.includes(
+                            'feature'
+                          ) && (
+                            <TabsTrigger className="flex-1" value="feature">
+                              <IconGitBranch className="mr-2 h-4 w-4" />
+                              Feature Agent
+                            </TabsTrigger>
+                          )}
+                          {selectedService.supportsAgentTypes.includes(
+                            'autonomous'
+                          ) && (
+                            <TabsTrigger className="flex-1" value="autonomous">
+                              <IconRocket className="mr-2 h-4 w-4" />
+                              Autonomous Agent
+                            </TabsTrigger>
+                          )}
+                        </TabsList>
+                        <TabsContent className="mt-2" value="feature">
+                          <p className="text-xs text-muted-foreground">
+                            Implements features in an existing repository.
+                            Requires a valid git repository.
+                          </p>
+                        </TabsContent>
+                        <TabsContent className="mt-2" value="autonomous">
+                          <p className="text-xs text-muted-foreground">
+                            Creates new projects from scratch. Can work in any
+                            directory.
+                          </p>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  )}
+
+                {/* Claude Code: Target Directory */}
+                {serviceType === 'claude-code' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="directory">Target Directory</Label>
+                    <div className="flex gap-2">
                       <Input
-                        className="pl-9"
-                        id="jules-source"
-                        onChange={e => {
-                          const value = e.target.value
-                          setSourceSearchQuery(value)
+                        className="flex-1"
+                        id="directory"
+                        onChange={e => setTargetDirectory(e.target.value)}
+                        placeholder="/path/to/project"
+                        value={targetDirectory}
+                      />
+                      <Button onClick={handleSelectDirectory} variant="outline">
+                        <IconFolder className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {agentType === 'feature' && (
+                      <p className="text-xs text-muted-foreground">
+                        Must be a valid git repository
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Google Jules: Source Selection */}
+                {serviceType === 'google-jules' && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="jules-source">GitHub Repository</Label>
+                      <div className="relative">
+                        <div className="relative">
+                          <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            className="pl-9"
+                            id="jules-source"
+                            onChange={e => {
+                              const value = e.target.value
+                              setSourceSearchQuery(value)
+                              setJulesParams(prev => ({
+                                ...prev,
+                                source: value,
+                              }))
+                            }}
+                            onFocus={() => setIsSourceDropdownOpen(true)}
+                            placeholder="Search repositories or enter sources/github/owner/repo"
+                            value={julesParams.source || ''}
+                          />
+                          {isLoadingSources && (
+                            <IconLoader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+
+                        {/* Dropdown for search results */}
+                        {isSourceDropdownOpen &&
+                          (availableSources.length > 0 || isLoadingSources) && (
+                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
+                              <div className="max-h-48 overflow-y-auto p-1">
+                                {isLoadingSources &&
+                                availableSources.length === 0 ? (
+                                  <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                                    <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Loading repositories...
+                                  </div>
+                                ) : filteredSources.length === 0 ? (
+                                  <div className="py-4 text-center text-sm text-muted-foreground">
+                                    No repositories found
+                                  </div>
+                                ) : (
+                                  filteredSources.map(source => (
+                                    <button
+                                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                                      key={source.id}
+                                      onClick={() => {
+                                        setJulesParams(prev => ({
+                                          ...prev,
+                                          source: source.name,
+                                        }))
+                                        setSourceSearchQuery('')
+                                        setIsSourceDropdownOpen(false)
+                                      }}
+                                      type="button"
+                                    >
+                                      <IconGitBranch className="h-4 w-4 text-muted-foreground" />
+                                      <span className="flex-1 truncate text-left font-mono text-xs">
+                                        {source.name}
+                                      </span>
+                                      {julesParams.source === source.name && (
+                                        <IconCheck className="h-4 w-4 text-primary" />
+                                      )}
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Search for repositories with Jules GitHub app installed,
+                        or enter the source path manually (e.g.,
+                        sources/github/owner/repo).
+                      </p>
+                      {/* Click outside to close dropdown */}
+                      {isSourceDropdownOpen && (
+                        <button
+                          aria-label="Close dropdown"
+                          className="fixed inset-0 z-40 cursor-default"
+                          onClick={() => setIsSourceDropdownOpen(false)}
+                          type="button"
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="jules-branch">Starting Branch</Label>
+                      <Input
+                        id="jules-branch"
+                        onChange={e =>
                           setJulesParams(prev => ({
                             ...prev,
-                            source: value,
+                            startingBranch: e.target.value,
                           }))
-                        }}
-                        onFocus={() => setIsSourceDropdownOpen(true)}
-                        placeholder="Search repositories or enter sources/github/owner/repo"
-                        value={julesParams.source || ''}
-                      />
-                      {isLoadingSources && (
-                        <IconLoader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                      )}
-                    </div>
-
-                    {/* Dropdown for search results */}
-                    {isSourceDropdownOpen &&
-                      (availableSources.length > 0 || isLoadingSources) && (
-                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
-                          <div className="max-h-48 overflow-y-auto p-1">
-                            {isLoadingSources &&
-                            availableSources.length === 0 ? (
-                              <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading repositories...
-                              </div>
-                            ) : filteredSources.length === 0 ? (
-                              <div className="py-4 text-center text-sm text-muted-foreground">
-                                No repositories found
-                              </div>
-                            ) : (
-                              filteredSources.map(source => (
-                                <button
-                                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                                  key={source.id}
-                                  onClick={() => {
-                                    setJulesParams(prev => ({
-                                      ...prev,
-                                      source: source.name,
-                                    }))
-                                    setSourceSearchQuery('')
-                                    setIsSourceDropdownOpen(false)
-                                  }}
-                                  type="button"
-                                >
-                                  <IconGitBranch className="h-4 w-4 text-muted-foreground" />
-                                  <span className="flex-1 truncate text-left font-mono text-xs">
-                                    {source.name}
-                                  </span>
-                                  {julesParams.source === source.name && (
-                                    <IconCheck className="h-4 w-4 text-primary" />
-                                  )}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Search for repositories with Jules GitHub app installed, or
-                    enter the source path manually (e.g.,
-                    sources/github/owner/repo).
-                  </p>
-                  {/* Click outside to close dropdown */}
-                  {isSourceDropdownOpen && (
-                    <button
-                      aria-label="Close dropdown"
-                      className="fixed inset-0 z-40 cursor-default"
-                      onClick={() => setIsSourceDropdownOpen(false)}
-                      type="button"
-                    />
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="jules-branch">Starting Branch</Label>
-                  <Input
-                    id="jules-branch"
-                    onChange={e =>
-                      setJulesParams(prev => ({
-                        ...prev,
-                        startingBranch: e.target.value,
-                      }))
-                    }
-                    placeholder="main"
-                    value={julesParams.startingBranch || 'main'}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 2: Parameters */}
-        {step === 'parameters' && (
-          <div className="space-y-4">
-            {/* Claude Code Parameters */}
-            {serviceType === 'claude-code' && (
-              <>
-                <div className="flex items-center justify-between">
-                  <Label>Agent Parameters</Label>
-                  <Button
-                    disabled={isGeneratingParams}
-                    onClick={handleGenerateParameters}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {isGeneratingParams ? (
-                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <IconSparkles className="mr-2 h-4 w-4" />
-                    )}
-                    Auto-populate
-                  </Button>
-                </div>
-
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="model">Model</Label>
-                    <Input
-                      id="model"
-                      onChange={e =>
-                        setParameters({ ...parameters, model: e.target.value })
-                      }
-                      placeholder="claude-sonnet-4-20250514"
-                      value={parameters.model || ''}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="max-iterations">Max Iterations</Label>
-                      <Input
-                        id="max-iterations"
-                        max={100}
-                        min={1}
-                        onChange={e =>
-                          setParameters({
-                            ...parameters,
-                            maxIterations:
-                              Number.parseInt(e.target.value, 10) || 10,
-                          })
                         }
-                        type="number"
-                        value={parameters.maxIterations || 10}
+                        placeholder="main"
+                        value={julesParams.startingBranch || 'main'}
                       />
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="test-count">Test Count</Label>
-                      <Input
-                        id="test-count"
-                        max={50}
-                        min={0}
-                        onChange={e =>
-                          setParameters({
-                            ...parameters,
-                            testCount: Number.parseInt(e.target.value, 10) || 5,
-                          })
-                        }
-                        type="number"
-                        value={parameters.testCount || 5}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="task-file">Task File (optional)</Label>
-                    <Input
-                      id="task-file"
-                      onChange={e =>
-                        setParameters({
-                          ...parameters,
-                          taskFile: e.target.value,
-                        })
-                      }
-                      placeholder="path/to/task.md"
-                      value={parameters.taskFile || ''}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Optional file containing detailed task instructions
-                    </p>
-                  </div>
-
-                  {/* Planning Mode */}
-                  <div className="border-t pt-4">
-                    <PlanningModeSelector
-                      onChange={setPlanningMode}
-                      onRequireApprovalChange={setRequirePlanApproval}
-                      requireApproval={requirePlanApproval}
-                      value={planningMode}
-                    />
-                  </div>
-
-                  {/* Task Dependencies */}
-                  {availableTasks.length > 0 && (
-                    <div className="border-t pt-4 space-y-2">
-                      <Label>Task Dependencies (optional)</Label>
-                      <DependencySelector
-                        availableTasks={availableTasks}
-                        onDependenciesChange={setSelectedDependencies}
-                        placeholder="Select tasks this depends on..."
-                        selectedDependencies={selectedDependencies}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        This task will wait for selected dependencies to
-                        complete before starting
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Branch/Worktree Isolation */}
-                  <div className="border-t pt-4">
-                    <BranchInput
-                      autoSuggest
-                      helperText="Specify a branch name to isolate this task's changes in a separate worktree."
-                      onChange={setBranchName}
-                      taskDescription={description}
-                      value={branchName}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Google Jules Parameters */}
-            {serviceType === 'google-jules' && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="jules-title">Session Title</Label>
-                  <Input
-                    id="jules-title"
-                    onChange={e =>
-                      setJulesParams(prev => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
-                    placeholder="Task title for Jules session"
-                    value={julesParams.title || ''}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Automation Mode</Label>
-                  <Select
-                    onValueChange={value =>
-                      setJulesParams(prev => ({
-                        ...prev,
-                        automationMode: value as 'AUTO_CREATE_PR' | 'MANUAL',
-                      }))
-                    }
-                    value={julesParams.automationMode || 'AUTO_CREATE_PR'}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AUTO_CREATE_PR">
-                        Auto Create PR
-                      </SelectItem>
-                      <SelectItem value="MANUAL">Manual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    AUTO_CREATE_PR will automatically create a pull request when
-                    the task is complete
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Require Plan Approval</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Pause for approval before executing the plan
-                    </p>
-                  </div>
-                  <Switch
-                    checked={julesParams.requirePlanApproval || false}
-                    onCheckedChange={checked =>
-                      setJulesParams(prev => ({
-                        ...prev,
-                        requirePlanApproval: checked,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Review */}
-        {step === 'review' && (
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                {getServiceIcon(serviceType)}
-                <span className="font-medium">{selectedService?.name}</span>
-              </div>
-
-              <div>
-                <Label className="text-xs text-muted-foreground">
-                  Description
-                </Label>
-                <p className="border rounded-md p-2 bg-muted/30 text-sm max-h-[150px] overflow-y-auto whitespace-pre-wrap">
-                  {description}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Agent Type
-                  </Label>
-                  <p className="text-sm capitalize">{agentType}</p>
-                </div>
-                {serviceType === 'claude-code' && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Model
-                    </Label>
-                    <p className="font-mono text-xs">
-                      {parameters.model}
-                    </p>
                   </div>
                 )}
               </div>
+            )}
 
-              {serviceType === 'claude-code' && (
-                <>
+            {/* Step 2: Parameters */}
+            {step === 'parameters' && (
+              <div className="space-y-4">
+                {/* Claude Code Parameters */}
+                {serviceType === 'claude-code' && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <Label>Agent Parameters</Label>
+                      <Button
+                        disabled={isGeneratingParams}
+                        onClick={handleGenerateParameters}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {isGeneratingParams ? (
+                          <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <IconSparkles className="mr-2 h-4 w-4" />
+                        )}
+                        Auto-populate
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="model">Model</Label>
+                        <Input
+                          id="model"
+                          onChange={e =>
+                            setParameters({
+                              ...parameters,
+                              model: e.target.value,
+                            })
+                          }
+                          placeholder="claude-sonnet-4-20250514"
+                          value={parameters.model || ''}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="max-iterations">Max Iterations</Label>
+                          <Input
+                            id="max-iterations"
+                            max={100}
+                            min={1}
+                            onChange={e =>
+                              setParameters({
+                                ...parameters,
+                                maxIterations:
+                                  Number.parseInt(e.target.value, 10) || 10,
+                              })
+                            }
+                            type="number"
+                            value={parameters.maxIterations || 10}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="test-count">Test Count</Label>
+                          <Input
+                            id="test-count"
+                            max={50}
+                            min={0}
+                            onChange={e =>
+                              setParameters({
+                                ...parameters,
+                                testCount:
+                                  Number.parseInt(e.target.value, 10) || 5,
+                              })
+                            }
+                            type="number"
+                            value={parameters.testCount || 5}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="task-file">Task File (optional)</Label>
+                        <Input
+                          id="task-file"
+                          onChange={e =>
+                            setParameters({
+                              ...parameters,
+                              taskFile: e.target.value,
+                            })
+                          }
+                          placeholder="path/to/task.md"
+                          value={parameters.taskFile || ''}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Optional file containing detailed task instructions
+                        </p>
+                      </div>
+
+                      {/* Planning Mode */}
+                      <div className="border-t pt-4">
+                        <PlanningModeSelector
+                          onChange={setPlanningMode}
+                          onRequireApprovalChange={setRequirePlanApproval}
+                          requireApproval={requirePlanApproval}
+                          value={planningMode}
+                        />
+                      </div>
+
+                      {/* Task Dependencies */}
+                      {availableTasks.length > 0 && (
+                        <div className="border-t pt-4 space-y-2">
+                          <Label>Task Dependencies (optional)</Label>
+                          <DependencySelector
+                            availableTasks={availableTasks}
+                            onDependenciesChange={setSelectedDependencies}
+                            placeholder="Select tasks this depends on..."
+                            selectedDependencies={selectedDependencies}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            This task will wait for selected dependencies to
+                            complete before starting
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Branch/Worktree Isolation */}
+                      <div className="border-t pt-4">
+                        <BranchInput
+                          autoSuggest
+                          helperText="Specify a branch name to isolate this task's changes in a separate worktree."
+                          onChange={setBranchName}
+                          taskDescription={description}
+                          value={branchName}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Google Jules Parameters */}
+                {serviceType === 'google-jules' && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="jules-title">Session Title</Label>
+                      <Input
+                        id="jules-title"
+                        onChange={e =>
+                          setJulesParams(prev => ({
+                            ...prev,
+                            title: e.target.value,
+                          }))
+                        }
+                        placeholder="Task title for Jules session"
+                        value={julesParams.title || ''}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Automation Mode</Label>
+                      <Select
+                        onValueChange={value =>
+                          setJulesParams(prev => ({
+                            ...prev,
+                            automationMode: value as
+                              | 'AUTO_CREATE_PR'
+                              | 'MANUAL',
+                          }))
+                        }
+                        value={julesParams.automationMode || 'AUTO_CREATE_PR'}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AUTO_CREATE_PR">
+                            Auto Create PR
+                          </SelectItem>
+                          <SelectItem value="MANUAL">Manual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        AUTO_CREATE_PR will automatically create a pull request
+                        when the task is complete
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Require Plan Approval</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Pause for approval before executing the plan
+                        </p>
+                      </div>
+                      <Switch
+                        checked={julesParams.requirePlanApproval || false}
+                        onCheckedChange={checked =>
+                          setJulesParams(prev => ({
+                            ...prev,
+                            requirePlanApproval: checked,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Review */}
+            {step === 'review' && (
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    {getServiceIcon(serviceType)}
+                    <span className="font-medium">{selectedService?.name}</span>
+                  </div>
+
                   <div>
                     <Label className="text-xs text-muted-foreground">
-                      Target Directory
+                      Description
                     </Label>
-                    <p className="font-mono text-xs truncate">
-                      {targetDirectory}
+                    <p className="border rounded-md p-2 bg-muted/30 text-sm max-h-[150px] overflow-y-auto whitespace-pre-wrap">
+                      {description}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-xs text-muted-foreground">
-                        Max Iterations
+                        Agent Type
                       </Label>
-                      <p className="text-sm">{parameters.maxIterations}</p>
+                      <p className="text-sm capitalize">{agentType}</p>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Test Count
-                      </Label>
-                      <p className="text-sm">{parameters.testCount}</p>
-                    </div>
+                    {serviceType === 'claude-code' && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">
+                          Model
+                        </Label>
+                        <p className="font-mono text-xs">{parameters.model}</p>
+                      </div>
+                    )}
                   </div>
 
-                  {parameters.taskFile && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Task File
-                      </Label>
-                      <p className="font-mono text-xs">
-                        {parameters.taskFile}
-                      </p>
-                    </div>
+                  {serviceType === 'claude-code' && (
+                    <>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">
+                          Target Directory
+                        </Label>
+                        <p className="font-mono text-xs truncate">
+                          {targetDirectory}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Max Iterations
+                          </Label>
+                          <p className="text-sm">{parameters.maxIterations}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Test Count
+                          </Label>
+                          <p className="text-sm">{parameters.testCount}</p>
+                        </div>
+                      </div>
+
+                      {parameters.taskFile && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Task File
+                          </Label>
+                          <p className="font-mono text-xs">
+                            {parameters.taskFile}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Planning Mode
+                          </Label>
+                          <p className="text-sm capitalize">{planningMode}</p>
+                        </div>
+                        {planningMode !== 'skip' && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">
+                              Plan Approval
+                            </Label>
+                            <p className="text-sm">
+                              {requirePlanApproval
+                                ? 'Required'
+                                : 'Auto-approved'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedDependencies.length > 0 && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Dependencies
+                          </Label>
+                          <p className="text-sm">
+                            {selectedDependencies.length} task
+                            {selectedDependencies.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      )}
+
+                      {branchName && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Branch / Worktree
+                          </Label>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {branchName}
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Planning Mode
-                      </Label>
-                      <p className="text-sm capitalize">{planningMode}</p>
-                    </div>
-                    {planningMode !== 'skip' && (
+                  {serviceType === 'google-jules' && (
+                    <>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">
+                          GitHub Source
+                        </Label>
+                        <p className="font-mono text-xs truncate">
+                          {julesParams.source}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Starting Branch
+                          </Label>
+                          <p className="text-sm">
+                            {julesParams.startingBranch}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">
+                            Automation Mode
+                          </Label>
+                          <p className="text-sm">
+                            {julesParams.automationMode}
+                          </p>
+                        </div>
+                      </div>
+
                       <div>
                         <Label className="text-xs text-muted-foreground">
                           Plan Approval
                         </Label>
                         <p className="text-sm">
-                          {requirePlanApproval ? 'Required' : 'Auto-approved'}
+                          {julesParams.requirePlanApproval
+                            ? 'Required'
+                            : 'Auto-approved'}
                         </p>
                       </div>
-                    )}
-                  </div>
-
-                  {selectedDependencies.length > 0 && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Dependencies
-                      </Label>
-                      <p className="text-sm">
-                        {selectedDependencies.length} task
-                        {selectedDependencies.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
+                    </>
                   )}
+                </div>
 
-                  {branchName && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Branch / Worktree
-                      </Label>
-                      <p className="font-mono text-xs text-muted-foreground">{branchName}</p>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {serviceType === 'google-jules' && (
-                <>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      GitHub Source
-                    </Label>
-                    <p className="font-mono text-xs truncate">
-                      {julesParams.source}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Starting Branch
-                      </Label>
-                      <p className="text-sm">{julesParams.startingBranch}</p>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">
-                        Automation Mode
-                      </Label>
-                      <p className="text-sm">{julesParams.automationMode}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Plan Approval
-                    </Label>
-                    <p className="text-sm">
-                      {julesParams.requirePlanApproval
-                        ? 'Required'
-                        : 'Auto-approved'}
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <Alert>
-              <AlertDescription className="text-xs">
-                {serviceType === 'claude-code'
-                  ? 'The task will be added to the backlog with "pending" status. You can start it from the task list when ready.'
-                  : "A Jules session will be created and the task will start executing immediately on Google's infrastructure."}
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
+                <Alert>
+                  <AlertDescription className="text-xs">
+                    {serviceType === 'claude-code'
+                      ? 'The task will be added to the backlog with "pending" status. You can start it from the task list when ready.'
+                      : "A Jules session will be created and the task will start executing immediately on Google's infrastructure."}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

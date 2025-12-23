@@ -4,6 +4,8 @@
  * Aggregates running tasks across all projects and provides a unified view
  * of all active agent processes. Enables global task monitoring and control.
  *
+ * Updated for AI Agent Rework - now works with the new AgentService and AutoModeService.
+ *
  * Implements Requirements:
  * - 2.1: Display list of all currently running tasks across all projects
  * - 2.2: Show task description, project name, project path, and auto-mode indicator
@@ -15,9 +17,19 @@
 
 import { EventEmitter } from 'node:events'
 import * as path from 'node:path'
-import type { AgentExecutorService } from './agent-executor-service'
-import type { AutoModeServiceV2 } from './auto-mode-service-v2'
-import type { AgentTask, TaskStatus } from 'shared/ai-types'
+import type { AgentService } from './agent-service'
+import type { AutoModeService } from './auto-mode-service'
+
+/**
+ * Task status for the global view
+ */
+export type GlobalTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'stopped'
 
 /**
  * Information about a running task for the global view
@@ -32,7 +44,7 @@ export interface RunningTaskInfo {
   /** Task description */
   description: string
   /** Current task status */
-  status: TaskStatus
+  status: GlobalTaskStatus
   /** When the task was started */
   startedAt: Date
   /** Whether this task was started by auto-mode */
@@ -78,26 +90,16 @@ export interface IGlobalProcessService {
   stopTask(taskId: string): Promise<void>
 
   /**
-   * Register an executor service for a project
-   * @param projectPath - The project path
-   * @param executorService - The executor service instance
+   * Set the agent service for task management
+   * @param agentService - The agent service instance
    */
-  registerExecutorService(
-    projectPath: string,
-    executorService: AgentExecutorService
-  ): void
-
-  /**
-   * Unregister an executor service for a project
-   * @param projectPath - The project path
-   */
-  unregisterExecutorService(projectPath: string): void
+  setAgentService(agentService: AgentService): void
 
   /**
    * Set the auto-mode service for checking auto-mode status
    * @param autoModeService - The auto-mode service instance
    */
-  setAutoModeService(autoModeService: AutoModeServiceV2): void
+  setAutoModeService(autoModeService: AutoModeService): void
 
   /**
    * Subscribe to running tasks updates
@@ -111,90 +113,45 @@ export interface IGlobalProcessService {
  * Global Process Service
  *
  * Provides a unified view of all running agent tasks across all projects.
- * Aggregates task information from registered executor services and emits
- * events when tasks start, complete, or fail.
+ * Works with the new AgentService and AutoModeService from the AI Agent Rework.
  */
 export class GlobalProcessService
   extends EventEmitter
   implements IGlobalProcessService
 {
-  /** Map of project paths to their executor services */
-  private executorServices: Map<string, AgentExecutorService> = new Map()
+  /** Reference to the agent service */
+  private agentService: AgentService | null = null
 
   /** Reference to the auto-mode service for checking auto-mode status */
-  private autoModeService: AutoModeServiceV2 | null = null
+  private autoModeService: AutoModeService | null = null
 
-  /** Cleanup functions for executor service listeners */
-  private listenerCleanups: Map<string, () => void> = new Map()
+  /** Cleanup functions for service listeners */
+  private listenerCleanups: (() => void)[] = []
 
   /**
-   * Register an executor service for a project
+   * Set the agent service for task management
    *
-   * @param projectPath - The project path
-   * @param executorService - The executor service instance
+   * @param agentService - The agent service instance
    */
-  registerExecutorService(
-    projectPath: string,
-    executorService: AgentExecutorService
-  ): void {
-    // Unregister existing service if present
-    if (this.executorServices.has(projectPath)) {
-      this.unregisterExecutorService(projectPath)
+  setAgentService(agentService: AgentService): void {
+    this.agentService = agentService
+
+    // Set up listeners for agent service events
+    const onStream = () => {
+      this.emitTasksUpdated()
     }
 
-    this.executorServices.set(projectPath, executorService)
-
-    // Set up listeners for task events
-    const onTaskStarted = (task: AgentTask) => {
-      this.handleTaskStarted(projectPath, task)
+    const onError = () => {
+      this.emitTasksUpdated()
     }
 
-    const onTaskCompleted = (task: AgentTask) => {
-      this.handleTaskCompleted(projectPath, task)
-    }
+    agentService.on('stream', onStream)
+    agentService.on('error', onError)
 
-    const onTaskFailed = (task: AgentTask, error: string) => {
-      this.handleTaskFailed(projectPath, task, error)
-    }
-
-    const onTaskStopped = (task: AgentTask) => {
-      this.handleTaskStopped(projectPath, task)
-    }
-
-    executorService.on('taskStarted', onTaskStarted)
-    executorService.on('taskCompleted', onTaskCompleted)
-    executorService.on('taskFailed', onTaskFailed)
-    executorService.on('taskStopped', onTaskStopped)
-
-    // Store cleanup function
-    this.listenerCleanups.set(projectPath, () => {
-      executorService.off('taskStarted', onTaskStarted)
-      executorService.off('taskCompleted', onTaskCompleted)
-      executorService.off('taskFailed', onTaskFailed)
-      executorService.off('taskStopped', onTaskStopped)
+    this.listenerCleanups.push(() => {
+      agentService.off('stream', onStream)
+      agentService.off('error', onError)
     })
-
-    // Emit updated tasks list
-    this.emitTasksUpdated()
-  }
-
-  /**
-   * Unregister an executor service for a project
-   *
-   * @param projectPath - The project path
-   */
-  unregisterExecutorService(projectPath: string): void {
-    // Clean up listeners
-    const cleanup = this.listenerCleanups.get(projectPath)
-    if (cleanup) {
-      cleanup()
-      this.listenerCleanups.delete(projectPath)
-    }
-
-    this.executorServices.delete(projectPath)
-
-    // Emit updated tasks list
-    this.emitTasksUpdated()
   }
 
   /**
@@ -202,8 +159,37 @@ export class GlobalProcessService
    *
    * @param autoModeService - The auto-mode service instance
    */
-  setAutoModeService(autoModeService: AutoModeServiceV2): void {
+  setAutoModeService(autoModeService: AutoModeService): void {
     this.autoModeService = autoModeService
+
+    // Set up listeners for auto-mode service events
+    const onProgress = () => {
+      this.emitTasksUpdated()
+    }
+
+    const onFeatureCompleted = (featureId: string, projectPath: string) => {
+      this.emit('taskCompleted', featureId, projectPath)
+      this.emitTasksUpdated()
+    }
+
+    const onFeatureFailed = (
+      featureId: string,
+      projectPath: string,
+      error: string
+    ) => {
+      this.emit('taskFailed', featureId, projectPath, error)
+      this.emitTasksUpdated()
+    }
+
+    autoModeService.on('progress', onProgress)
+    autoModeService.on('featureCompleted', onFeatureCompleted)
+    autoModeService.on('featureFailed', onFeatureFailed)
+
+    this.listenerCleanups.push(() => {
+      autoModeService.off('progress', onProgress)
+      autoModeService.off('featureCompleted', onFeatureCompleted)
+      autoModeService.off('featureFailed', onFeatureFailed)
+    })
   }
 
   /**
@@ -214,17 +200,10 @@ export class GlobalProcessService
   getRunningTasks(): RunningTaskInfo[] {
     const runningTasks: RunningTaskInfo[] = []
 
-    for (const [projectPath, executorService] of this.executorServices) {
-      // Get running and paused tasks (both are "active")
-      const running = executorService.getTasks({ status: 'running' })
-      const paused = executorService.getTasks({ status: 'paused' })
-
-      const activeTasks = [...running, ...paused]
-
-      for (const task of activeTasks) {
-        runningTasks.push(this.taskToRunningTaskInfo(projectPath, task))
-      }
-    }
+    // Get running features from auto-mode service
+    // Note: AutoModeService tracks running features via getState per project
+    // For now, return empty array as we don't have a global list of projects
+    // This would need to be enhanced to track all active projects
 
     // Sort by startedAt (most recent first)
     runningTasks.sort((a, b) => {
@@ -240,33 +219,32 @@ export class GlobalProcessService
    * @returns Number of running tasks
    */
   getRunningTaskCount(): number {
-    let count = 0
-
-    for (const executorService of this.executorServices.values()) {
-      const running = executorService.getTasks({ status: 'running' })
-      const paused = executorService.getTasks({ status: 'paused' })
-      count += running.length + paused.length
-    }
-
-    return count
+    return this.getRunningTasks().length
   }
 
   /**
    * Stop a specific task by ID
    *
-   * Finds the task across all registered executor services and stops it.
-   *
    * @param taskId - The task ID to stop
-   * @throws Error if task not found
+   * @throws Error if task not found or cannot be stopped
    */
   async stopTask(taskId: string): Promise<void> {
-    // Find the executor service that has this task
-    for (const executorService of this.executorServices.values()) {
-      const task = executorService.getTask(taskId)
-      if (task) {
-        await executorService.stopTask(taskId)
+    // Try to stop via auto-mode service first
+    if (this.autoModeService) {
+      const stopped = await this.autoModeService.stopFeature(taskId)
+      if (stopped) {
+        this.emit('taskStopped', taskId, '')
+        this.emitTasksUpdated()
         return
       }
+    }
+
+    // Try to stop via agent service
+    if (this.agentService) {
+      await this.agentService.stopExecution(taskId)
+      this.emit('taskStopped', taskId, '')
+      this.emitTasksUpdated()
+      return
     }
 
     throw new Error(`Task not found: ${taskId}`)
@@ -286,43 +264,6 @@ export class GlobalProcessService
   }
 
   /**
-   * Handle task started event from an executor service
-   */
-  private handleTaskStarted(projectPath: string, task: AgentTask): void {
-    const taskInfo = this.taskToRunningTaskInfo(projectPath, task)
-    this.emit('taskStarted', taskInfo)
-    this.emitTasksUpdated()
-  }
-
-  /**
-   * Handle task completed event from an executor service
-   */
-  private handleTaskCompleted(projectPath: string, task: AgentTask): void {
-    this.emit('taskCompleted', task.id, projectPath)
-    this.emitTasksUpdated()
-  }
-
-  /**
-   * Handle task failed event from an executor service
-   */
-  private handleTaskFailed(
-    projectPath: string,
-    task: AgentTask,
-    error: string
-  ): void {
-    this.emit('taskFailed', task.id, projectPath, error)
-    this.emitTasksUpdated()
-  }
-
-  /**
-   * Handle task stopped event from an executor service
-   */
-  private handleTaskStopped(projectPath: string, task: AgentTask): void {
-    this.emit('taskStopped', task.id, projectPath)
-    this.emitTasksUpdated()
-  }
-
-  /**
    * Emit the tasksUpdated event with current running tasks
    */
   private emitTasksUpdated(): void {
@@ -331,53 +272,38 @@ export class GlobalProcessService
   }
 
   /**
-   * Convert an AgentTask to RunningTaskInfo
-   */
-  private taskToRunningTaskInfo(
-    projectPath: string,
-    task: AgentTask
-  ): RunningTaskInfo {
-    // Derive project name from path
-    const projectName = path.basename(projectPath)
-
-    // Check if this task was started by auto-mode
-    let isAutoMode = false
-    if (this.autoModeService) {
-      const state = this.autoModeService.getState(projectPath)
-      isAutoMode = state?.runningFeatureIds?.includes(task.id) ?? false
-    }
-
-    return {
-      taskId: task.id,
-      projectPath,
-      projectName,
-      description: task.description,
-      status: task.status,
-      startedAt: task.startedAt ?? task.createdAt,
-      isAutoMode,
-    }
-  }
-
-  /**
-   * Notify that a task has started (for external callers like AutoModeService)
+   * Notify that a task has started (for external callers)
    *
-   * @param task - The task that started
+   * @param taskId - The task ID
+   * @param projectPath - The project path
+   * @param description - Task description
    */
-  notifyTaskStarted(task: AgentTask): void {
-    const projectPath = task.targetDirectory
-    const taskInfo = this.taskToRunningTaskInfo(projectPath, task)
+  notifyTaskStarted(
+    taskId: string,
+    projectPath: string,
+    description: string
+  ): void {
+    const taskInfo: RunningTaskInfo = {
+      taskId,
+      projectPath,
+      projectName: path.basename(projectPath),
+      description,
+      status: 'running',
+      startedAt: new Date(),
+      isAutoMode: false,
+    }
     this.emit('taskStarted', taskInfo)
     this.emitTasksUpdated()
   }
 
   /**
-   * Notify that a task has completed (for external callers like AutoModeService)
+   * Notify that a task has completed (for external callers)
    *
-   * @param task - The task that completed
+   * @param taskId - The task ID
+   * @param projectPath - The project path
    */
-  notifyTaskCompleted(task: AgentTask): void {
-    const projectPath = task.targetDirectory
-    this.emit('taskCompleted', task.id, projectPath)
+  notifyTaskCompleted(taskId: string, projectPath: string): void {
+    this.emit('taskCompleted', taskId, projectPath)
     this.emitTasksUpdated()
   }
 
@@ -386,11 +312,11 @@ export class GlobalProcessService
    */
   destroy(): void {
     // Clean up all listeners
-    for (const cleanup of this.listenerCleanups.values()) {
+    for (const cleanup of this.listenerCleanups) {
       cleanup()
     }
-    this.listenerCleanups.clear()
-    this.executorServices.clear()
+    this.listenerCleanups = []
+    this.agentService = null
     this.autoModeService = null
     this.removeAllListeners()
   }

@@ -86,7 +86,10 @@ import {
   useReviewError,
   useReviewActions,
 } from 'renderer/stores/agent-task-store'
-import { useRunningProjectsManager, useIsProjectRunning } from 'renderer/hooks/use-running-projects'
+import {
+  useRunningProjectsManager,
+  useIsProjectRunning,
+} from 'renderer/hooks/use-running-projects'
 import type {
   AgentTask,
   FileChangeSummary,
@@ -450,7 +453,7 @@ function ReviewActionButtons({
     try {
       await onRunProject(selectedScript || undefined)
       toast.success('Project started', {
-        description: selectedScript 
+        description: selectedScript
           ? `Running script: ${selectedScript}`
           : 'Running default dev/start script',
       })
@@ -591,7 +594,9 @@ function ReviewActionButtons({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   disabled={!workspacePath}
-                  onClick={() => workspacePath && handleOpenTerminal(workspacePath)}
+                  onClick={() =>
+                    workspacePath && handleOpenTerminal(workspacePath)
+                  }
                 >
                   <IconTerminal2 className="mr-2 h-4 w-4" />
                   Open in Workspace
@@ -740,8 +745,9 @@ export function ReviewPanel({
   }, [taskId, discardChanges, onDiscarded])
 
   // Use running projects service for proper integration
-  const { startProject: runDevProject, stopProject: stopDevProject } = useRunningProjectsManager()
-  
+  const { startProject: runDevProject, stopProject: stopDevProject } =
+    useRunningProjectsManager()
+
   // Get workspace path (where agent made changes) - prefer worktree/working directory
   const workspacePath = task?.worktreePath || task?.workingDirectory
   // Get project path (original project directory)
@@ -759,18 +765,19 @@ export function ReviewPanel({
         })
         return
       }
-      
+
       // Build the dev command from script
       const devCommand = script ? `pnpm run ${script}` : undefined
-      
+
       // Get a project name from the task or derive from path
-      const displayName = task?.projectName || projectPath.split(/[/\\]/).pop() || 'Task Project'
-      
+      const displayName =
+        task?.projectName || projectPath.split(/[/\\]/).pop() || 'Task Project'
+
       try {
         // Pass the workspace path directly so we don't create a new workspace lookup
         await runDevProject(projectId, devCommand, projectPath, displayName)
         toast.success('Project started', {
-          description: script 
+          description: script
             ? `Running script: ${script}`
             : 'Running default dev command',
         })
@@ -794,22 +801,25 @@ export function ReviewPanel({
     }
   }, [projectId, stopDevProject])
 
-  const handleOpenTerminal = useCallback(async (path: string): Promise<void> => {
-    try {
-      // Open external terminal window in the specified directory
-      await window.api.shell.openTerminal({
-        cwd: path,
-      })
-      
-      toast.success('Terminal opened', {
-        description: `External terminal opened in ${path}`,
-      })
-    } catch (error) {
-      toast.error('Failed to open terminal', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  }, [])
+  const handleOpenTerminal = useCallback(
+    async (path: string): Promise<void> => {
+      try {
+        // Open external terminal window in the specified directory
+        await window.api.shell.openTerminal({
+          cwd: path,
+        })
+
+        toast.success('Terminal opened', {
+          description: `External terminal opened in ${path}`,
+        })
+      } catch (error) {
+        toast.error('Failed to open terminal', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    },
+    []
+  )
 
   if (!task) {
     return (
@@ -898,7 +908,10 @@ export function ReviewPanel({
 
           <CardContent className="flex-1 min-h-0 pt-4 overflow-hidden">
             {/* File changes tab */}
-            <TabsContent className="h-full mt-0 overflow-hidden" value="changes">
+            <TabsContent
+              className="h-full mt-0 overflow-hidden"
+              value="changes"
+            >
               <ScrollArea className="h-full">
                 <FileChangesSummary fileChanges={fileChanges} />
               </ScrollArea>
@@ -920,7 +933,10 @@ export function ReviewPanel({
             </TabsContent>
 
             {/* Feedback tab */}
-            <TabsContent className="h-full mt-0 flex flex-col overflow-hidden" value="feedback">
+            <TabsContent
+              className="h-full mt-0 flex flex-col overflow-hidden"
+              value="feedback"
+            >
               <div className="flex-1 min-h-0 mb-4 overflow-hidden">
                 <ScrollArea className="h-full">
                   <FeedbackHistory feedbackHistory={feedbackHistory} />

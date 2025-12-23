@@ -113,7 +113,8 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false)
   const [showAddTagDialog, setShowAddTagDialog] = useState(false)
-  const [showCreateWithAgentDialog, setShowCreateWithAgentDialog] = useState(false)
+  const [showCreateWithAgentDialog, setShowCreateWithAgentDialog] =
+    useState(false)
   const [tagsExpanded, setTagsExpanded] = useState(false)
 
   // Form state for adding project
@@ -547,8 +548,8 @@ export const ProjectsPanel = memo(function ProjectsPanel(): React.JSX.Element {
 
       {/* Create Project with AI Agent Dialog */}
       <TaskCreationDialog
-        defaultDirectory=""
         defaultAgentType="autonomous"
+        defaultDirectory=""
         onOpenChange={setShowCreateWithAgentDialog}
         onTaskCreated={taskId => {
           console.log('Task created:', taskId)

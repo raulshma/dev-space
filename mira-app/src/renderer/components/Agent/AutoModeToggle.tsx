@@ -6,7 +6,8 @@
  * - Concurrency limit slider (1-5)
  * - Running task count badge
  *
- * Requirements: 1.1, 1.3, 1.6
+ * Requirements: 1.1, 1.3, 1.6, 12.4
+ * Updated to use new useAutoMode hook from AI Agent Rework
  */
 
 import { memo, useCallback, useState } from 'react'
@@ -26,7 +27,7 @@ import {
   IconSettings,
   IconPlayerPlay,
 } from '@tabler/icons-react'
-import { useAutoModeV2 } from 'renderer/hooks/use-auto-mode-v2'
+import { useAutoMode } from 'renderer/hooks/use-auto-mode'
 import {
   Tooltip,
   TooltipContent,
@@ -53,7 +54,7 @@ export const AutoModeToggle = memo(function AutoModeToggle({
     start,
     stop,
     updateConfig,
-  } = useAutoModeV2(projectPath)
+  } = useAutoMode(projectPath)
 
   const isLoading = isStarting || isStopping
   const runningTaskCount = runningCount

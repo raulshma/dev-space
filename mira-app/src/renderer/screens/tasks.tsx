@@ -22,7 +22,10 @@ import {
 } from 'renderer/hooks/use-agent-tasks'
 import { useProject } from 'renderer/hooks/use-projects'
 import { ErrorBoundary } from 'renderer/components/ErrorBoundary'
-import { TasksHeader, type TasksViewMode } from 'renderer/components/Tasks/TasksHeader'
+import {
+  TasksHeader,
+  type TasksViewMode,
+} from 'renderer/components/Tasks/TasksHeader'
 import { TasksFilters } from 'renderer/components/Tasks/TasksFilters'
 import { TasksTable } from 'renderer/components/Tasks/TasksTable'
 import { KanbanBoard } from 'renderer/components/Tasks/KanbanBoard'
@@ -215,7 +218,10 @@ function TasksScreenContent(): React.JSX.Element {
       ) : (
         <>
           {!isTaskDetailsExpanded && (
-            <TasksFilters filters={filters} onFilterChange={handleFilterChange} />
+            <TasksFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
           )}
 
           {/* Interrupted tasks notification */}

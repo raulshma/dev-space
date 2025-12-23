@@ -20,25 +20,17 @@ import type { AIService } from 'main/services/ai-service'
 import type { ProviderRegistry } from 'main/services/ai/provider-registry'
 import type { ModelRegistry } from 'main/services/ai/model-registry'
 import type { RequestLogger } from 'main/services/ai/request-logger'
-import type { AgentExecutorService } from 'main/services/agent-executor-service'
-import type { AgentConfigService } from 'main/services/agent/agent-config-service'
-import type { ProcessManager } from 'main/services/agent/process-manager'
-import type { TaskQueue } from 'main/services/agent/task-queue'
-import type { OutputBuffer } from 'main/services/agent/output-buffer'
-import type { JulesService } from 'main/services/agent/jules-service'
-import type { WorkingDirectoryService } from 'main/services/agent/working-directory-service'
-import type { AgentServiceV2 } from 'main/services/agent-service-v2'
-import type { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
 import type { FeatureLoader } from 'main/services/feature-loader'
 import type { RunningProjectsService } from 'main/services/running-projects-service'
 import type { IPCHandlers } from 'main/ipc/handlers'
-import type { OpencodeSdkService } from 'main/services/agent/opencode-sdk-service'
 import type { GlobalProcessService } from 'main/services/global-process-service'
 import type { WorktreeService } from 'main/services/worktree-service'
 import type { DependencyManager } from 'main/services/dependency-manager'
 import type { SessionService } from 'main/services/session-service'
 import type { BrowserWindow } from 'electron'
 import type { ReviewService } from 'main/services/review-service'
+import type { AgentService } from 'main/services/agent-service'
+import type { AutoModeService } from 'main/services/auto-mode-service'
 
 // ============================================================================
 // Service Instances (lazy-loaded)
@@ -51,24 +43,16 @@ let providerRegistry: ProviderRegistry
 let modelRegistry: ModelRegistry
 let requestLogger: RequestLogger
 let aiService: AIService
-let agentConfigService: AgentConfigService
-let processManager: ProcessManager
-let taskQueue: TaskQueue
-let outputBuffer: OutputBuffer
-let julesService: JulesService
-let workingDirectoryService: WorkingDirectoryService
-let agentExecutorService: AgentExecutorService
-let agentServiceV2: AgentServiceV2
 let featureLoader: FeatureLoader
-let autoModeServiceV2: AutoModeServiceV2
 let runningProjectsService: RunningProjectsService
-let opencodeSdkService: OpencodeSdkService
 let globalProcessService: GlobalProcessService
 let worktreeService: WorktreeService
 let dependencyManager: DependencyManager
 let sessionService: SessionService
 let ipcHandlers: IPCHandlers
 let reviewService: ReviewService
+let agentService: AgentService
+let autoModeService: AutoModeService
 
 /**
  * Initialize core services that are required immediately
@@ -168,18 +152,8 @@ async function initializeAgentServices(): Promise<void> {
 
   // Import agent services in parallel
   const [
-    { AgentConfigService: ConfigSvc },
-    { ProcessManager: ProcMgr },
-    { TaskQueue: TaskQ },
-    { OutputBuffer: OutBuf },
-    { JulesService: JulesSvc },
-    { WorkingDirectoryService: WorkDirSvc },
-    { AgentExecutorService: ExecSvc },
-    { AgentServiceV2: AgentSvcV2 },
     { FeatureLoader: FeatLoader },
-    { AutoModeServiceV2: AutoModeSvcV2 },
     { RunningProjectsService: RunProjSvc },
-    { OpencodeSdkService: OpencodeSvc },
     { GlobalProcessService: GlobalProcSvc },
     { WorktreeService: WorktreeSvc },
     { DependencyManager: DepMgr },
@@ -188,19 +162,11 @@ async function initializeAgentServices(): Promise<void> {
     { FileCopyService: FileCopySvc },
     { CleanupService: CleanupSvc },
     { ScriptsService: ReviewScriptsSvc },
+    { AgentService: AgentSvc },
+    { AutoModeService: AutoModeSvc },
   ] = await Promise.all([
-    import('main/services/agent/agent-config-service'),
-    import('main/services/agent/process-manager'),
-    import('main/services/agent/task-queue'),
-    import('main/services/agent/output-buffer'),
-    import('main/services/agent/jules-service'),
-    import('main/services/agent/working-directory-service'),
-    import('main/services/agent-executor-service'),
-    import('main/services/agent-service-v2'),
     import('main/services/feature-loader'),
-    import('main/services/auto-mode-service-v2'),
     import('main/services/running-projects-service'),
-    import('main/services/agent/opencode-sdk-service'),
     import('main/services/global-process-service'),
     import('main/services/worktree-service'),
     import('main/services/dependency-manager'),
@@ -209,32 +175,12 @@ async function initializeAgentServices(): Promise<void> {
     import('main/services/file-copy-service'),
     import('main/services/cleanup-service'),
     import('main/services/scripts-service'),
+    import('main/services/agent-service'),
+    import('main/services/auto-mode-service'),
   ])
 
-  agentConfigService = new ConfigSvc(db, keychainService)
-  processManager = new ProcMgr()
-  taskQueue = new TaskQ()
-  outputBuffer = new OutBuf(db)
-  julesService = new JulesSvc(agentConfigService)
-  workingDirectoryService = new WorkDirSvc()
-
-  agentExecutorService = new ExecSvc(
-    db,
-    processManager,
-    taskQueue,
-    outputBuffer,
-    agentConfigService,
-    gitService,
-    julesService,
-    workingDirectoryService,
-    worktreeService
-  )
-
-  agentServiceV2 = new AgentSvcV2()
   featureLoader = new FeatLoader()
-  autoModeServiceV2 = new AutoModeSvcV2(featureLoader)
   runningProjectsService = new RunProjSvc(ptyManager, db)
-  opencodeSdkService = new OpencodeSvc()
   globalProcessService = new GlobalProcSvc()
   worktreeService = new WorktreeSvc(db, gitService)
   dependencyManager = new DepMgr(db)
@@ -253,48 +199,13 @@ async function initializeAgentServices(): Promise<void> {
     ptyManager
   )
 
-  // Wire feedback -> agent restart (review iterations)
-  reviewService.setRestartAgentCallback(async (taskId, feedback) => {
-    await agentExecutorService.restartTaskWithFeedback(taskId, feedback)
-  })
+  // Initialize new agent services
+  agentService = new AgentSvc()
+  autoModeService = new AutoModeSvc(featureLoader)
 
   const duration = performance.now() - startTime
   console.log(
     `[Startup] Agent services initialized in ${duration.toFixed(2)}ms`
-  )
-}
-
-/**
- * Initialize Agent Executor (requires agent services to be ready)
- */
-async function initializeAgentExecutor(): Promise<void> {
-  const startTime = performance.now()
-
-  try {
-    await agentExecutorService.initialize()
-    console.log('[Startup] Agent executor service initialized successfully')
-
-    // Check if auto-resume is enabled and resume interrupted Claude Code tasks
-    const autoResumeSetting = db.getSetting('tasks.autoResume')
-    if (autoResumeSetting === 'true') {
-      const resumedCount =
-        await agentExecutorService.autoResumeInterruptedTasks()
-      if (resumedCount > 0) {
-        console.log(
-          `[Startup] Auto-resumed ${resumedCount} interrupted task(s)`
-        )
-      }
-    }
-  } catch (error) {
-    console.warn(
-      '[Startup] Failed to initialize agent executor service:',
-      error
-    )
-  }
-
-  const duration = performance.now() - startTime
-  console.log(
-    `[Startup] Agent executor initialized in ${duration.toFixed(2)}ms`
   )
 }
 
@@ -313,19 +224,15 @@ async function initializeIPCHandlers(): Promise<void> {
     gitService,
     keychainService,
     aiService,
-    agentExecutorService,
-    agentConfigService,
-    julesService,
     requestLogger,
     runningProjectsService,
-    agentServiceV2,
-    autoModeServiceV2,
     globalProcessService,
     worktreeService,
     dependencyManager,
     sessionService,
-    opencodeSdkService,
-    reviewService
+    reviewService,
+    agentService,
+    autoModeService
   )
 
   ipcHandlers.registerHandlers()
@@ -373,9 +280,6 @@ makeAppWithSingleInstanceLock(async () => {
   // Initialize AI and Agent services in parallel
   await Promise.all([initializeAIServices(), initializeAgentServices()])
 
-  // Initialize agent executor (depends on agent services)
-  await initializeAgentExecutor()
-
   // Initialize IPC handlers
   await initializeIPCHandlers()
 
@@ -400,16 +304,6 @@ makeAppWithSingleInstanceLock(async () => {
 
 app.on('before-quit', async () => {
   console.log('[Shutdown] Application shutting down...')
-
-  // Gracefully shutdown agent executor (stops running tasks, persists state)
-  if (agentExecutorService) {
-    try {
-      await agentExecutorService.shutdown()
-      console.log('[Shutdown] Agent executor shutdown complete')
-    } catch (error) {
-      console.error('[Shutdown] Error during agent executor shutdown:', error)
-    }
-  }
 
   // Stop request logger cleanup timer
   if (requestLogger) {

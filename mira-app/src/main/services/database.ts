@@ -731,9 +731,7 @@ export class DatabaseService {
           db.exec('ALTER TABLE model_cache ADD COLUMN created INTEGER')
         }
         if (!columnNames.includes('architecture_json')) {
-          db.exec(
-            'ALTER TABLE model_cache ADD COLUMN architecture_json TEXT'
-          )
+          db.exec('ALTER TABLE model_cache ADD COLUMN architecture_json TEXT')
         }
       } catch (error) {
         console.error('Migration 2 failed:', error)
@@ -880,10 +878,9 @@ export class DatabaseService {
     }
 
     // Set schema version
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-      'schema_version',
-      '8'
-    )
+    db.prepare(
+      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
+    ).run('schema_version', '8')
   }
 
   /**
@@ -910,7 +907,9 @@ export class DatabaseService {
    */
   private getDb(): Database.Database {
     if (!DatabaseService.sqliteDb) {
-      console.warn('Database not initialized on access. Attempting auto-initialization...')
+      console.warn(
+        'Database not initialized on access. Attempting auto-initialization...'
+      )
       this.initialize()
     }
 

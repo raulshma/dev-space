@@ -356,6 +356,61 @@ import type {
   ReviewGetOpenTerminalsRequest,
   ReviewGetOpenTerminalsResponse,
   ReviewStatusUpdateData,
+  // New Agent Service types (AI Agent Rework)
+  AgentCreateSessionRequest,
+  AgentCreateSessionResponse,
+  AgentListSessionsRequest,
+  AgentListSessionsResponse,
+  AgentDeleteSessionRequest,
+  AgentDeleteSessionResponse,
+  AgentArchiveSessionRequest,
+  AgentArchiveSessionResponse,
+  AgentStartConversationRequest,
+  AgentStartConversationResponse,
+  AgentSendMessageRequest,
+  AgentSendMessageResponse,
+  AgentStopExecutionRequest,
+  AgentStopExecutionResponse,
+  AgentClearSessionRequest,
+  AgentClearSessionResponse,
+  AgentGetMessagesRequest,
+  AgentGetMessagesResponse,
+  AgentIsExecutingRequest,
+  AgentIsExecutingResponse,
+  AgentStreamData,
+  AgentToolUseData,
+  AgentErrorData,
+  AgentCompleteData,
+  // New Auto Mode Service types (AI Agent Rework)
+  AutoModeStartRequest,
+  AutoModeStartResponse,
+  AutoModeStopRequest,
+  AutoModeStopResponse,
+  AutoModeGetStateRequest,
+  AutoModeGetStateResponse,
+  AutoModeUpdateConfigRequest,
+  AutoModeUpdateConfigResponse,
+  AutoModeGetQueueRequest,
+  AutoModeGetQueueResponse,
+  AutoModeEnqueueFeatureRequest,
+  AutoModeEnqueueFeatureResponse,
+  AutoModeDequeueFeatureRequest,
+  AutoModeDequeueFeatureResponse,
+  AutoModeExecuteFeatureRequest,
+  AutoModeExecuteFeatureResponse,
+  AutoModeStopFeatureRequest,
+  AutoModeStopFeatureResponse,
+  AutoModeApprovePlanRequest,
+  AutoModeApprovePlanResponse,
+  AutoModeRejectPlanRequest,
+  AutoModeRejectPlanResponse,
+  AutoModeStateChangedData,
+  AutoModeFeatureStartedData,
+  AutoModeFeatureCompletedData,
+  AutoModeFeatureFailedData,
+  AutoModeFeatureProgressData,
+  AutoModePlanGeneratedData,
+  AutoModeRateLimitWaitData,
 } from 'shared/ipc-types'
 
 /**
@@ -1381,6 +1436,244 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.REVIEW_STATUS_UPDATE, listener)
       return () =>
         ipcRenderer.removeListener(IPC_CHANNELS.REVIEW_STATUS_UPDATE, listener)
+    },
+  },
+
+  // New Agent Service operations (AI Agent Rework)
+  agent: {
+    // Session management
+    createSession: (
+      request: AgentCreateSessionRequest
+    ): Promise<AgentCreateSessionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CREATE_SESSION, request),
+    listSessions: (
+      request: AgentListSessionsRequest
+    ): Promise<AgentListSessionsResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_LIST_SESSIONS, request),
+    deleteSession: (
+      request: AgentDeleteSessionRequest
+    ): Promise<AgentDeleteSessionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_DELETE_SESSION, request),
+    archiveSession: (
+      request: AgentArchiveSessionRequest
+    ): Promise<AgentArchiveSessionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_ARCHIVE_SESSION, request),
+
+    // Conversation operations
+    startConversation: (
+      request: AgentStartConversationRequest
+    ): Promise<AgentStartConversationResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_START_CONVERSATION, request),
+    sendMessage: (
+      request: AgentSendMessageRequest
+    ): Promise<AgentSendMessageResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_SEND_MESSAGE, request),
+    getMessages: (
+      request: AgentGetMessagesRequest
+    ): Promise<AgentGetMessagesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_GET_MESSAGES, request),
+    clearSession: (
+      request: AgentClearSessionRequest
+    ): Promise<AgentClearSessionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CLEAR_SESSION, request),
+
+    // Execution control
+    stopExecution: (
+      request: AgentStopExecutionRequest
+    ): Promise<AgentStopExecutionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_STOP_EXECUTION, request),
+    isExecuting: (
+      request: AgentIsExecutingRequest
+    ): Promise<AgentIsExecutingResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_IS_EXECUTING, request),
+
+    // Event subscriptions for streaming
+    onStream: (callback: (data: AgentStreamData) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AgentStreamData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AGENT_STREAM, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.AGENT_STREAM, listener)
+    },
+    onToolUse: (callback: (data: AgentToolUseData) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AgentToolUseData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AGENT_TOOL_USE, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.AGENT_TOOL_USE, listener)
+    },
+    onError: (callback: (data: AgentErrorData) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AgentErrorData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AGENT_ERROR, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.AGENT_ERROR, listener)
+    },
+    onComplete: (callback: (data: AgentCompleteData) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AgentCompleteData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AGENT_COMPLETE, listener)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.AGENT_COMPLETE, listener)
+    },
+  },
+
+  // New Auto Mode Service operations (AI Agent Rework)
+  autoMode: {
+    // Auto mode control
+    start: (request: AutoModeStartRequest): Promise<AutoModeStartResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_START, request),
+    stop: (request: AutoModeStopRequest): Promise<AutoModeStopResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_STOP, request),
+    getState: (
+      request: AutoModeGetStateRequest
+    ): Promise<AutoModeGetStateResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_GET_STATE, request),
+    updateConfig: (
+      request: AutoModeUpdateConfigRequest
+    ): Promise<AutoModeUpdateConfigResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_UPDATE_CONFIG, request),
+
+    // Feature queue operations
+    getQueue: (
+      request: AutoModeGetQueueRequest
+    ): Promise<AutoModeGetQueueResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_GET_QUEUE, request),
+    enqueueFeature: (
+      request: AutoModeEnqueueFeatureRequest
+    ): Promise<AutoModeEnqueueFeatureResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_ENQUEUE_FEATURE, request),
+    dequeueFeature: (
+      request: AutoModeDequeueFeatureRequest
+    ): Promise<AutoModeDequeueFeatureResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_DEQUEUE_FEATURE, request),
+
+    // Feature execution
+    executeFeature: (
+      request: AutoModeExecuteFeatureRequest
+    ): Promise<AutoModeExecuteFeatureResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_EXECUTE_FEATURE, request),
+    stopFeature: (
+      request: AutoModeStopFeatureRequest
+    ): Promise<AutoModeStopFeatureResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_STOP_FEATURE, request),
+
+    // Plan approval workflow
+    approvePlan: (
+      request: AutoModeApprovePlanRequest
+    ): Promise<AutoModeApprovePlanResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_APPROVE_PLAN, request),
+    rejectPlan: (
+      request: AutoModeRejectPlanRequest
+    ): Promise<AutoModeRejectPlanResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTO_MODE_REJECT_PLAN, request),
+
+    // Event subscriptions
+    onStateChanged: (
+      callback: (data: AutoModeStateChangedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeStateChangedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_STATE_CHANGED, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_STATE_CHANGED,
+          listener
+        )
+    },
+    onFeatureStarted: (
+      callback: (data: AutoModeFeatureStartedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeFeatureStartedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_FEATURE_STARTED, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_FEATURE_STARTED,
+          listener
+        )
+    },
+    onFeatureCompleted: (
+      callback: (data: AutoModeFeatureCompletedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeFeatureCompletedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_FEATURE_COMPLETED, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_FEATURE_COMPLETED,
+          listener
+        )
+    },
+    onFeatureFailed: (
+      callback: (data: AutoModeFeatureFailedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeFeatureFailedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_FEATURE_FAILED, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_FEATURE_FAILED,
+          listener
+        )
+    },
+    onFeatureProgress: (
+      callback: (data: AutoModeFeatureProgressData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeFeatureProgressData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_FEATURE_PROGRESS, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_FEATURE_PROGRESS,
+          listener
+        )
+    },
+    onPlanGenerated: (
+      callback: (data: AutoModePlanGeneratedData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModePlanGeneratedData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_PLAN_GENERATED, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_PLAN_GENERATED,
+          listener
+        )
+    },
+    onRateLimitWait: (
+      callback: (data: AutoModeRateLimitWaitData) => void
+    ): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: AutoModeRateLimitWaitData
+      ): void => callback(data)
+      ipcRenderer.on(IPC_CHANNELS.AUTO_MODE_RATE_LIMIT_WAIT, listener)
+      return () =>
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.AUTO_MODE_RATE_LIMIT_WAIT,
+          listener
+        )
     },
   },
 }

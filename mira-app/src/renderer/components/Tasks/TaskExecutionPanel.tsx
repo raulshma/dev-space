@@ -114,12 +114,14 @@ const STATUS_CONFIG: Record<
   },
   paused: {
     label: 'Paused',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconPlayerPause className="h-4 w-4" />,
   },
   awaiting_approval: {
     label: 'Awaiting Approval',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-4 w-4" />,
   },
   completed: {
@@ -165,7 +167,8 @@ const JULES_STATE_CONFIG: Record<
   },
   'awaiting-plan-approval': {
     label: 'Awaiting Approval',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconListCheck className="h-4 w-4" />,
   },
   executing: {
@@ -175,7 +178,8 @@ const JULES_STATE_CONFIG: Record<
   },
   'awaiting-reply': {
     label: 'Awaiting Reply',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-4 w-4" />,
   },
   completed: {
@@ -1235,7 +1239,7 @@ function JulesActivitiesOutput({
       hasNewActivities
     ) {
       const scrollContainer = scrollRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
+        '[data-slot="scroll-area-viewport"]'
       )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
@@ -1269,7 +1273,7 @@ function JulesActivitiesOutput({
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
+        '[data-slot="scroll-area-viewport"]'
       )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
@@ -1630,7 +1634,7 @@ export function TaskExecutionPanel({
   useEffect(() => {
     if (isAutoScrollEnabled && !isUserScrolling && scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
+        '[data-slot="scroll-area-viewport"]'
       )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
@@ -1662,7 +1666,7 @@ export function TaskExecutionPanel({
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
+        '[data-slot="scroll-area-viewport"]'
       )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
@@ -1710,7 +1714,10 @@ export function TaskExecutionPanel({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Badge className="gap-1 bg-amber-500/10 text-amber-500 border-amber-500/20" variant="outline">
+            <Badge
+              className="gap-1 bg-amber-500/10 text-amber-500 border-amber-500/20"
+              variant="outline"
+            >
               <IconEye className="h-4 w-4" />
               Review
             </Badge>
@@ -1718,8 +1725,8 @@ export function TaskExecutionPanel({
               <Button
                 onClick={onToggleExpand}
                 size="icon-sm"
-                variant="ghost"
                 title={isExpanded ? 'Minimize' : 'Maximize'}
+                variant="ghost"
               >
                 {isExpanded ? (
                   <IconArrowsMinimize className="h-4 w-4" />
@@ -1799,7 +1806,10 @@ export function TaskExecutionPanel({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Badge className={cn('gap-1', statusConfig.className)} variant="outline">
+          <Badge
+            className={cn('gap-1', statusConfig.className)}
+            variant="outline"
+          >
             {statusConfig.icon}
             {statusConfig.label}
           </Badge>
@@ -1807,8 +1817,8 @@ export function TaskExecutionPanel({
             <Button
               onClick={onToggleExpand}
               size="icon-sm"
-              variant="ghost"
               title={isExpanded ? 'Minimize' : 'Maximize'}
+              variant="ghost"
             >
               {isExpanded ? (
                 <IconArrowsMinimize className="h-4 w-4" />

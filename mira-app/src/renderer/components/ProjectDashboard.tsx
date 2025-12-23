@@ -49,7 +49,8 @@ export function ProjectDashboard(): React.JSX.Element {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
   const [showAddProjectDialog, setShowAddProjectDialog] = useState(false)
   const [showAddTagDialog, setShowAddTagDialog] = useState(false)
-  const [showCreateWithAgentDialog, setShowCreateWithAgentDialog] = useState(false)
+  const [showCreateWithAgentDialog, setShowCreateWithAgentDialog] =
+    useState(false)
 
   // Form state for adding project
   const [newProjectName, setNewProjectName] = useState('')
@@ -527,8 +528,8 @@ export function ProjectDashboard(): React.JSX.Element {
 
       {/* Create Project with AI Agent Dialog */}
       <TaskCreationDialog
-        defaultDirectory=""
         defaultAgentType="autonomous"
+        defaultDirectory=""
         onOpenChange={setShowCreateWithAgentDialog}
         onTaskCreated={taskId => {
           console.log('Task created:', taskId)

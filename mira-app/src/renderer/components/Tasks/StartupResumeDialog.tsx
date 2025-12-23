@@ -72,12 +72,7 @@ export function StartupResumeDialog({
       setHasShown(true)
       handleResumeAll()
     }
-  }, [
-    hasInterruptedTasks,
-    hasShown,
-    autoResumeEnabled,
-    promptBeforeAutoResume,
-  ])
+  }, [hasInterruptedTasks, hasShown, autoResumeEnabled, promptBeforeAutoResume])
 
   const handleResumeAll = useCallback(async () => {
     setIsResuming(true)
@@ -111,7 +106,7 @@ export function StartupResumeDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog onOpenChange={setOpen} open={open}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -142,8 +137,8 @@ export function StartupResumeDialog({
             <div className="space-y-2">
               {interruptedTasks.map(task => (
                 <div
-                  key={task.id}
                   className="flex items-start gap-3 rounded-md bg-background p-3 border"
+                  key={task.id}
                 >
                   <div className="shrink-0 mt-0.5">
                     {task.agentType === 'autonomous' ? (
@@ -159,16 +154,16 @@ export function StartupResumeDialog({
                     </p>
                     {task.projectName && (
                       <Badge
-                        variant="secondary"
                         className="text-[10px] mt-1 h-4"
+                        variant="secondary"
                       >
                         {task.projectName}
                       </Badge>
                     )}
                   </div>
                   <Badge
-                    variant="outline"
                     className="shrink-0 gap-1 text-[10px] bg-blue-500/10 text-blue-500 border-blue-500/30"
+                    variant="outline"
                   >
                     <IconRefresh className="h-2.5 w-2.5" />
                     Resumable
@@ -188,27 +183,27 @@ export function StartupResumeDialog({
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={handleDismiss}
-              variant="ghost"
-              size="sm"
               disabled={isResuming}
+              onClick={handleDismiss}
+              size="sm"
+              variant="ghost"
             >
               <IconX className="h-4 w-4 mr-1" />
               Dismiss
             </Button>
             <Button
-              onClick={handleReviewTasks}
-              variant="outline"
-              size="sm"
               disabled={isResuming}
+              onClick={handleReviewTasks}
+              size="sm"
+              variant="outline"
             >
               Review Tasks
             </Button>
             <Button
+              className="gap-1"
+              disabled={isResuming}
               onClick={handleResumeAll}
               size="sm"
-              disabled={isResuming}
-              className="gap-1"
             >
               {isResuming ? (
                 <>

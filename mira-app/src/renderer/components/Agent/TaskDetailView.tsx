@@ -79,12 +79,14 @@ const STATUS_CONFIG: Record<
   },
   paused: {
     label: 'Paused',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconPlayerPause className="h-4 w-4" />,
   },
   awaiting_approval: {
     label: 'Awaiting Approval',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-4 w-4" />,
   },
   completed: {
@@ -329,7 +331,7 @@ export function TaskDetailView({
 
     if (isAutoScrollEnabled && !isUserScrolling && scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
+        '[data-slot="scroll-area-viewport"]'
       )
       if (scrollContainer) {
         // Use requestAnimationFrame to ensure DOM has updated
@@ -369,7 +371,7 @@ export function TaskDetailView({
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
-        '[data-radix-scroll-area-viewport]'
+        '[data-slot="scroll-area-viewport"]'
       )
       if (scrollContainer) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight
@@ -441,7 +443,10 @@ export function TaskDetailView({
                 </p>
               </div>
             </div>
-            <Badge className={cn('gap-1', statusConfig.className)} variant="outline">
+            <Badge
+              className={cn('gap-1', statusConfig.className)}
+              variant="outline"
+            >
               {statusConfig.icon}
               {statusConfig.label}
             </Badge>

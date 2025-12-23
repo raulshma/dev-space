@@ -94,9 +94,9 @@ export interface ExecuteOptions {
  */
 export interface ProviderMessage {
   /** Type of message */
-  type: 'assistant' | 'user' | 'error' | 'result'
+  type: 'assistant' | 'user' | 'error' | 'result' | 'system'
   /** Subtype for result messages */
-  subtype?: 'success' | 'error'
+  subtype?: 'success' | 'error' | 'init'
   /** Session ID for conversation continuity */
   session_id?: string
   /** Message content */
@@ -108,6 +108,8 @@ export interface ProviderMessage {
   result?: string
   /** Error message (for type: 'error' or subtype: 'error') */
   error?: string
+  /** Total cost in USD for the query */
+  total_cost_usd?: number
 }
 
 // ============================================================================

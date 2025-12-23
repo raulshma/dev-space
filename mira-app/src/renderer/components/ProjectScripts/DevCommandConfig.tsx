@@ -149,7 +149,7 @@ export function DevCommandConfig({
   // All scripts from package.json - prioritize common dev scripts at the top
   const commonDevScriptNames = ['dev', 'start', 'serve', 'develop', 'run']
   const allScripts = scriptsData?.scripts ?? []
-  
+
   // Sort scripts: common dev scripts first, then alphabetically
   const sortedScripts = [...allScripts].sort((a, b) => {
     const aIsCommon = commonDevScriptNames.includes(a.name.toLowerCase())
@@ -222,7 +222,9 @@ export function DevCommandConfig({
                       <SelectItem key={script.name} value={script.name}>
                         <span className="flex items-center gap-2">
                           {script.name}
-                          {commonDevScriptNames.includes(script.name.toLowerCase()) && (
+                          {commonDevScriptNames.includes(
+                            script.name.toLowerCase()
+                          ) && (
                             <span className="text-[10px] text-muted-foreground bg-muted px-1 rounded">
                               dev
                             </span>

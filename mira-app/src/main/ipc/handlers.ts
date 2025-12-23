@@ -51,23 +51,6 @@ import type {
   AIClearConversationRequest,
   AIGetRequestLogsRequest,
   AIGetRequestLogRequest,
-  // Agent Executor types
-  AgentTaskCreateRequest,
-  AgentTaskGetRequest,
-  AgentTaskListRequest,
-  AgentTaskUpdateRequest,
-  AgentTaskDeleteRequest,
-  AgentTaskStartRequest,
-  AgentTaskPauseRequest,
-  AgentTaskResumeRequest,
-  AgentTaskRestartRequest,
-  AgentTaskStopRequest,
-  AgentTaskGetOutputRequest,
-  // Agent Config types
-  AgentConfigGetRequest,
-  AgentConfigSetRequest,
-  AgentConfigValidateRequest,
-  AgentConfigIsConfiguredRequest,
 } from 'shared/ipc-types'
 import type { DatabaseService } from 'main/services/database'
 import type { PTYManager } from 'main/services/pty-manager'
@@ -76,9 +59,6 @@ import type { KeychainService } from 'main/services/keychain-service'
 import { BlueprintService } from 'main/services/blueprint-service'
 import { FilesService } from 'main/services/files-service'
 import type { AIService } from 'main/services/ai-service'
-import type { AgentExecutorService } from 'main/services/agent-executor-service'
-import type { AgentConfigService } from 'main/services/agent/agent-config-service'
-import type { JulesService } from 'main/services/agent/jules-service'
 import type { RequestLogger } from 'main/services/ai/request-logger'
 import { ScriptsService } from 'main/services/scripts-service'
 import type {
@@ -140,47 +120,17 @@ import type { GlobalProcessService } from 'main/services/global-process-service'
 import type { WorktreeService } from 'main/services/worktree-service'
 import type { DependencyManager } from 'main/services/dependency-manager'
 import type { SessionService } from 'main/services/session-service'
-import type { AgentServiceV2 } from 'main/services/agent-service-v2'
-import type { AutoModeServiceV2 } from 'main/services/auto-mode-service-v2'
-import type { OpencodeSdkService } from 'main/services/agent/opencode-sdk-service'
+import type { AgentService } from 'main/services/agent-service'
+import type { AutoModeService } from 'main/services/auto-mode-service'
 import type { ReviewService } from 'main/services/review-service'
+import { ProviderFactory } from 'main/services/providers'
+import { loadContextFiles, combineSystemPrompts } from 'main/services/context-loader'
 import type {
-  AgentV2SessionCreateRequest,
-  AgentV2SessionGetRequest,
-  AgentV2SessionListRequest,
-  AgentV2SessionUpdateRequest,
-  AgentV2SessionArchiveRequest,
-  AgentV2SessionDeleteRequest,
-  AgentV2SessionClearRequest,
-  AgentV2SendMessageRequest,
-  AgentV2GetMessagesRequest,
-  AgentV2StopExecutionRequest,
-  AgentV2IsExecutingRequest,
-  AutoModeV2StartRequest,
-  AutoModeV2StopRequest,
-  AutoModeV2GetStateRequest,
-  AutoModeV2UpdateConfigRequest,
-  AutoModeV2GetQueueRequest,
-  AutoModeV2EnqueueFeatureRequest,
-  AutoModeV2DequeueFeatureRequest,
-  AutoModeV2ExecuteFeatureRequest,
-  AutoModeV2StopFeatureRequest,
-  AutoModeV2ApprovePlanRequest,
-  AutoModeV2RejectPlanRequest,
   ThemeListRequest,
   ThemeGetRequest,
   ThemeCreateRequest,
   ThemeUpdateRequest,
   ThemeDeleteRequest,
-  // OpenCode types
-  OpencodeExecuteRequest,
-  OpencodeStopRequest,
-  OpencodeGetSessionsRequest,
-  OpencodeGetMessagesRequest,
-  OpencodeDeleteSessionRequest,
-  OpencodeBackupConfigRequest,
-  OpencodeRestoreConfigRequest,
-  OpencodeWriteConfigRequest,
   // Review Workflow types
   ReviewTransitionToReviewRequest,
   ReviewGetStatusRequest,
@@ -193,7 +143,39 @@ import type {
   ReviewGetAvailableScriptsRequest,
   ReviewOpenTerminalRequest,
   ReviewGetOpenTerminalsRequest,
+  // New Agent Service types (AI Agent Rework)
+  AgentCreateSessionRequest,
+  AgentListSessionsRequest,
+  AgentDeleteSessionRequest,
+  AgentArchiveSessionRequest,
+  AgentSendMessageRequest,
+  AgentStopExecutionRequest,
+  AgentClearSessionRequest,
+  // New Auto Mode Service types (AI Agent Rework)
+  AutoModeStartRequest,
+  AutoModeStopRequest,
+  AutoModeExecuteFeatureRequest,
+  AutoModeStopFeatureRequest,
+  AutoModeApprovePlanRequest,
+  AutoModeRejectPlanRequest,
+  // Agent Config types
+  AgentConfigSetRequest,
+  AgentConfigValidateRequest,
+  // Agent Task types
+  AgentTaskCreateRequest,
+  AgentTaskGetRequest,
+  AgentTaskListRequest,
+  AgentTaskUpdateRequest,
+  AgentTaskDeleteRequest,
+  AgentTaskStartRequest,
+  AgentTaskStopRequest,
+  AgentTaskGetOutputRequest,
 } from 'shared/ipc-types'
+import type {
+  AgentEnvironmentConfig,
+  AgentConfigValidationError,
+  TaskServiceType,
+} from 'shared/ai-types'
 
 /**
  * IPC Handlers for Mira Developer Hub
@@ -213,19 +195,18 @@ export class IPCHandlers {
   private filesService: FilesService
   private scriptsService: ScriptsService
   private aiService?: AIService
-  private agentExecutorService?: AgentExecutorService
-  private agentConfigService?: AgentConfigService
-  private julesService?: JulesService
   private requestLogger?: RequestLogger
   private runningProjectsService?: RunningProjectsService
   private globalProcessService?: GlobalProcessService
   private worktreeService?: WorktreeService
   private dependencyManager?: DependencyManager
   private sessionService?: SessionService
-  private agentServiceV2?: AgentServiceV2
-  private autoModeServiceV2?: AutoModeServiceV2
-  private opencodeSdkService?: OpencodeSdkService
   private reviewService?: ReviewService
+  // New agent services (AI Agent Rework)
+  private agentService?: AgentService
+  private autoModeService?: AutoModeService
+  // Task execution tracking
+  private taskAbortControllers: Map<string, AbortController> = new Map()
 
   constructor(
     db: DatabaseService,
@@ -233,19 +214,16 @@ export class IPCHandlers {
     gitService: GitService,
     keychainService: KeychainService,
     aiService?: AIService,
-    agentExecutorService?: AgentExecutorService,
-    agentConfigService?: AgentConfigService,
-    julesService?: JulesService,
     requestLogger?: RequestLogger,
     runningProjectsService?: RunningProjectsService,
-    agentServiceV2?: AgentServiceV2,
-    autoModeServiceV2?: AutoModeServiceV2,
     globalProcessService?: GlobalProcessService,
     worktreeService?: WorktreeService,
     dependencyManager?: DependencyManager,
     sessionService?: SessionService,
-    opencodeSdkService?: OpencodeSdkService,
-    reviewService?: ReviewService
+    reviewService?: ReviewService,
+    // New agent services (AI Agent Rework)
+    agentService?: AgentService,
+    autoModeService?: AutoModeService
   ) {
     this.db = db
     this.ptyManager = ptyManager
@@ -255,19 +233,377 @@ export class IPCHandlers {
     this.filesService = new FilesService()
     this.scriptsService = new ScriptsService()
     this.aiService = aiService
-    this.agentExecutorService = agentExecutorService
-    this.agentConfigService = agentConfigService
-    this.julesService = julesService
     this.requestLogger = requestLogger
     this.runningProjectsService = runningProjectsService
     this.globalProcessService = globalProcessService
     this.worktreeService = worktreeService
     this.dependencyManager = dependencyManager
     this.sessionService = sessionService
-    this.agentServiceV2 = agentServiceV2
-    this.autoModeServiceV2 = autoModeServiceV2
-    this.opencodeSdkService = opencodeSdkService
     this.reviewService = reviewService
+    // New agent services (AI Agent Rework)
+    this.agentService = agentService
+    this.autoModeService = autoModeService
+  }
+
+  /**
+   * Execute a task asynchronously with streaming output
+   */
+  private async executeTaskAsync(
+    taskId: string,
+    task: import('shared/ai-types').AgentTask
+  ): Promise<void> {
+    const abortController = new AbortController()
+    this.taskAbortControllers.set(taskId, abortController)
+
+    try {
+      // Get model from task parameters or use default
+      const model = task.parameters?.model || 'claude-sonnet-4-20250514'
+      const provider = ProviderFactory.getProviderForModel(model)
+
+      console.log(`[IPCHandlers] Starting task ${taskId} with model ${model}`)
+
+      // Load project context files
+      const { formattedPrompt: contextFilesPrompt } = await loadContextFiles({
+        projectPath: task.targetDirectory,
+      })
+
+      // Build system prompt - buildFeaturePrompt pattern
+      const taskTitle = task.description.split('\n')[0].substring(0, 100)
+      const baseSystemPrompt = `## Feature Implementation Task
+
+**Task ID:** ${taskId}
+**Title:** ${taskTitle}
+**Description:** ${task.description}
+
+## Instructions
+
+Implement this feature by:
+1. First, explore the codebase to understand the existing structure
+2. Plan your implementation approach
+3. Write the necessary code changes
+4. Ensure the code follows existing patterns and conventions
+
+When done, wrap your final summary in <summary> tags like this:
+
+<summary>
+## Summary: [Feature Title]
+
+### Changes Implemented
+- [List of changes made]
+
+### Files Modified
+- [List of files]
+
+### Notes for Developer
+- [Any important notes]
+</summary>
+
+This helps parse your summary correctly in the output logs.`
+
+      const systemPrompt = combineSystemPrompts(contextFilesPrompt || undefined, baseSystemPrompt)
+
+      // Send initial output to show task is starting
+      const startLine: import('shared/ai-types').OutputLine = {
+        id: 0,
+        taskId,
+        timestamp: new Date(),
+        content: `Starting task: ${task.description}\nWorking directory: ${task.targetDirectory}\nModel: ${model}\n\n`,
+        stream: 'stdout',
+      }
+      this.db.createTaskOutput({
+        taskId,
+        content: startLine.content,
+        stream: 'stdout',
+      })
+      const windows = BrowserWindow.getAllWindows()
+      for (const window of windows) {
+        window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+          taskId,
+          line: startLine,
+        })
+      }
+
+      // Execute the query
+      const stream = provider.executeQuery({
+        prompt: task.description,
+        model,
+        cwd: task.targetDirectory,
+        systemPrompt,
+        maxTurns: task.parameters?.maxIterations || 50,
+        abortController,
+      })
+
+      let outputLineId = 1
+      let responseText = ''
+
+      // Process the stream
+      for await (const msg of stream) {
+        // Check if aborted
+        if (abortController.signal.aborted) {
+          console.log(`[IPCHandlers] Task ${taskId} aborted`)
+          break
+        }
+
+        console.log(`[IPCHandlers] Task ${taskId} received message type: ${msg.type}`)
+
+        if (msg.type === 'assistant' && msg.message?.content) {
+          for (const block of msg.message.content) {
+            if (block.type === 'text' && block.text) {
+              responseText += block.text
+
+              // Create output line
+              const outputLine: import('shared/ai-types').OutputLine = {
+                id: outputLineId++,
+                taskId,
+                timestamp: new Date(),
+                content: block.text,
+                stream: 'stdout',
+              }
+
+              // Store in database
+              this.db.createTaskOutput({
+                taskId,
+                content: block.text,
+                stream: 'stdout',
+              })
+
+              // Send to renderer
+              const windows = BrowserWindow.getAllWindows()
+              for (const window of windows) {
+                window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                  taskId,
+                  line: outputLine,
+                })
+              }
+            } else if (block.type === 'tool_use' && block.name) {
+              // Log tool usage
+              const toolOutput = `\n[Tool: ${block.name}]\n${JSON.stringify(block.input, null, 2)}\n`
+              const outputLine: import('shared/ai-types').OutputLine = {
+                id: outputLineId++,
+                taskId,
+                timestamp: new Date(),
+                content: toolOutput,
+                stream: 'stdout',
+              }
+
+              this.db.createTaskOutput({
+                taskId,
+                content: toolOutput,
+                stream: 'stdout',
+              })
+
+              const windows = BrowserWindow.getAllWindows()
+              for (const window of windows) {
+                window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                  taskId,
+                  line: outputLine,
+                })
+              }
+            } else if (block.type === 'tool_result') {
+              // Log tool result
+              const resultContent = typeof block.content === 'string'
+                ? block.content
+                : JSON.stringify(block.content, null, 2)
+              const toolResultOutput = `\n[Tool Result]\n${resultContent}\n`
+              const outputLine: import('shared/ai-types').OutputLine = {
+                id: outputLineId++,
+                taskId,
+                timestamp: new Date(),
+                content: toolResultOutput,
+                stream: 'stdout',
+              }
+
+              this.db.createTaskOutput({
+                taskId,
+                content: toolResultOutput,
+                stream: 'stdout',
+              })
+
+              const windows = BrowserWindow.getAllWindows()
+              for (const window of windows) {
+                window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                  taskId,
+                  line: outputLine,
+                })
+              }
+            }
+          }
+        } else if (msg.type === 'user') {
+          // User messages (tool results from SDK)
+          if (msg.message?.content) {
+            const content = Array.isArray(msg.message.content)
+              ? msg.message.content.map((b: { type: string; text?: string; content?: string }) =>
+                  b.type === 'text' ? b.text : b.content
+                ).join('\n')
+              : String(msg.message.content)
+
+            if (content) {
+              const outputLine: import('shared/ai-types').OutputLine = {
+                id: outputLineId++,
+                taskId,
+                timestamp: new Date(),
+                content: `\n${content}\n`,
+                stream: 'stdout',
+              }
+
+              this.db.createTaskOutput({
+                taskId,
+                content: outputLine.content,
+                stream: 'stdout',
+              })
+
+              const windows = BrowserWindow.getAllWindows()
+              for (const window of windows) {
+                window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                  taskId,
+                  line: outputLine,
+                })
+              }
+            }
+          }
+        } else if (msg.type === 'result') {
+          if (msg.subtype === 'success' && msg.result) {
+            const outputLine: import('shared/ai-types').OutputLine = {
+              id: outputLineId++,
+              taskId,
+              timestamp: new Date(),
+              content: `\n--- Task Completed ---\n${msg.result}`,
+              stream: 'stdout',
+            }
+
+            this.db.createTaskOutput({
+              taskId,
+              content: outputLine.content,
+              stream: 'stdout',
+            })
+
+            const windows = BrowserWindow.getAllWindows()
+            for (const window of windows) {
+              window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                taskId,
+                line: outputLine,
+              })
+            }
+          } else if (msg.subtype === 'error' && msg.error) {
+            const outputLine: import('shared/ai-types').OutputLine = {
+              id: outputLineId++,
+              taskId,
+              timestamp: new Date(),
+              content: `Error: ${msg.error}`,
+              stream: 'stderr',
+            }
+
+            this.db.createTaskOutput({
+              taskId,
+              content: outputLine.content,
+              stream: 'stderr',
+            })
+
+            const windows = BrowserWindow.getAllWindows()
+            for (const window of windows) {
+              window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+                taskId,
+                line: outputLine,
+              })
+            }
+          }
+        } else if (msg.type === 'error') {
+          const outputLine: import('shared/ai-types').OutputLine = {
+            id: outputLineId++,
+            taskId,
+            timestamp: new Date(),
+            content: `Error: ${msg.error || 'Unknown error'}`,
+            stream: 'stderr',
+          }
+
+          this.db.createTaskOutput({
+            taskId,
+            content: outputLine.content,
+            stream: 'stderr',
+          })
+
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+              taskId,
+              line: outputLine,
+            })
+          }
+        }
+      }
+
+      console.log(`[IPCHandlers] Task ${taskId} stream completed`)
+
+      // Task completed successfully
+      this.db.updateAgentTask(taskId, {
+        status: 'completed',
+        completedAt: new Date(),
+      })
+
+      // Notify completion
+      if (this.globalProcessService) {
+        this.globalProcessService.notifyTaskCompleted(taskId, task.targetDirectory)
+      }
+
+      // Emit final status update
+      const finalWindows = BrowserWindow.getAllWindows()
+      for (const window of finalWindows) {
+        window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+          task: this.db.getAgentTask(taskId),
+        })
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[IPCHandlers] Task ${taskId} error:`, errorMessage)
+      const isAbort = errorMessage.includes('abort') || abortController.signal.aborted
+
+      if (!isAbort) {
+        // Update task as failed
+        this.db.updateAgentTask(taskId, {
+          status: 'failed',
+          completedAt: new Date(),
+          error: errorMessage,
+        })
+
+        // Add error to output
+        this.db.createTaskOutput({
+          taskId,
+          content: `Task failed: ${errorMessage}`,
+          stream: 'stderr',
+        })
+
+        // Send error to renderer
+        const windows = BrowserWindow.getAllWindows()
+        for (const window of windows) {
+          window.webContents.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
+            taskId,
+            line: {
+              id: Date.now(),
+              taskId,
+              timestamp: new Date(),
+              content: `Task failed: ${errorMessage}`,
+              stream: 'stderr',
+            },
+          })
+        }
+      } else {
+        // Task was stopped
+        this.db.updateAgentTask(taskId, {
+          status: 'stopped',
+          completedAt: new Date(),
+        })
+      }
+
+      // Emit status update
+      const windows = BrowserWindow.getAllWindows()
+      for (const window of windows) {
+        window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+          task: this.db.getAgentTask(taskId),
+        })
+      }
+    } finally {
+      this.taskAbortControllers.delete(taskId)
+    }
   }
 
   /**
@@ -289,74 +625,26 @@ export class IPCHandlers {
     this.registerThemeHandlers()
     this.registerScriptsHandlers()
     this.registerDialogHandlers()
-    // New AI service handlers
+    // AI service handlers
     this.registerAIServiceHandlers()
-    this.registerAgentExecutorHandlers()
-    this.registerAgentConfigHandlers()
-    this.registerJulesHandlers()
-    this.registerJulesEventForwarding()
-    this.registerTaskStatusEventForwarding()
     this.registerCLIDetectorHandlers()
     this.registerRunningProjectsHandlers()
     this.registerDevToolsHandlers()
     // Agent enhancement handlers
-    this.registerRunningTasksHandlers()
-    this.registerPlanningHandlers()
     this.registerWorktreeHandlers()
     this.registerDependencyHandlers()
     this.registerAgentSessionHandlers()
-    // V2 service handlers (Claude SDK integration)
-    this.registerAgentServiceV2Handlers()
-    this.registerAutoModeServiceV2Handlers()
-    // OpenCode SDK handlers
-    this.registerOpencodeHandlers()
+    // New agent service handlers (AI Agent Rework)
+    this.registerNewAgentServiceHandlers()
+    this.registerNewAutoModeServiceHandlers()
     // Review Workflow handlers
     this.registerReviewHandlers()
-  }
-
-  /**
-   * Set up event forwarding for Jules status updates
-   */
-  private registerJulesEventForwarding(): void {
-    if (!this.agentExecutorService) return
-
-    // Forward Jules status updates to all renderer windows
-    this.agentExecutorService.on(
-      'julesStatusUpdate',
-      (
-        taskId: string,
-        status: import('shared/notification-types').JulesSessionStatus
-      ) => {
-        const windows = BrowserWindow.getAllWindows()
-        for (const window of windows) {
-          window.webContents.send(IPC_CHANNELS.JULES_STATUS_UPDATE, {
-            taskId,
-            status,
-          })
-        }
-      }
-    )
-  }
-
-  /**
-   * Set up event forwarding for task status updates
-   * Enables real-time header updates without polling
-   */
-  private registerTaskStatusEventForwarding(): void {
-    if (!this.agentExecutorService) return
-
-    // Forward task status updates to all renderer windows
-    this.agentExecutorService.on(
-      'taskUpdated',
-      (task: import('shared/ai-types').AgentTask) => {
-        const windows = BrowserWindow.getAllWindows()
-        for (const window of windows) {
-          window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
-            task,
-          })
-        }
-      }
-    )
+    // Agent Config handlers
+    this.registerAgentConfigHandlers()
+    // Agent Task handlers
+    this.registerAgentTaskHandlers()
+    // Running Tasks handlers
+    this.registerRunningTasksHandlers()
   }
 
   /**
@@ -1010,7 +1298,7 @@ export class IPCHandlers {
       async (_event, request: ShellOpenTerminalRequest) => {
         try {
           const platform = process.platform
-          
+
           if (platform === 'win32') {
             // Try Windows Terminal first, fall back to cmd.exe
             try {
@@ -1020,11 +1308,15 @@ export class IPCHandlers {
               }).unref()
             } catch {
               // Fallback to cmd.exe if Windows Terminal is not available
-              spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/K', `cd /d "${request.cwd}"`], {
-                detached: true,
-                stdio: 'ignore',
-                shell: true,
-              }).unref()
+              spawn(
+                'cmd.exe',
+                ['/c', 'start', 'cmd.exe', '/K', `cd /d "${request.cwd}"`],
+                {
+                  detached: true,
+                  stdio: 'ignore',
+                  shell: true,
+                }
+              ).unref()
             }
           } else if (platform === 'darwin') {
             // macOS: Open Terminal.app
@@ -1034,9 +1326,14 @@ export class IPCHandlers {
             }).unref()
           } else {
             // Linux: Try common terminal emulators
-            const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm']
+            const terminals = [
+              'gnome-terminal',
+              'konsole',
+              'xfce4-terminal',
+              'xterm',
+            ]
             let opened = false
-            
+
             for (const term of terminals) {
               try {
                 if (term === 'gnome-terminal') {
@@ -1062,12 +1359,12 @@ export class IPCHandlers {
                 // Try next terminal
               }
             }
-            
+
             if (!opened) {
               throw new Error('No terminal emulator found')
             }
           }
-          
+
           return { success: true }
         } catch (error) {
           return this.handleError(error)
@@ -1359,537 +1656,6 @@ export class IPCHandlers {
   }
 
   /**
-   * Agent Executor operation handlers
-   * Requirements: 6.1, 7.1, 8.1, 9.2, 10.1
-   */
-  private registerAgentExecutorHandlers(): void {
-    // Create task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_CREATE,
-      async (_event, request: AgentTaskCreateRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const task = await this.agentExecutorService.createTask({
-            description: request.description,
-            agentType: request.agentType,
-            targetDirectory: request.targetDirectory,
-            parameters: request.parameters,
-            priority: request.priority,
-            serviceType: request.serviceType,
-            julesParams: request.julesParams,
-            planningMode: request.planningMode,
-            requirePlanApproval: request.requirePlanApproval,
-            projectId: request.projectId,
-            projectName: request.projectName,
-          })
-          return { task }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_GET,
-      async (_event, request: AgentTaskGetRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const task = this.agentExecutorService.getTask(request.taskId)
-          return { task: task ?? null }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // List tasks
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_LIST,
-      async (_event, request: AgentTaskListRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const tasks = this.agentExecutorService.getTasks(request.filter)
-          return { tasks }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Update task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_UPDATE,
-      async (_event, request: AgentTaskUpdateRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const task = await this.agentExecutorService.updateTask(
-            request.taskId,
-            request.updates
-          )
-          return { task }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Delete task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_DELETE,
-      async (_event, request: AgentTaskDeleteRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.agentExecutorService.deleteTask(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Start task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_START,
-      async (_event, request: AgentTaskStartRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.agentExecutorService.startTask(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Pause task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_PAUSE,
-      async (_event, request: AgentTaskPauseRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.agentExecutorService.pauseTask(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Resume task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_RESUME,
-      async (_event, request: AgentTaskResumeRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.agentExecutorService.resumeTask(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Restart task (with optional session resume)
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_RESTART,
-      async (_event, request: AgentTaskRestartRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const result = await this.agentExecutorService.restartTask(
-            request.taskId,
-            request.resumeSession ?? true,
-            request.forkSession ?? false
-          )
-          return { success: true, sessionId: result.sessionId }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Stop task
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_STOP,
-      async (_event, request: AgentTaskStopRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.agentExecutorService.stopTask(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get task output (from memory buffer)
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_GET_OUTPUT,
-      async (_event, request: AgentTaskGetOutputRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const output = this.agentExecutorService.getTaskOutput(request.taskId)
-          return { output }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Load task output from database (for persisted tasks)
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_LOAD_OUTPUT,
-      async (_event, request: AgentTaskGetOutputRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const output = await this.agentExecutorService.loadTaskOutput(
-            request.taskId
-          )
-          return { output }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Subscribe to output streaming
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_TASK_SUBSCRIBE_OUTPUT,
-      async (event, request: AgentTaskGetOutputRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-
-          const sender = event.sender
-          const taskId = request.taskId
-
-          // Subscribe to output updates
-          this.agentExecutorService.subscribeToOutput(
-            taskId,
-            (line: import('shared/ai-types').OutputLine) => {
-              sender.send(IPC_CHANNELS.AGENT_TASK_OUTPUT_STREAM, {
-                taskId,
-                line,
-              })
-            }
-          )
-
-          // Note: In a real implementation, you'd want to track these
-          // and clean them up when the renderer disconnects
-
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-  }
-
-  /**
-   * Agent Configuration operation handlers
-   * Requirements: 5.1, 5.2, 5.5
-   */
-  private registerAgentConfigHandlers(): void {
-    // Get configuration
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_CONFIG_GET,
-      async (_event, _request: AgentConfigGetRequest) => {
-        try {
-          if (!this.agentConfigService) {
-            return {
-              error: 'Agent config service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const config = await this.agentConfigService.getConfig()
-          return { config }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Set configuration
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_CONFIG_SET,
-      async (_event, request: AgentConfigSetRequest) => {
-        try {
-          if (!this.agentConfigService) {
-            return {
-              error: 'Agent config service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.agentConfigService.setConfig(request.updates)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Validate configuration
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_CONFIG_VALIDATE,
-      async (_event, request: AgentConfigValidateRequest) => {
-        try {
-          if (!this.agentConfigService) {
-            return {
-              error: 'Agent config service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const result = this.agentConfigService.validateConfig(request.config)
-          return { result }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Check if configured
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_CONFIG_IS_CONFIGURED,
-      async (_event, _request: AgentConfigIsConfiguredRequest) => {
-        try {
-          if (!this.agentConfigService) {
-            return {
-              error: 'Agent config service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const isConfigured = await this.agentConfigService.isConfigured()
-          return { isConfigured }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get configured services
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_CONFIG_GET_CONFIGURED_SERVICES,
-      async () => {
-        try {
-          if (!this.agentConfigService) {
-            return {
-              services: [],
-              error: 'Agent config service not initialized',
-            }
-          }
-          const services = await this.agentConfigService.getConfiguredServices()
-          return { services }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-  }
-
-  /**
-   * Jules operation handlers
-   */
-  private registerJulesHandlers(): void {
-    // List available sources
-    ipcMain.handle(IPC_CHANNELS.JULES_LIST_SOURCES, async () => {
-      try {
-        if (!this.julesService) {
-          return {
-            sources: [],
-            error: 'Jules service not initialized',
-          }
-        }
-        const sources = await this.julesService.listSources()
-        return { sources }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        return {
-          sources: [],
-          error: message,
-        }
-      }
-    })
-
-    // Approve plan for a Jules session
-    ipcMain.handle(
-      IPC_CHANNELS.JULES_APPROVE_PLAN,
-      async (
-        _event,
-        request: import('shared/ipc-types').JulesApprovePlanRequest
-      ) => {
-        try {
-          if (!this.julesService) {
-            return { success: false, error: 'Jules service not initialized' }
-          }
-          await this.julesService.approvePlan(request.sessionId)
-          return { success: true }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error'
-          return { success: false, error: message }
-        }
-      }
-    )
-
-    // Send message to a Jules session
-    ipcMain.handle(
-      IPC_CHANNELS.JULES_SEND_MESSAGE,
-      async (
-        _event,
-        request: import('shared/ipc-types').JulesSendMessageRequest
-      ) => {
-        try {
-          if (!this.julesService) {
-            return { success: false, error: 'Jules service not initialized' }
-          }
-          await this.julesService.sendMessage(
-            request.sessionId,
-            request.message
-          )
-          return { success: true }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error'
-          return { success: false, error: message }
-        }
-      }
-    )
-
-    // Resync a Jules task (fetch latest status)
-    ipcMain.handle(
-      IPC_CHANNELS.JULES_RESYNC_TASK,
-      async (
-        _event,
-        request: import('shared/ipc-types').JulesResyncTaskRequest
-      ) => {
-        try {
-          if (!this.agentExecutorService) {
-            return { success: false, error: 'Agent executor not initialized' }
-          }
-          const status = await this.agentExecutorService.resyncJulesTask(
-            request.taskId
-          )
-          return { success: true, status }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error'
-          return { success: false, error: message }
-        }
-      }
-    )
-
-    // Get session status for a Jules task
-    ipcMain.handle(
-      IPC_CHANNELS.JULES_GET_SESSION_STATUS,
-      async (
-        _event,
-        request: import('shared/ipc-types').JulesGetSessionStatusRequest
-      ) => {
-        try {
-          if (!this.agentExecutorService) {
-            return { status: null, error: 'Agent executor not initialized' }
-          }
-          const status = await this.agentExecutorService.getJulesTaskStatus(
-            request.taskId
-          )
-          return { status }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error'
-          return { status: null, error: message }
-        }
-      }
-    )
-
-    // Get activities for a Jules task
-    ipcMain.handle(
-      IPC_CHANNELS.JULES_GET_ACTIVITIES,
-      async (
-        _event,
-        request: import('shared/ipc-types').JulesGetActivitiesRequest
-      ) => {
-        try {
-          if (!this.agentExecutorService) {
-            return { activities: [], error: 'Agent executor not initialized' }
-          }
-          const activities = await this.agentExecutorService.getJulesActivities(
-            request.taskId
-          )
-          return { activities }
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error'
-          return { activities: [], error: message }
-        }
-      }
-    )
-  }
-
-  /**
    * CLI Detection operation handlers
    */
   private registerCLIDetectorHandlers(): void {
@@ -1993,11 +1759,11 @@ export class IPCHandlers {
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          
+
           // Use provided path/name or look up from database
           let projectPath = request.projectPath
           let projectName = request.projectName
-          
+
           if (!projectPath) {
             // Get project details from database
             const project = this.db.getProject(request.projectId)
@@ -2007,12 +1773,12 @@ export class IPCHandlers {
             projectPath = project.path
             projectName = project.name
           }
-          
+
           if (!projectName) {
             // Use a fallback name based on the path
             projectName = projectPath.split(/[/\\]/).pop() || 'Unknown Project'
           }
-          
+
           const runningProject = await this.runningProjectsService.start(
             request.projectId,
             projectName,
@@ -2206,137 +1972,6 @@ export class IPCHandlers {
         }
       }
     )
-  }
-
-  /**
-   * Running Tasks Global View operation handlers
-   * Requirements: 2.1, 2.4
-   */
-  private registerRunningTasksHandlers(): void {
-    // Get all running tasks
-    ipcMain.handle(IPC_CHANNELS.RUNNING_TASKS_GET_ALL, async () => {
-      try {
-        if (!this.globalProcessService) {
-          return {
-            error: 'Global process service not initialized',
-            code: 'SERVICE_NOT_INITIALIZED',
-          }
-        }
-        const tasks = this.globalProcessService.getRunningTasks()
-        return { tasks }
-      } catch (error) {
-        return this.handleError(error)
-      }
-    })
-
-    // Stop a running task
-    ipcMain.handle(
-      IPC_CHANNELS.RUNNING_TASKS_STOP,
-      async (_event, request: RunningTasksStopRequest) => {
-        try {
-          if (!this.globalProcessService) {
-            return {
-              error: 'Global process service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.globalProcessService.stopTask(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Set up event forwarding for running tasks updates
-    if (this.globalProcessService) {
-      this.globalProcessService.on(
-        'tasksUpdated',
-        (
-          tasks: Array<{
-            taskId: string
-            projectPath: string
-            projectName: string
-            description: string
-            status: import('shared/ai-types').TaskStatus
-            startedAt: Date
-            isAutoMode: boolean
-          }>
-        ) => {
-          const windows = BrowserWindow.getAllWindows()
-          for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.RUNNING_TASKS_UPDATED, {
-              tasks,
-            })
-          }
-        }
-      )
-    }
-  }
-
-  /**
-   * Planning Mode operation handlers
-   * Requirements: 3.7, 3.8
-   */
-  private registerPlanningHandlers(): void {
-    // Approve plan
-    ipcMain.handle(
-      IPC_CHANNELS.TASK_APPROVE_PLAN,
-      async (_event, request: TaskApprovePlanRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const task = await this.agentExecutorService.approvePlan(
-            request.taskId
-          )
-          return { task }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Reject plan
-    ipcMain.handle(
-      IPC_CHANNELS.TASK_REJECT_PLAN,
-      async (_event, request: TaskRejectPlanRequest) => {
-        try {
-          if (!this.agentExecutorService) {
-            return {
-              error: 'Agent executor service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const task = await this.agentExecutorService.rejectPlan(
-            request.taskId,
-            request.feedback
-          )
-          return { task }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Set up event forwarding for plan generation
-    if (this.agentExecutorService) {
-      this.agentExecutorService.on(
-        'planGenerated',
-        (taskId: string, plan: import('shared/ai-types').PlanSpec) => {
-          const windows = BrowserWindow.getAllWindows()
-          for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.TASK_PLAN_GENERATED, {
-              taskId,
-              plan,
-            })
-          }
-        }
-      )
-    }
   }
 
   /**
@@ -2733,47 +2368,29 @@ export class IPCHandlers {
   }
 
   /**
-   * Agent Service V2 operation handlers (Claude SDK Integration)
-   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
+   * New Agent Service operation handlers (AI Agent Rework)
+   * Requirements: 11.1, 11.2, 11.5
    */
-  private registerAgentServiceV2Handlers(): void {
+  private registerNewAgentServiceHandlers(): void {
     // Create session
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_CREATE,
-      async (_event, request: AgentV2SessionCreateRequest) => {
+      IPC_CHANNELS.AGENT_CREATE_SESSION,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentCreateSessionRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const session = this.agentServiceV2.createSession({
-            name: request.name,
-            projectPath: request.projectPath,
-            workingDirectory: request.workingDirectory,
-            model: request.model,
-            tags: request.tags,
-          })
-          return { session }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get session
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_GET,
-      async (_event, request: AgentV2SessionGetRequest) => {
-        try {
-          if (!this.agentServiceV2) {
-            return {
-              error: 'Agent service V2 not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const session = this.agentServiceV2.getSession(request.sessionId)
+          const session = this.agentService.createSession(
+            request.name,
+            request.projectPath,
+            request.workingDirectory
+          )
           return { session }
         } catch (error) {
           return this.handleError(error)
@@ -2783,61 +2400,22 @@ export class IPCHandlers {
 
     // List sessions
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_LIST,
-      async (_event, request: AgentV2SessionListRequest) => {
+      IPC_CHANNELS.AGENT_LIST_SESSIONS,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentListSessionsRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const sessions = this.agentServiceV2.listSessions({
-            projectPath: request.projectPath,
-            includeArchived: request.includeArchived,
-          })
-          return { sessions }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Update session
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_UPDATE,
-      async (_event, request: AgentV2SessionUpdateRequest) => {
-        try {
-          if (!this.agentServiceV2) {
-            return {
-              error: 'Agent service V2 not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const session = this.agentServiceV2.updateSession(
-            request.sessionId,
-            request.updates
+          const sessions = this.agentService.listSessions(
+            request.includeArchived
           )
-          return { session }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Archive session
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_ARCHIVE,
-      async (_event, request: AgentV2SessionArchiveRequest) => {
-        try {
-          if (!this.agentServiceV2) {
-            return {
-              error: 'Agent service V2 not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const success = this.agentServiceV2.archiveSession(request.sessionId)
-          return { success }
+          return { sessions }
         } catch (error) {
           return this.handleError(error)
         }
@@ -2846,16 +2424,19 @@ export class IPCHandlers {
 
     // Delete session
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_DELETE,
-      async (_event, request: AgentV2SessionDeleteRequest) => {
+      IPC_CHANNELS.AGENT_DELETE_SESSION,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentDeleteSessionRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const success = this.agentServiceV2.deleteSession(request.sessionId)
+          const success = this.agentService.deleteSession(request.sessionId)
           return { success }
         } catch (error) {
           return this.handleError(error)
@@ -2863,19 +2444,47 @@ export class IPCHandlers {
       }
     )
 
-    // Clear session
+    // Archive session
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SESSION_CLEAR,
-      async (_event, request: AgentV2SessionClearRequest) => {
+      IPC_CHANNELS.AGENT_ARCHIVE_SESSION,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentArchiveSessionRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const success = this.agentServiceV2.clearSession(request.sessionId)
+          const success = this.agentService.archiveSession(request.sessionId)
           return { success }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Start conversation
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_START_CONVERSATION,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentStartConversationRequest
+      ) => {
+        try {
+          if (!this.agentService) {
+            return {
+              error: 'Agent service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const result = await this.agentService.startConversation(
+            request.sessionId,
+            request.workingDirectory
+          )
+          return result
         } catch (error) {
           return this.handleError(error)
         }
@@ -2884,12 +2493,15 @@ export class IPCHandlers {
 
     // Send message (with streaming)
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_SEND_MESSAGE,
-      async (event, request: AgentV2SendMessageRequest) => {
+      IPC_CHANNELS.AGENT_SEND_MESSAGE,
+      async (
+        event,
+        request: import('shared/ipc-types').AgentSendMessageRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
@@ -2900,7 +2512,7 @@ export class IPCHandlers {
           // Set up event forwarding for this request
           const textDeltaHandler = (sid: string, text: string) => {
             if (sid === sessionId) {
-              sender.send(IPC_CHANNELS.AGENT_V2_TEXT_DELTA, {
+              sender.send(IPC_CHANNELS.AGENT_STREAM, {
                 sessionId: sid,
                 text,
               })
@@ -2912,16 +2524,19 @@ export class IPCHandlers {
             input: unknown
           ) => {
             if (sid === sessionId) {
-              sender.send(IPC_CHANNELS.AGENT_V2_TOOL_USE, {
+              sender.send(IPC_CHANNELS.AGENT_TOOL_USE, {
                 sessionId: sid,
                 toolName,
                 input,
               })
             }
           }
-          const errorHandler = (sid: string, error: unknown) => {
+          const errorHandler = (
+            sid: string,
+            error: import('../services/providers/types').ProviderErrorInfo
+          ) => {
             if (sid === sessionId) {
-              sender.send(IPC_CHANNELS.AGENT_V2_ERROR, {
+              sender.send(IPC_CHANNELS.AGENT_ERROR, {
                 sessionId: sid,
                 error,
               })
@@ -2929,20 +2544,20 @@ export class IPCHandlers {
           }
           const completeHandler = (sid: string, result: string) => {
             if (sid === sessionId) {
-              sender.send(IPC_CHANNELS.AGENT_V2_COMPLETE, {
+              sender.send(IPC_CHANNELS.AGENT_COMPLETE, {
                 sessionId: sid,
                 result,
               })
             }
           }
 
-          this.agentServiceV2.on('textDelta', textDeltaHandler)
-          this.agentServiceV2.on('toolUse', toolUseHandler)
-          this.agentServiceV2.on('error', errorHandler)
-          this.agentServiceV2.on('complete', completeHandler)
+          this.agentService.on('textDelta', textDeltaHandler)
+          this.agentService.on('toolUse', toolUseHandler)
+          this.agentService.on('error', errorHandler)
+          this.agentService.on('complete', completeHandler)
 
           try {
-            const message = await this.agentServiceV2.sendMessage({
+            const result = await this.agentService.sendMessage({
               sessionId: request.sessionId,
               message: request.message,
               imagePaths: request.imagePaths,
@@ -2950,33 +2565,14 @@ export class IPCHandlers {
               systemPrompt: request.systemPrompt,
               allowedTools: request.allowedTools,
             })
-            return { message }
+            return result
           } finally {
             // Clean up event listeners
-            this.agentServiceV2.off('textDelta', textDeltaHandler)
-            this.agentServiceV2.off('toolUse', toolUseHandler)
-            this.agentServiceV2.off('error', errorHandler)
-            this.agentServiceV2.off('complete', completeHandler)
+            this.agentService.off('textDelta', textDeltaHandler)
+            this.agentService.off('toolUse', toolUseHandler)
+            this.agentService.off('error', errorHandler)
+            this.agentService.off('complete', completeHandler)
           }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get messages
-    ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_GET_MESSAGES,
-      async (_event, request: AgentV2GetMessagesRequest) => {
-        try {
-          if (!this.agentServiceV2) {
-            return {
-              error: 'Agent service V2 not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const messages = this.agentServiceV2.getMessages(request.sessionId)
-          return { messages }
         } catch (error) {
           return this.handleError(error)
         }
@@ -2985,17 +2581,64 @@ export class IPCHandlers {
 
     // Stop execution
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_STOP_EXECUTION,
-      async (_event, request: AgentV2StopExecutionRequest) => {
+      IPC_CHANNELS.AGENT_STOP_EXECUTION,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentStopExecutionRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const success = this.agentServiceV2.stopExecution(request.sessionId)
+          const success = this.agentService.stopExecution(request.sessionId)
           return { success }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Clear session
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CLEAR_SESSION,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentClearSessionRequest
+      ) => {
+        try {
+          if (!this.agentService) {
+            return {
+              error: 'Agent service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const success = this.agentService.clearSession(request.sessionId)
+          return { success }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get messages
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_GET_MESSAGES,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentGetMessagesRequest
+      ) => {
+        try {
+          if (!this.agentService) {
+            return {
+              error: 'Agent service not initialized',
+              code: 'SERVICE_NOT_INITIALIZED',
+            }
+          }
+          const messages = this.agentService.getMessages(request.sessionId)
+          return { messages }
         } catch (error) {
           return this.handleError(error)
         }
@@ -3004,16 +2647,19 @@ export class IPCHandlers {
 
     // Is executing
     ipcMain.handle(
-      IPC_CHANNELS.AGENT_V2_IS_EXECUTING,
-      async (_event, request: AgentV2IsExecutingRequest) => {
+      IPC_CHANNELS.AGENT_IS_EXECUTING,
+      async (
+        _event,
+        request: import('shared/ipc-types').AgentIsExecutingRequest
+      ) => {
         try {
-          if (!this.agentServiceV2) {
+          if (!this.agentService) {
             return {
-              error: 'Agent service V2 not initialized',
+              error: 'Agent service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const isExecuting = this.agentServiceV2.isExecuting(request.sessionId)
+          const isExecuting = this.agentService.isExecuting(request.sessionId)
           return { isExecuting }
         } catch (error) {
           return this.handleError(error)
@@ -3023,22 +2669,25 @@ export class IPCHandlers {
   }
 
   /**
-   * Auto Mode Service V2 operation handlers (Claude SDK Integration)
-   * Requirements: 4.1, 4.2, 4.7, 5.5, 5.6, 5.7
+   * New Auto Mode Service operation handlers (AI Agent Rework)
+   * Requirements: 11.3, 11.5
    */
-  private registerAutoModeServiceV2Handlers(): void {
+  private registerNewAutoModeServiceHandlers(): void {
     // Start auto mode
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_START,
-      async (_event, request: AutoModeV2StartRequest) => {
+      IPC_CHANNELS.AUTO_MODE_START,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeStartRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          await this.autoModeServiceV2.startAutoLoop(
+          await this.autoModeService.startAutoLoop(
             request.projectPath,
             request.config
           )
@@ -3051,17 +2700,22 @@ export class IPCHandlers {
 
     // Stop auto mode
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_STOP,
-      async (_event, request: AutoModeV2StopRequest) => {
+      IPC_CHANNELS.AUTO_MODE_STOP,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeStopRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          await this.autoModeServiceV2.stopAutoLoop(request.projectPath)
-          return { success: true }
+          const stoppedCount = await this.autoModeService.stopAutoLoop(
+            request.projectPath
+          )
+          return { stoppedCount }
         } catch (error) {
           return this.handleError(error)
         }
@@ -3070,16 +2724,19 @@ export class IPCHandlers {
 
     // Get state
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_GET_STATE,
-      async (_event, request: AutoModeV2GetStateRequest) => {
+      IPC_CHANNELS.AUTO_MODE_GET_STATE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeGetStateRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const state = this.autoModeServiceV2.getState(request.projectPath)
+          const state = this.autoModeService.getState(request.projectPath)
           return { state }
         } catch (error) {
           return this.handleError(error)
@@ -3089,19 +2746,19 @@ export class IPCHandlers {
 
     // Update config
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_UPDATE_CONFIG,
-      async (_event, request: AutoModeV2UpdateConfigRequest) => {
+      IPC_CHANNELS.AUTO_MODE_UPDATE_CONFIG,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeUpdateConfigRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          this.autoModeServiceV2.updateConfig(
-            request.projectPath,
-            request.config
-          )
+          this.autoModeService.updateConfig(request.projectPath, request.config)
           return { success: true }
         } catch (error) {
           return this.handleError(error)
@@ -3111,16 +2768,19 @@ export class IPCHandlers {
 
     // Get queue
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_GET_QUEUE,
-      async (_event, request: AutoModeV2GetQueueRequest) => {
+      IPC_CHANNELS.AUTO_MODE_GET_QUEUE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeGetQueueRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const features = await this.autoModeServiceV2.getFeatureQueue(
+          const features = await this.autoModeService.getFeatureQueue(
             request.projectPath
           )
           return { features }
@@ -3132,16 +2792,19 @@ export class IPCHandlers {
 
     // Enqueue feature
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_ENQUEUE_FEATURE,
-      async (_event, request: AutoModeV2EnqueueFeatureRequest) => {
+      IPC_CHANNELS.AUTO_MODE_ENQUEUE_FEATURE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeEnqueueFeatureRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const feature = await this.autoModeServiceV2.enqueueFeature(
+          const feature = await this.autoModeService.enqueueFeature(
             request.projectPath,
             request.featureId
           )
@@ -3154,16 +2817,19 @@ export class IPCHandlers {
 
     // Dequeue feature
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_DEQUEUE_FEATURE,
-      async (_event, request: AutoModeV2DequeueFeatureRequest) => {
+      IPC_CHANNELS.AUTO_MODE_DEQUEUE_FEATURE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeDequeueFeatureRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const feature = await this.autoModeServiceV2.dequeueFeature(
+          const feature = await this.autoModeService.dequeueFeature(
             request.projectPath,
             request.featureId
           )
@@ -3176,19 +2842,21 @@ export class IPCHandlers {
 
     // Execute feature
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_EXECUTE_FEATURE,
-      async (_event, request: AutoModeV2ExecuteFeatureRequest) => {
+      IPC_CHANNELS.AUTO_MODE_EXECUTE_FEATURE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeExecuteFeatureRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const feature = await this.autoModeServiceV2.executeFeature(
+          const feature = await this.autoModeService.executeFeature(
             request.projectPath,
-            request.featureId,
-            request.useWorktrees
+            request.featureId
           )
           return { feature }
         } catch (error) {
@@ -3199,17 +2867,19 @@ export class IPCHandlers {
 
     // Stop feature
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_STOP_FEATURE,
-      async (_event, request: AutoModeV2StopFeatureRequest) => {
+      IPC_CHANNELS.AUTO_MODE_STOP_FEATURE,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeStopFeatureRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const success = await this.autoModeServiceV2.stopFeature(
-            request.projectPath,
+          const success = await this.autoModeService.stopFeature(
             request.featureId
           )
           return { success }
@@ -3221,16 +2891,19 @@ export class IPCHandlers {
 
     // Approve plan
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_APPROVE_PLAN,
-      async (_event, request: AutoModeV2ApprovePlanRequest) => {
+      IPC_CHANNELS.AUTO_MODE_APPROVE_PLAN,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeApprovePlanRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const feature = await this.autoModeServiceV2.approvePlan(
+          const feature = await this.autoModeService.approvePlan(
             request.projectPath,
             request.featureId
           )
@@ -3243,16 +2916,19 @@ export class IPCHandlers {
 
     // Reject plan
     ipcMain.handle(
-      IPC_CHANNELS.AUTO_MODE_V2_REJECT_PLAN,
-      async (_event, request: AutoModeV2RejectPlanRequest) => {
+      IPC_CHANNELS.AUTO_MODE_REJECT_PLAN,
+      async (
+        _event,
+        request: import('shared/ipc-types').AutoModeRejectPlanRequest
+      ) => {
         try {
-          if (!this.autoModeServiceV2) {
+          if (!this.autoModeService) {
             return {
-              error: 'Auto mode service V2 not initialized',
+              error: 'Auto mode service not initialized',
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          const feature = await this.autoModeServiceV2.rejectPlan(
+          const feature = await this.autoModeService.rejectPlan(
             request.projectPath,
             request.featureId,
             request.feedback
@@ -3264,14 +2940,14 @@ export class IPCHandlers {
       }
     )
 
-    // Set up event forwarding for auto mode V2 events
-    if (this.autoModeServiceV2) {
-      this.autoModeServiceV2.on(
+    // Set up event forwarding for auto mode events
+    if (this.autoModeService) {
+      this.autoModeService.on(
         'stateChanged',
         (projectPath: string, state: unknown) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.AUTO_MODE_V2_STATE_CHANGED, {
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_STATE_CHANGED, {
               projectPath,
               state,
             })
@@ -3279,12 +2955,12 @@ export class IPCHandlers {
         }
       )
 
-      this.autoModeServiceV2.on(
+      this.autoModeService.on(
         'featureStarted',
         (projectPath: string, featureId: string) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.AUTO_MODE_V2_FEATURE_STARTED, {
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_FEATURE_STARTED, {
               projectPath,
               featureId,
             })
@@ -3292,28 +2968,25 @@ export class IPCHandlers {
         }
       )
 
-      this.autoModeServiceV2.on(
+      this.autoModeService.on(
         'featureCompleted',
         (projectPath: string, featureId: string) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(
-              IPC_CHANNELS.AUTO_MODE_V2_FEATURE_COMPLETED,
-              {
-                projectPath,
-                featureId,
-              }
-            )
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_FEATURE_COMPLETED, {
+              projectPath,
+              featureId,
+            })
           }
         }
       )
 
-      this.autoModeServiceV2.on(
+      this.autoModeService.on(
         'featureFailed',
         (projectPath: string, featureId: string, error: string) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.AUTO_MODE_V2_FEATURE_FAILED, {
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_FEATURE_FAILED, {
               projectPath,
               featureId,
               error,
@@ -3322,28 +2995,25 @@ export class IPCHandlers {
         }
       )
 
-      this.autoModeServiceV2.on(
+      this.autoModeService.on(
         'featureProgress',
         (projectPath: string, event: unknown) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(
-              IPC_CHANNELS.AUTO_MODE_V2_FEATURE_PROGRESS,
-              {
-                projectPath,
-                ...(event as object),
-              }
-            )
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_FEATURE_PROGRESS, {
+              projectPath,
+              ...(event as object),
+            })
           }
         }
       )
 
-      this.autoModeServiceV2.on(
+      this.autoModeService.on(
         'planGenerated',
         (projectPath: string, featureId: string, plan: unknown) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.AUTO_MODE_V2_PLAN_GENERATED, {
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_PLAN_GENERATED, {
               projectPath,
               featureId,
               plan,
@@ -3352,12 +3022,12 @@ export class IPCHandlers {
         }
       )
 
-      this.autoModeServiceV2.on(
+      this.autoModeService.on(
         'rateLimitWait',
         (projectPath: string, resetTime: string, waitSeconds: number) => {
           const windows = BrowserWindow.getAllWindows()
           for (const window of windows) {
-            window.webContents.send(IPC_CHANNELS.AUTO_MODE_V2_RATE_LIMIT_WAIT, {
+            window.webContents.send(IPC_CHANNELS.AUTO_MODE_RATE_LIMIT_WAIT, {
               projectPath,
               resetTime,
               waitSeconds,
@@ -3425,239 +3095,6 @@ export class IPCHandlers {
       async (_event, request: ThemeDeleteRequest) => {
         try {
           this.db.deleteCustomTheme(request.id)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-  }
-
-  /**
-   * OpenCode SDK operation handlers
-   */
-  private registerOpencodeHandlers(): void {
-    // Execute task
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_EXECUTE,
-      async (event, request: OpencodeExecuteRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-
-          const sender = event.sender
-          const taskId = request.taskId
-
-          // Set up event forwarding
-          const outputHandler = (data: string, stream: 'stdout' | 'stderr') => {
-            sender.send(IPC_CHANNELS.OPENCODE_OUTPUT, { taskId, data, stream })
-          }
-          const toolCallHandler = (
-            toolName: string,
-            input: Record<string, unknown>
-          ) => {
-            sender.send(IPC_CHANNELS.OPENCODE_TOOL_CALL, {
-              taskId,
-              toolName,
-              input,
-            })
-          }
-          const toolResultHandler = (toolName: string, result: string) => {
-            sender.send(IPC_CHANNELS.OPENCODE_TOOL_RESULT, {
-              taskId,
-              toolName,
-              result,
-            })
-          }
-          const errorHandler = (error: string) => {
-            sender.send(IPC_CHANNELS.OPENCODE_ERROR, { taskId, error })
-          }
-          const sessionInitHandler = (sessionId: string) => {
-            sender.send(IPC_CHANNELS.OPENCODE_SESSION_INIT, {
-              taskId,
-              sessionId,
-            })
-          }
-          const completionHandler = () => {
-            sender.send(IPC_CHANNELS.OPENCODE_COMPLETE, { taskId })
-          }
-
-          this.opencodeSdkService.on('output', outputHandler)
-          this.opencodeSdkService.on('toolCall', toolCallHandler)
-          this.opencodeSdkService.on('toolResult', toolResultHandler)
-          this.opencodeSdkService.on('error', errorHandler)
-          this.opencodeSdkService.on('sessionInit', sessionInitHandler)
-          this.opencodeSdkService.on('completion', completionHandler)
-
-          try {
-            const result = await this.opencodeSdkService.execute(taskId, {
-              prompt: request.prompt,
-              workingDirectory: request.workingDirectory,
-              model: request.model,
-              sessionId: request.sessionId,
-              agentName: request.agentName,
-              serverPort: request.serverPort,
-              serverBaseUrl: request.serverBaseUrl,
-            })
-            return result
-          } finally {
-            // Clean up event listeners
-            this.opencodeSdkService.off('output', outputHandler)
-            this.opencodeSdkService.off('toolCall', toolCallHandler)
-            this.opencodeSdkService.off('toolResult', toolResultHandler)
-            this.opencodeSdkService.off('error', errorHandler)
-            this.opencodeSdkService.off('sessionInit', sessionInitHandler)
-            this.opencodeSdkService.off('completion', completionHandler)
-          }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Stop task
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_STOP,
-      async (_event, request: OpencodeStopRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.opencodeSdkService.stop(request.taskId)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get sessions
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_GET_SESSIONS,
-      async (_event, request: OpencodeGetSessionsRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const sessions = await this.opencodeSdkService.listSessions(
-            request.serverBaseUrl
-          )
-          return { sessions }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Get messages
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_GET_MESSAGES,
-      async (_event, request: OpencodeGetMessagesRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const messages = await this.opencodeSdkService.getSessionMessages(
-            request.sessionId,
-            request.serverBaseUrl
-          )
-          return { messages }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Delete session
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_DELETE_SESSION,
-      async (_event, request: OpencodeDeleteSessionRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const success = await this.opencodeSdkService.deleteSession(
-            request.sessionId,
-            request.serverBaseUrl
-          )
-          return { success }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Backup config
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_BACKUP_CONFIG,
-      async (_event, request: OpencodeBackupConfigRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          const backup = await this.opencodeSdkService.backupConfig(
-            request.workingDirectory
-          )
-          return { backup }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Restore config
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_RESTORE_CONFIG,
-      async (_event, request: OpencodeRestoreConfigRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.opencodeSdkService.restoreConfig(request.backup)
-          return { success: true }
-        } catch (error) {
-          return this.handleError(error)
-        }
-      }
-    )
-
-    // Write config
-    ipcMain.handle(
-      IPC_CHANNELS.OPENCODE_WRITE_CONFIG,
-      async (_event, request: OpencodeWriteConfigRequest) => {
-        try {
-          if (!this.opencodeSdkService) {
-            return {
-              error: 'OpenCode SDK service not initialized',
-              code: 'SERVICE_NOT_INITIALIZED',
-            }
-          }
-          await this.opencodeSdkService.writeConfig(
-            request.workingDirectory,
-            request.config
-          )
           return { success: true }
         } catch (error) {
           return this.handleError(error)
@@ -3938,6 +3375,633 @@ export class IPCHandlers {
         }
       })
     }
+  }
+
+  /**
+   * Agent Task handlers
+   * Manages agent task CRUD operations and execution
+   */
+  private registerAgentTaskHandlers(): void {
+    // Create agent task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_CREATE,
+      async (_event, request: AgentTaskCreateRequest) => {
+        try {
+          const task = this.db.createAgentTask({
+            description: request.description,
+            agentType: request.agentType,
+            targetDirectory: request.targetDirectory,
+            parameters: request.parameters,
+            priority: request.priority,
+            serviceType: request.serviceType,
+            julesParams: request.julesParams,
+            planningMode: request.planningMode,
+            requirePlanApproval: request.requirePlanApproval,
+            branchName: request.branchName,
+            projectId: request.projectId,
+            projectName: request.projectName,
+          })
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get agent task by ID
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_GET,
+      async (_event, request: AgentTaskGetRequest) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // List agent tasks
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_LIST,
+      async (_event, request: AgentTaskListRequest) => {
+        try {
+          const tasks = this.db.getAgentTasks(request.filter)
+          return { tasks }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Update agent task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_UPDATE,
+      async (_event, request: AgentTaskUpdateRequest) => {
+        try {
+          const task = this.db.updateAgentTask(request.taskId, request.updates)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+          return { task }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Delete agent task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_DELETE,
+      async (_event, request: AgentTaskDeleteRequest) => {
+        try {
+          this.db.deleteAgentTask(request.taskId)
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Start agent task - execute via provider with streaming output
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_START,
+      async (_event, request: AgentTaskStartRequest) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Update task status to running
+          this.db.updateAgentTask(request.taskId, {
+            status: 'running',
+            startedAt: new Date(),
+          })
+
+          // Notify global process service
+          if (this.globalProcessService) {
+            this.globalProcessService.notifyTaskStarted(
+              request.taskId,
+              task.targetDirectory,
+              task.description
+            )
+          }
+
+          // Emit initial status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          // Execute task asynchronously
+          this.executeTaskAsync(request.taskId, task).catch((error: Error) => {
+            console.error(`[IPCHandlers] Task ${request.taskId} execution error:`, error)
+          })
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Stop agent task
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_STOP,
+      async (_event, request: AgentTaskStopRequest) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Abort the task if it has an abort controller
+          const abortController = this.taskAbortControllers.get(request.taskId)
+          if (abortController) {
+            abortController.abort()
+            this.taskAbortControllers.delete(request.taskId)
+          }
+
+          // Update task status to stopped
+          this.db.updateAgentTask(request.taskId, {
+            status: 'stopped',
+            completedAt: new Date(),
+          })
+
+          // Stop via global process service
+          if (this.globalProcessService) {
+            await this.globalProcessService.stopTask(request.taskId)
+          }
+
+          // Emit status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Get task output
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_GET_OUTPUT,
+      async (_event, request: AgentTaskGetOutputRequest) => {
+        try {
+          const output = this.db.getTaskOutput(request.taskId)
+          return { output }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Pause task - abort execution but keep state for resume
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_PAUSE,
+      async (_event, request: { taskId: string }) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Only running tasks can be paused
+          if (task.status !== 'running') {
+            return { error: 'Task is not running', code: 'INVALID_STATE' }
+          }
+
+          // Abort the task execution
+          const abortController = this.taskAbortControllers.get(request.taskId)
+          if (abortController) {
+            abortController.abort()
+            this.taskAbortControllers.delete(request.taskId)
+          }
+
+          // Update status to paused
+          this.db.updateAgentTask(request.taskId, { status: 'paused' })
+
+          // Emit status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Resume task - restart execution from where it left off
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_RESUME,
+      async (_event, request: { taskId: string }) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Only paused or stopped tasks can be resumed
+          if (task.status !== 'paused' && task.status !== 'stopped') {
+            return { error: 'Task is not paused or stopped', code: 'INVALID_STATE' }
+          }
+
+          // Update status to running
+          this.db.updateAgentTask(request.taskId, {
+            status: 'running',
+            startedAt: new Date(),
+          })
+
+          // Notify global process service
+          if (this.globalProcessService) {
+            this.globalProcessService.notifyTaskStarted(
+              request.taskId,
+              task.targetDirectory,
+              task.description
+            )
+          }
+
+          // Emit status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          // Re-execute task asynchronously (continues from existing output context)
+          this.executeTaskAsync(request.taskId, task).catch((error: Error) => {
+            console.error(`[IPCHandlers] Task ${request.taskId} resume error:`, error)
+          })
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Restart task - clear output and start fresh
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_RESTART,
+      async (_event, request: { taskId: string }) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Stop if currently running
+          const abortController = this.taskAbortControllers.get(request.taskId)
+          if (abortController) {
+            abortController.abort()
+            this.taskAbortControllers.delete(request.taskId)
+          }
+
+          // Clear existing output
+          this.db.clearTaskOutput(request.taskId)
+
+          // Reset task state
+          this.db.updateAgentTask(request.taskId, {
+            status: 'pending',
+            startedAt: null,
+            completedAt: null,
+            error: null,
+          })
+
+          // Emit status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Load output (same as get output, for compatibility)
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_LOAD_OUTPUT,
+      async (_event, request: AgentTaskGetOutputRequest) => {
+        try {
+          const output = this.db.getTaskOutput(request.taskId)
+          return { output }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Subscribe to output (stub - returns success, actual streaming via events)
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_TASK_SUBSCRIBE_OUTPUT,
+      async (_event, request: { taskId: string }) => {
+        try {
+          // Subscription is handled via IPC events, just acknowledge
+          return { success: true, taskId: request.taskId }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Approve task plan - continue execution after plan approval
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_APPROVE_PLAN,
+      async (_event, request: TaskApprovePlanRequest) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Task must be in awaiting_approval status
+          if (task.status !== 'awaiting_approval') {
+            return { error: 'Task is not awaiting approval', code: 'INVALID_STATE' }
+          }
+
+          // Update task status to running and continue execution
+          this.db.updateAgentTask(request.taskId, {
+            status: 'running',
+            startedAt: new Date(),
+          })
+
+          // Emit status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          // Continue task execution
+          this.executeTaskAsync(request.taskId, task).catch((error: Error) => {
+            console.error(`[IPCHandlers] Task ${request.taskId} execution error after approval:`, error)
+          })
+
+          return { task: this.db.getAgentTask(request.taskId) }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Reject task plan - stop execution and request changes
+    ipcMain.handle(
+      IPC_CHANNELS.TASK_REJECT_PLAN,
+      async (_event, request: TaskRejectPlanRequest) => {
+        try {
+          const task = this.db.getAgentTask(request.taskId)
+          if (!task) {
+            return { error: 'Task not found', code: 'NOT_FOUND' }
+          }
+
+          // Task must be in awaiting_approval status
+          if (task.status !== 'awaiting_approval') {
+            return { error: 'Task is not awaiting approval', code: 'INVALID_STATE' }
+          }
+
+          // Abort any running execution
+          const abortController = this.taskAbortControllers.get(request.taskId)
+          if (abortController) {
+            abortController.abort()
+            this.taskAbortControllers.delete(request.taskId)
+          }
+
+          // Update task status to pending with feedback
+          this.db.updateAgentTask(request.taskId, {
+            status: 'pending',
+            error: `Plan rejected: ${request.feedback}`,
+          })
+
+          // Add rejection feedback to output
+          this.db.createTaskOutput({
+            taskId: request.taskId,
+            content: `\n--- Plan Rejected ---\nFeedback: ${request.feedback}\n`,
+            stream: 'stderr',
+          })
+
+          // Emit status update
+          const windows = BrowserWindow.getAllWindows()
+          for (const window of windows) {
+            window.webContents.send(IPC_CHANNELS.AGENT_TASK_STATUS_UPDATE, {
+              task: this.db.getAgentTask(request.taskId),
+            })
+          }
+
+          return { task: this.db.getAgentTask(request.taskId) }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Agent Configuration handlers
+   * Persists agent configuration to the database settings table
+   */
+  private registerAgentConfigHandlers(): void {
+    const AGENT_CONFIG_KEY = 'agent_config'
+
+    // Default configuration
+    const getDefaultConfig = (): AgentEnvironmentConfig => ({
+      agentService: 'claude-code',
+      anthropicAuthToken: '',
+      anthropicBaseUrl: '',
+      apiTimeoutMs: 30000,
+      pythonPath: 'python',
+      customEnvVars: {},
+    })
+
+    // Get agent config from database
+    ipcMain.handle(IPC_CHANNELS.AGENT_CONFIG_GET, async () => {
+      try {
+        const stored = this.db.getSetting(AGENT_CONFIG_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          return { config: { ...getDefaultConfig(), ...parsed } }
+        }
+        return { config: getDefaultConfig() }
+      } catch (error) {
+        return this.handleError(error)
+      }
+    })
+
+    // Set agent config - persist to database
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_SET,
+      async (_event, request: AgentConfigSetRequest) => {
+        try {
+          // Get existing config
+          const stored = this.db.getSetting(AGENT_CONFIG_KEY)
+          const existing = stored ? JSON.parse(stored) : getDefaultConfig()
+
+          // Merge updates
+          const updated = { ...existing, ...request.updates }
+
+          // Persist to database
+          this.db.setSetting(AGENT_CONFIG_KEY, JSON.stringify(updated))
+
+          return { success: true }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Validate agent config
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_VALIDATE,
+      async (_event, request: AgentConfigValidateRequest) => {
+        try {
+          const errors: AgentConfigValidationError[] = []
+          const config = request.config
+
+          // Validate based on selected service
+          if (config.agentService === 'claude-code') {
+            if (!config.anthropicAuthToken) {
+              errors.push({
+                field: 'anthropicAuthToken',
+                message: 'Anthropic API token is required for Claude Code',
+              })
+            }
+          } else if (config.agentService === 'google-jules') {
+            if (!config.googleApiKey) {
+              errors.push({
+                field: 'googleApiKey',
+                message: 'Google API key is required for Jules',
+              })
+            }
+          } else if (config.agentService === 'opencode') {
+            // OpenCode can work with multiple providers, at least one key needed
+            if (!config.openaiApiKey && !config.anthropicAuthToken && !config.openrouterApiKey) {
+              errors.push({
+                field: 'openaiApiKey',
+                message: 'At least one API key is required for OpenCode',
+              })
+            }
+          }
+
+          return {
+            result: {
+              isValid: errors.length === 0,
+              errors,
+            },
+          }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+
+    // Check if agent is configured
+    ipcMain.handle(IPC_CHANNELS.AGENT_CONFIG_IS_CONFIGURED, async () => {
+      try {
+        const stored = this.db.getSetting(AGENT_CONFIG_KEY)
+        if (!stored) {
+          return { isConfigured: false }
+        }
+
+        const config = JSON.parse(stored)
+        // Check if at least one service has credentials configured
+        const hasClaudeCode = !!config.anthropicAuthToken
+        const hasJules = !!config.googleApiKey
+        const hasOpenCode = !!(config.openaiApiKey || config.anthropicAuthToken || config.openrouterApiKey)
+        const hasAider = !!(config.openaiApiKey || config.anthropicAuthToken)
+        const hasCustom = !!config.customCommand
+
+        return { isConfigured: hasClaudeCode || hasJules || hasOpenCode || hasAider || hasCustom }
+      } catch (error) {
+        return this.handleError(error)
+      }
+    })
+
+    // Get configured services - return list of services that have valid credentials
+    ipcMain.handle(
+      IPC_CHANNELS.AGENT_CONFIG_GET_CONFIGURED_SERVICES,
+      async () => {
+        try {
+          const stored = this.db.getSetting(AGENT_CONFIG_KEY)
+          const services: TaskServiceType[] = []
+
+          if (!stored) {
+            return { services }
+          }
+
+          const config = JSON.parse(stored)
+
+          // Check each service for valid configuration
+          if (config.anthropicAuthToken) {
+            services.push('claude-code')
+          }
+          if (config.googleApiKey) {
+            services.push('google-jules')
+          }
+          if (config.openaiApiKey || config.anthropicAuthToken || config.openrouterApiKey) {
+            services.push('opencode')
+          }
+
+          return { services }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
+  }
+
+  /**
+   * Running Tasks handlers
+   * Provides global view of all running agent tasks
+   */
+  private registerRunningTasksHandlers(): void {
+    // Get all running tasks
+    ipcMain.handle(IPC_CHANNELS.RUNNING_TASKS_GET_ALL, async () => {
+      try {
+        // Aggregate running tasks from globalProcessService if available
+        if (this.globalProcessService) {
+          const tasks = this.globalProcessService.getRunningTasks()
+          return { tasks }
+        }
+        return { tasks: [] }
+      } catch (error) {
+        return this.handleError(error)
+      }
+    })
+
+    // Stop a running task
+    ipcMain.handle(
+      IPC_CHANNELS.RUNNING_TASKS_STOP,
+      async (_event, request: RunningTasksStopRequest) => {
+        try {
+          if (this.globalProcessService) {
+            await this.globalProcessService.stopTask(request.taskId)
+            return { success: true }
+          }
+          return { success: false, error: 'Global process service not available' }
+        } catch (error) {
+          return this.handleError(error)
+        }
+      }
+    )
   }
 
   /**

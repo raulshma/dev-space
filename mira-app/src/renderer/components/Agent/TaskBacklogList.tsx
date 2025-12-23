@@ -92,12 +92,14 @@ const STATUS_CONFIG: Record<
   },
   paused: {
     label: 'Paused',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconPlayerPause className="h-3 w-3" />,
   },
   awaiting_approval: {
     label: 'Awaiting Approval',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
+    className:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20',
     icon: <IconClock className="h-3 w-3" />,
   },
   completed: {
@@ -341,7 +343,10 @@ export function TaskBacklogList({
                   {/* Task info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge className={cn('gap-1', statusConfig.className)} variant="outline">
+                      <Badge
+                        className={cn('gap-1', statusConfig.className)}
+                        variant="outline"
+                      >
                         {statusConfig.icon}
                         {statusConfig.label}
                       </Badge>

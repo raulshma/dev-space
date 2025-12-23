@@ -12,6 +12,8 @@ import { useRunningProjectsInit } from 'renderer/hooks/use-running-projects'
 import { useRunningTasksInit } from 'renderer/hooks/use-running-tasks'
 import { useTheme } from 'renderer/hooks/use-theme'
 import { useAppearance } from 'renderer/hooks/use-appearance'
+import { useAgentInit } from 'renderer/hooks/use-agent'
+import { useAutoModeInit } from 'renderer/hooks/use-auto-mode'
 
 export function MainScreen() {
   const activeProjectId = useAppStore(state => state.activeProjectId)
@@ -38,6 +40,12 @@ export function MainScreen() {
 
   // Initialize running tasks subscriptions
   useRunningTasksInit()
+
+  // Initialize Agent service event subscriptions (AI Agent Rework)
+  useAgentInit()
+
+  // Initialize Auto Mode service event subscriptions (AI Agent Rework)
+  useAutoModeInit()
 
   // Restore last opened project on startup
   useEffect(() => {
