@@ -69,10 +69,10 @@ export function PortKiller(): React.JSX.Element {
   return (
     <div className="flex flex-col h-full w-full gap-3 overflow-hidden min-w-0">
       <div className="flex items-center gap-2 shrink-0">
-        <div className="relative flex-1">
-          <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <div className="relative flex-1 z-10">
+          <IconSearch className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
-            className="pl-8 h-8 text-xs"
+            className="pl-8 h-8 text-xs pointer-events-auto cursor-text"
             onChange={e => setFilter(e.target.value)}
             placeholder="Filter by port or process name..."
             value={filter}
