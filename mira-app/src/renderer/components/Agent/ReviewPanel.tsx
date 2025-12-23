@@ -729,7 +729,7 @@ export function ReviewPanel({
 
   const handleApprove = useCallback(async (): Promise<void> => {
     const result = await approveChanges(taskId)
-    if (result.success) {
+    if (result?.success) {
       onApproved?.()
     }
   }, [taskId, approveChanges, onApproved])
@@ -763,8 +763,12 @@ export function ReviewPanel({
       // Build the dev command from script
       const devCommand = script ? `pnpm run ${script}` : undefined
       
+      // Get a project name from the task or derive from path
+      const displayName = task?.projectName || projectPath.split(/[/\\]/).pop() || 'Task Project'
+      
       try {
-        await runDevProject(projectId, devCommand)
+        // Pass the workspace path directly so we don't create a new workspace lookup
+        await runDevProject(projectId, devCommand, projectPath, displayName)
         toast.success('Project started', {
           description: script 
             ? `Running script: ${script}`
@@ -776,7 +780,7 @@ export function ReviewPanel({
         })
       }
     },
-    [projectId, projectPath, runDevProject]
+    [projectId, projectPath, runDevProject, task?.projectName]
   )
 
   const handleStopProject = useCallback(async (): Promise<void> => {

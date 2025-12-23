@@ -1228,6 +1228,10 @@ export interface CLIClearCacheResponse {
 export interface RunningProjectStartRequest {
   projectId: string
   devCommand?: string
+  /** Optional path to run the project from (e.g., task workspace path) */
+  projectPath?: string
+  /** Optional project name for display purposes */
+  projectName?: string
 }
 
 export interface RunningProjectStartResponse {

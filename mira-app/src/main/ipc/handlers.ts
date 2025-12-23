@@ -1993,15 +1993,30 @@ export class IPCHandlers {
               code: 'SERVICE_NOT_INITIALIZED',
             }
           }
-          // Get project details from database
-          const project = this.db.getProject(request.projectId)
-          if (!project) {
-            return { error: 'Project not found', code: 'PROJECT_NOT_FOUND' }
+          
+          // Use provided path/name or look up from database
+          let projectPath = request.projectPath
+          let projectName = request.projectName
+          
+          if (!projectPath) {
+            // Get project details from database
+            const project = this.db.getProject(request.projectId)
+            if (!project) {
+              return { error: 'Project not found', code: 'PROJECT_NOT_FOUND' }
+            }
+            projectPath = project.path
+            projectName = project.name
           }
+          
+          if (!projectName) {
+            // Use a fallback name based on the path
+            projectName = projectPath.split(/[/\\]/).pop() || 'Unknown Project'
+          }
+          
           const runningProject = await this.runningProjectsService.start(
             request.projectId,
-            project.name,
-            project.path,
+            projectName,
+            projectPath,
             request.devCommand
           )
           return { project: runningProject }

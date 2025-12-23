@@ -76,13 +76,15 @@ export function useRunningProjectsManager() {
     useRunningProjectsStore()
 
   const startProject = useCallback(
-    async (projectId: string, devCommand?: string) => {
+    async (projectId: string, devCommand?: string, projectPath?: string, projectName?: string) => {
       setLoading(true)
       setError(null)
       try {
         const response = (await window.api.runningProjects.start({
           projectId,
           devCommand,
+          projectPath,
+          projectName,
         })) as {
           project?: import('shared/models').RunningProject
           error?: string
