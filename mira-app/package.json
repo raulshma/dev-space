@@ -31,10 +31,14 @@
     "lint": "biome check --no-errors-on-unmatched",
     "lint:fix": "biome check --write --no-errors-on-unmatched --assist-enabled=true",
     "typecheck": "tsc --noEmit",
-    "test": "vitest --run",
+    "rebuild:sqlite:node": "pnpm rebuild better-sqlite3",
+    "rebuild:sqlite:electron": "pnpm exec electron-rebuild -f -w better-sqlite3",
+    "prebuild:sqlite": "pnpm exec electron-rebuild -f -w better-sqlite3",
+    "test:run": "vitest --run",
+    "test": "run-s rebuild:sqlite:node test:run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "prebuild:sqlite": "pnpm exec electron-rebuild -f -w better-sqlite3"
+    "test:watch:node": "run-s rebuild:sqlite:node test:watch"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.73",

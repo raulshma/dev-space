@@ -121,7 +121,7 @@ const VALID_STATE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
     'stopped',
   ],
   paused: ['running', 'stopped', 'completed'],
-  awaiting_approval: ['running', 'stopped', 'failed'],
+  awaiting_approval: ['queued', 'stopped', 'failed'],
   review: ['queued', 'running', 'completed', 'stopped'],
   completed: ['pending', 'archived'],
   failed: ['pending', 'queued', 'archived'],
@@ -1108,49 +1108,39 @@ export class AgentExecutorService
     )
     this.emit('outputReceived', taskId, line)
 
-    // Check if the SDK execution is still active (paused)
-    if (this.claudeSdkService.isPaused(taskId)) {
-      // SDK is still running, just resume it
-      await this.updateTask(taskId, {
-        status: 'running',
-        planSpec: updatedPlanSpec,
-      })
-      this.claudeSdkService.resume(taskId)
-    } else {
-      // SDK execution has completed, need to restart with continuation context
-      // Store approved plan content so execution knows to proceed with implementation
-      
-      // Check if we have parsed tasks for multi-task execution
-      const parsedTasks = task.planSpec?.tasks || []
-      const useMultiTaskExecution = parsedTasks.length > 0
-      
-      await this.updateTask(taskId, {
-        status: 'queued',
-        planSpec: updatedPlanSpec,
-        parameters: {
-          ...task.parameters,
-          continuationMode: 'post-approval',
-          approvedPlanContent: task.planSpec?.content,
-          // Enable multi-task mode if we have parsed tasks
-          useMultiTaskExecution,
-        },
-      })
+    // If an execution is still active (e.g. from a previous version that paused), stop it.
+    // Approval should always continue via an explicit continuation run.
+    if (this.claudeSdkService.isExecuting(taskId)) {
+      this.claudeSdkService.stop(taskId)
+    }
 
-      // Add to queue to continue execution with continuation context
-      this.taskQueue.enqueue(taskId)
+    // Check if we have parsed tasks for multi-task execution
+    const parsedTasks = task.planSpec?.tasks || []
+    const useMultiTaskExecution = parsedTasks.length > 0
 
-      // If no task is currently running, start processing
-      if (!this.taskQueue.isProcessing()) {
-        // Use setImmediate to avoid blocking the current call
-        setImmediate(() => {
-          this.processNextTask().catch(err => {
-            console.error(
-              'Failed to process next task after plan approval:',
-              err
-            )
-          })
+    await this.updateTask(taskId, {
+      status: 'queued',
+      planSpec: updatedPlanSpec,
+      parameters: {
+        ...task.parameters,
+        continuationMode: 'post-approval',
+        approvedPlanContent: task.planSpec?.content,
+        // Enable multi-task mode if we have parsed tasks
+        useMultiTaskExecution,
+      },
+    })
+
+    // Add to queue to continue execution with continuation context
+    this.taskQueue.enqueue(taskId)
+
+    // If no task is currently running, start processing
+    if (!this.taskQueue.isProcessing()) {
+      // Use setImmediate to avoid blocking the current call
+      setImmediate(() => {
+        this.processNextTask().catch(err => {
+          console.error('Failed to process next task after plan approval:', err)
         })
-      }
+      })
     }
 
     const updatedTask = this.db.getAgentTask(taskId)
@@ -1218,42 +1208,34 @@ export class AgentExecutorService
     )
     this.emit('outputReceived', taskId, line)
 
-    // Check if the SDK execution is still active (paused)
-    if (this.claudeSdkService.isPaused(taskId)) {
-      // SDK is still running, just resume it
-      await this.updateTask(taskId, {
-        status: 'running',
-        planSpec: updatedPlanSpec,
-      })
-      this.claudeSdkService.resume(taskId)
-    } else {
-      // SDK execution has completed, need to restart with revision context
-      // Store rejected plan and feedback so execution knows to revise the plan
-      await this.updateTask(taskId, {
-        status: 'queued',
-        planSpec: updatedPlanSpec,
-        parameters: {
-          ...task.parameters,
-          continuationMode: 'plan-revision',
-          previousPlanContent: task.planSpec?.content,
-          rejectionFeedback: feedback,
-        },
-      })
+    // If an execution is still active (e.g. from a previous version that paused), stop it.
+    // Rejection should always continue via an explicit revision run.
+    if (this.claudeSdkService.isExecuting(taskId)) {
+      this.claudeSdkService.stop(taskId)
+    }
 
-      // Add to queue to continue execution with revision context
-      this.taskQueue.enqueue(taskId)
+    // Store rejected plan and feedback so execution knows to revise the plan
+    await this.updateTask(taskId, {
+      status: 'queued',
+      planSpec: updatedPlanSpec,
+      parameters: {
+        ...task.parameters,
+        continuationMode: 'plan-revision',
+        previousPlanContent: task.planSpec?.content,
+        rejectionFeedback: feedback,
+      },
+    })
 
-      // If no task is currently running, start processing
-      if (!this.taskQueue.isProcessing()) {
-        setImmediate(() => {
-          this.processNextTask().catch(err => {
-            console.error(
-              'Failed to process next task after plan rejection:',
-              err
-            )
-          })
+    // Add to queue to continue execution with revision context
+    this.taskQueue.enqueue(taskId)
+
+    // If no task is currently running, start processing
+    if (!this.taskQueue.isProcessing()) {
+      setImmediate(() => {
+        this.processNextTask().catch(err => {
+          console.error('Failed to process next task after plan rejection:', err)
         })
-      }
+      })
     }
 
     const updatedTask = this.db.getAgentTask(taskId)
@@ -2171,6 +2153,8 @@ DO NOT proceed with implementation until you receive explicit approval.`
     // Track accumulated output for plan detection
     let accumulatedOutput = ''
     let planDetected = false
+    let awaitingApprovalRequested = false
+    let awaitingApprovalPromise: Promise<void> | null = null
     let lastTaskProgress = {
       startedTasks: [] as string[],
       completedTasks: [] as string[],
@@ -2200,11 +2184,17 @@ DO NOT proceed with implementation until you receive explicit approval.`
           // 2. The output contains SPEC_GENERATED marker (not PLAN_GENERATED)
           // Note: _without_approval prompts use PLAN_GENERATED which doesn't trigger this
           if (task.requirePlanApproval && needsPlanApproval(accumulatedOutput)) {
-            // Pause the SDK execution
-            this.claudeSdkService.pause(task.id)
+            // Stop the SDK execution.
+            // We do NOT "pause and resume" because that doesn't provide an explicit approval message to the model.
+            // Instead we end this run at the approval boundary and continue with a new run after approval.
+            awaitingApprovalRequested = true
+            this.claudeSdkService.stop(task.id)
 
             // Set task to awaiting approval with the plan content
-            this.setAwaitingApproval(task.id, accumulatedOutput).catch(err => {
+            awaitingApprovalPromise = this.setAwaitingApproval(
+              task.id,
+              accumulatedOutput
+            ).catch(err => {
               console.error('Failed to set awaiting approval:', err)
             })
           } else if (!task.requirePlanApproval && hasPlanGenerated(accumulatedOutput)) {
@@ -2290,6 +2280,22 @@ DO NOT proceed with implementation until you receive explicit approval.`
         await this.updateTask(task.id, {
           parameters: cleanParams,
         })
+      }
+
+      // If we intentionally stopped at the approval boundary, do not treat it as a failure.
+      // Release the queue and wait for user approval to enqueue continuation.
+      if (awaitingApprovalRequested) {
+        if (awaitingApprovalPromise) {
+          await awaitingApprovalPromise
+        }
+
+        // Clear current task so the queue can continue processing other tasks.
+        if (this.taskQueue.getCurrentTaskId() === task.id) {
+          this.taskQueue.setCurrentTask(undefined)
+        }
+
+        await this.processNextTask()
+        return
       }
 
       // Handle completion

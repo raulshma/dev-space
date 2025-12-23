@@ -88,9 +88,12 @@ const arbitraryTaskStatus: fc.Arbitrary<TaskStatus> = fc.constantFrom(
   'queued',
   'running',
   'paused',
+  'awaiting_approval',
+  'review',
   'completed',
   'failed',
-  'stopped'
+  'stopped',
+  'archived'
 )
 
 /**
@@ -342,10 +345,17 @@ describe('Agent Executor Service Property Tests', () => {
     const validTransitions: Record<TaskStatus, TaskStatus[]> = {
       pending: ['queued', 'stopped', 'completed'],
       queued: ['running', 'pending', 'stopped', 'completed', 'archived'],
-      running: ['paused', 'review', 'completed', 'failed', 'stopped'],
+      running: [
+        'paused',
+        'awaiting_approval',
+        'review',
+        'completed',
+        'failed',
+        'stopped',
+      ],
       paused: ['running', 'stopped', 'completed'],
-      awaiting_approval: ['running', 'stopped', 'completed'],
-      review: ['running', 'completed', 'stopped'],
+      awaiting_approval: ['queued', 'stopped', 'failed'],
+      review: ['queued', 'running', 'completed', 'stopped'],
       completed: ['pending', 'archived'],
       failed: ['pending', 'queued', 'archived'],
       stopped: ['pending', 'queued', 'archived'],
